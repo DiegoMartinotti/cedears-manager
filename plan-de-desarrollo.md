@@ -20,9 +20,8 @@
 ### 2. Inicialización del Proyecto Electron
 - [x] 2.1. Inicializar proyecto con `npm init electron-app@latest cedears-manager`
 - [x] 2.2. Configurar electron-builder para distribución
-- [ ] 2.3. Setup de auto-updater para futuras actualizaciones (DIFERIDO A FASE 6)
-- [x] 2.4. Configurar variables de entorno (.env files)
-- [x] 2.5. Implementar ventana principal con dimensiones fijas (1400x900)
+- [x] 2.3. Configurar variables de entorno (.env files)
+- [x] 2.4. Implementar ventana principal con dimensiones fijas (1400x900)
 
 ### 3. Setup del Frontend (React + TypeScript)
 - [ ] 3.1. Crear React app con TypeScript template
@@ -277,7 +276,7 @@
 - [ ] 35.1. Configuración de builds para Windows
 - [ ] 35.2. Firma digital del ejecutable
 - [ ] 35.3. Creación de instalador
-- [ ] 35.4. Setup de auto-updates
+- [ ] 35.4. Setup de auto-updater para futuras actualizaciones
 - [ ] 35.5. Preparación de release notes
 
 ### 36. Deployment y Monitoreo

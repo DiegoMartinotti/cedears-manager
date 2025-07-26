@@ -36,6 +36,15 @@ app.use(morgan('combined', {
   }
 }))
 
+// Root endpoint for wait-on health checks
+app.get('/', (_, res) => {
+  res.json({
+    message: 'CEDEARs Manager Backend',
+    status: 'running',
+    timestamp: new Date().toISOString()
+  })
+})
+
 // Health check endpoint
 app.get('/health', (_, res) => {
   res.json({
