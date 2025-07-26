@@ -13,7 +13,7 @@ export default defineConfig({
       '@/hooks': path.resolve(__dirname, './src/hooks'),
       '@/store': path.resolve(__dirname, './src/store'),
       '@/utils': path.resolve(__dirname, './src/utils'),
-      '@/types': path.resolve(__dirname, '../shared/types'),
+      '@cedears-manager/shared/types': path.resolve(__dirname, '../shared/src/types/index.ts'),
     },
   },
   server: {

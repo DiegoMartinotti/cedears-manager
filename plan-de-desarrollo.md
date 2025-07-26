@@ -24,16 +24,16 @@
 - [x] 2.4. Implementar ventana principal con dimensiones fijas (1400x900)
 
 ### 3. Setup del Frontend (React + TypeScript)
-- [ ] 3.1. Crear React app con TypeScript template
-- [ ] 3.2. Instalar dependencias principales:
+- [x] 3.1. Crear React app con TypeScript template
+- [x] 3.2. Instalar dependencias principales:
   ```bash
   npm install axios react-router-dom zustand recharts 
   npm install tailwindcss lucide-react date-fns
   npm install react-hook-form zod
   ```
-- [ ] 3.3. Configurar Tailwind CSS
-- [ ] 3.4. Crear estructura de carpetas para componentes
-- [ ] 3.5. Implementar layout base con navegación
+- [x] 3.3. Configurar Tailwind CSS
+- [x] 3.4. Crear estructura de carpetas para componentes
+- [x] 3.5. Implementar layout base con navegación
 
 ### 4. Setup del Backend (Node.js + Express)
 - [ ] 4.1. Inicializar servidor Express con TypeScript

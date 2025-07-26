@@ -29,7 +29,7 @@
       "@/hooks/*": ["./src/hooks/*"],
       "@/store/*": ["./src/store/*"],
       "@/utils/*": ["./src/utils/*"],
-      "@/types": ["../shared/types"]
+      "@cedears-manager/shared/types": ["../shared/src/types/index"]
     }
   },
   "include": ["src", "../shared"],
