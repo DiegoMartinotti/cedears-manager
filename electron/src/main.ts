@@ -11,8 +11,8 @@ const __dirname = dirname(__filename)
 const store = new Store({
   defaults: {
     windowBounds: {
-      width: 1200,
-      height: 800,
+      width: 1400,
+      height: 900,
       x: undefined,
       y: undefined
     },
@@ -37,8 +37,8 @@ async function createWindow(): Promise<void> {
     height: bounds.height,
     x: bounds.x,
     y: bounds.y,
-    minWidth: 1000,
-    minHeight: 700,
+    minWidth: 1200,
+    minHeight: 800,
     show: false,
     icon: join(__dirname, '../assets/icon.png'), // We'll add this later
     webPreferences: {

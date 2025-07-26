@@ -3,10 +3,10 @@
 ## 🚀 FASE 1: Setup y Arquitectura Base (Semana 1-2)
 
 ### 1. Configuración del Entorno de Desarrollo 
-- [] 1.1. Instalar Node.js v20+ y npm/yarn (v22.13.0)
-- [] 1.2. Instalar Git y configurar repositorio (v2.47.1)
-- [] 1.3. Setup de VSCode con extensiones (v1.97.2)
-- [] 1.4. Crear estructura de carpetas del proyecto:
+- [x] 1.1. Instalar Node.js v20+ y npm/yarn (v22.13.0)
+- [x] 1.2. Instalar Git y configurar repositorio (v2.47.1)
+- [x] 1.3. Setup de VSCode con extensiones (v1.97.2)
+- [x] 1.4. Crear estructura de carpetas del proyecto:
   ```
   cedears-manager/
   ├── electron/
@@ -18,11 +18,11 @@
   ```
 
 ### 2. Inicialización del Proyecto Electron
-- [ ] 2.1. Inicializar proyecto con `npm init electron-app@latest cedears-manager`
-- [ ] 2.2. Configurar electron-builder para distribución
-- [ ] 2.3. Setup de auto-updater para futuras actualizaciones
-- [ ] 2.4. Configurar variables de entorno (.env files)
-- [ ] 2.5. Implementar ventana principal con dimensiones fijas (1400x900)
+- [x] 2.1. Inicializar proyecto con `npm init electron-app@latest cedears-manager`
+- [x] 2.2. Configurar electron-builder para distribución
+- [ ] 2.3. Setup de auto-updater para futuras actualizaciones (DIFERIDO A FASE 6)
+- [x] 2.4. Configurar variables de entorno (.env files)
+- [x] 2.5. Implementar ventana principal con dimensiones fijas (1400x900)
 
 ### 3. Setup del Frontend (React + TypeScript)
 - [ ] 3.1. Crear React app con TypeScript template
