@@ -2,11 +2,11 @@
 
 ## 🚀 FASE 1: Setup y Arquitectura Base (Semana 1-2)
 
-### 1. Configuración del Entorno de Desarrollo ✅
-- [] 1.1. Instalar Node.js v20+ y npm/yarn (v22.13.0 ✅)
-- [] 1.2. Instalar Git y configurar repositorio (v2.47.1 ✅)
-- [] 1.3. Setup de VSCode con extensiones (v1.97.2 ✅)
-- [] 1.4. Crear estructura de carpetas del proyecto (✅):
+### 1. Configuración del Entorno de Desarrollo 
+- [] 1.1. Instalar Node.js v20+ y npm/yarn (v22.13.0)
+- [] 1.2. Instalar Git y configurar repositorio (v2.47.1)
+- [] 1.3. Setup de VSCode con extensiones (v1.97.2)
+- [] 1.4. Crear estructura de carpetas del proyecto:
   ```
   cedears-manager/
   ├── electron/

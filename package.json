@@ -1,0 +1,64 @@
+{
+  "name": "cedears-manager",
+  "version": "1.0.0",
+  "description": "Desktop App para gestión inteligente de cartera de CEDEARs con criterios ESG/veganos",
+  "main": "electron/main.js",
+  "author": "CEDEARS Manager Team",
+  "license": "MIT",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "shared",
+    "claude-cli"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run backend:dev\" \"npm run frontend:dev\" \"npm run electron:dev\"",
+    "frontend:dev": "cd frontend && npm run dev",
+    "backend:dev": "cd backend && npm run dev",
+    "electron:dev": "wait-on http://localhost:3000 && cd electron && npm run dev",
+    "build": "npm run frontend:build && npm run backend:build && npm run electron:build",
+    "frontend:build": "cd frontend && npm run build",
+    "backend:build": "cd backend && npm run build",
+    "electron:build": "cd electron && npm run build",
+    "dist": "npm run build && cd electron && npm run dist",
+    "test": "npm run frontend:test && npm run backend:test",
+    "frontend:test": "cd frontend && npm test",
+    "backend:test": "cd backend && npm test",
+    "test:e2e": "cd tests && npm run test:e2e",
+    "lint": "npm run frontend:lint && npm run backend:lint",
+    "frontend:lint": "cd frontend && npm run lint",
+    "backend:lint": "cd backend && npm run lint",
+    "install:all": "npm install && npm run install:workspaces",
+    "install:workspaces": "npm install --workspaces",
+    "clean": "rimraf node_modules */node_modules */dist */build",
+    "reset": "npm run clean && npm run install:all"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "wait-on": "^7.2.0",
+    "rimraf": "^5.0.5",
+    "@types/node": "^20.10.5",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-repo/cedears-manager.git"
+  },
+  "keywords": [
+    "cedears",
+    "esg",
+    "vegan",
+    "stocks",
+    "investment",
+    "portfolio",
+    "electron",
+    "desktop",
+    "finance",
+    "argentina"
+  ]
+}

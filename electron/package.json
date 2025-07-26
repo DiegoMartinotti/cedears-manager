@@ -1,0 +1,55 @@
+{
+  "name": "@cedears-manager/electron",
+  "version": "1.0.0",
+  "description": "Electron main process para CEDEARs Manager",
+  "main": "dist/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc",
+    "start": "electron dist/main.js",
+    "dist": "electron-builder",
+    "pack": "electron-builder --dir",
+    "lint": "eslint . --ext .ts --fix"
+  },
+  "dependencies": {
+    "electron": "^28.1.0",
+    "electron-store": "^8.1.0",
+    "electron-updater": "^6.1.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "@typescript-eslint/eslint-plugin": "^6.14.0",
+    "@typescript-eslint/parser": "^6.14.0",
+    "electron-builder": "^24.9.1",
+    "eslint": "^8.55.0",
+    "typescript": "^5.3.3",
+    "tsx": "^4.6.2"
+  },
+  "build": {
+    "appId": "com.cedears-manager.app",
+    "productName": "CEDEARs Manager",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "../frontend/dist/**/*",
+      "../backend/dist/**/*",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.finance"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
