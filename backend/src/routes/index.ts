@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import instrumentRoutes from './instrumentRoutes.js'
 import portfolioRoutes from './portfolioRoutes.js'
+import claudeRoutes from './claudeRoutes.js'
 import SimpleDatabaseConnection from '../database/simple-connection.js'
 
 const router = Router()
@@ -29,6 +30,7 @@ router.get('/', (req, res) => {
     endpoints: {
       instruments: '/api/v1/instruments',
       portfolio: '/api/v1/portfolio',
+      claude: '/api/v1/claude',
       health: '/api/v1/health'
     },
     timestamp: new Date().toISOString()
@@ -38,5 +40,6 @@ router.get('/', (req, res) => {
 // Mount route modules
 router.use('/instruments', instrumentRoutes)
 router.use('/portfolio', portfolioRoutes)
+router.use('/claude', claudeRoutes)
 
 export default router

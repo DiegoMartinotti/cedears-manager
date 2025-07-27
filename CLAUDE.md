@@ -191,10 +191,19 @@ El proyecto tiene un **plan de desarrollo detallado en 6 fases** con 37 módulos
 ### Subagentes Disponibles
 ```bash
 # Subagentes especializados en .claude/agents/
-/observe    # Fase de observación y recolección de datos
-/orient     # Fase de análisis y síntesis de información  
-/decide     # Fase de evaluación y recomendaciones
-/act        # Fase de implementación y ejecución
+observe     # Fase de observación y recolección de datos
+orient      # Fase de análisis y síntesis de información  
+decide      # Fase de evaluación y recomendaciones
+act         # Fase de implementación y ejecución
+```
+
+### Invocación Correcta
+Los subagentes se invocan usando la herramienta Task:
+```
+Task(description="Descripción corta", prompt="Tarea específica", subagent_type="observe")
+Task(description="Descripción corta", prompt="Tarea específica", subagent_type="orient")
+Task(description="Descripción corta", prompt="Tarea específica", subagent_type="decide")
+Task(description="Descripción corta", prompt="Tarea específica", subagent_type="act")
 ```
 
 ### Uso Proactivo Obligatorio

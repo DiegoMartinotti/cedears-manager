@@ -49,12 +49,12 @@
 - [x] 5.4. Crear conexión singleton para la DB
 - [x] 5.5. Implementar schema básico
 
-### 6. Integración Claude Code CLI
-- [ ] 6.1. Crear estructura para módulos de Claude
-- [ ] 6.2. Implementar wrapper para llamadas a Claude API
-- [ ] 6.3. Setup de rate limiting y manejo de errores
-- [ ] 6.4. Crear sistema de logging para análisis de Claude
-- [ ] 6.5. Test básico de conexión con Claude
+### 6. Integración Claude Code CLI ✅
+- [x] 6.1. Crear estructura para módulos de Claude
+- [x] 6.2. Implementar wrapper para llamadas a Claude CLI
+- [x] 6.3. Setup de rate limiting y manejo de errores
+- [x] 6.4. Crear sistema de logging para análisis de Claude
+- [x] 6.5. Test básico de conexión con Claude
 
 ---
 
