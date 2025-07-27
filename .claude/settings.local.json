@@ -28,7 +28,11 @@
       "Bash(timeout 30 npm run dev)",
       "Bash(git rm:*)",
       "Bash(timeout:*)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "WebFetch(domain:www.f9finance.com)",
+      "WebFetch(domain:promptadvance.club)",
+      "Bash(claude -p \"Return this response in JSON format with structure: {status: ''success'', data: ''hello world'', timestamp: ''2025-01-01''}\" --output-format json)",
+      "Bash(claude -p \"Analyze this financial data and provide technical indicators: AAPL price 150, volume 50M, RSI 65. Return as JSON with fields: symbol, price, rsi, recommendation, reasoning\" --output-format json)"
     ],
     "deny": []
   }
