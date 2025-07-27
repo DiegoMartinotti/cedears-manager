@@ -1,0 +1,63 @@
+{
+  "instruments": [
+    {
+      "symbol": "TEST",
+      "company_name": "Test Company",
+      "sector": "Technology",
+      "is_esg_compliant": true,
+      "is_vegan_friendly": true,
+      "underlying_currency": "USD",
+      "ratio": 1,
+      "is_active": true,
+      "id": 1,
+      "created_at": "2025-07-26T22:35:46.525Z",
+      "updated_at": "2025-07-26T22:35:46.525Z"
+    },
+    {
+      "symbol": "AAPL",
+      "company_name": "Apple Inc.",
+      "sector": "Technology",
+      "is_esg_compliant": true,
+      "is_vegan_friendly": false,
+      "underlying_currency": "USD",
+      "ratio": 1,
+      "is_active": true,
+      "id": 2,
+      "created_at": "2025-07-26T22:37:02.849Z",
+      "updated_at": "2025-07-26T22:37:02.895Z",
+      "market_cap": 3000000000000
+    },
+    {
+      "symbol": "GOOGL",
+      "company_name": "Alphabet Inc.",
+      "sector": "Technology",
+      "is_esg_compliant": true,
+      "is_vegan_friendly": true,
+      "underlying_currency": "USD",
+      "ratio": 1,
+      "is_active": true,
+      "id": 3,
+      "created_at": "2025-07-26T22:37:02.854Z",
+      "updated_at": "2025-07-26T22:37:02.854Z"
+    },
+    {
+      "symbol": "TSLA",
+      "company_name": "Tesla, Inc.",
+      "sector": "Automotive",
+      "is_esg_compliant": true,
+      "is_vegan_friendly": true,
+      "underlying_currency": "USD",
+      "ratio": 1,
+      "is_active": true,
+      "id": 4,
+      "created_at": "2025-07-26T22:37:02.858Z",
+      "updated_at": "2025-07-26T22:37:02.858Z"
+    }
+  ],
+  "portfolio_positions": [],
+  "trades": [],
+  "quotes": [],
+  "commission_config": [],
+  "financial_goals": [],
+  "migrations_log": []
+}

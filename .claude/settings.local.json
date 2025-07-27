@@ -27,7 +27,8 @@
       "Bash(timeout 10 npm run dev)",
       "Bash(timeout 30 npm run dev)",
       "Bash(git rm:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(npx tsx:*)"
     ],
     "deny": []
   }
