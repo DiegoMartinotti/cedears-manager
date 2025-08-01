@@ -3,8 +3,8 @@ import { ApiResponse } from '@cedears-manager/shared/types'
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: 'http://localhost:3001/api', // Backend URL
-  timeout: 10000, // 10 seconds timeout
+  baseURL: 'http://localhost:3001/api/v1', // Backend URL with versioning
+  timeout: 15000, // 15 seconds timeout for heavy operations
   headers: {
     'Content-Type': 'application/json',
   },
@@ -80,14 +80,29 @@ export const endpoints = {
   // Health check
   health: '/health',
   
-  // CEDEARs
+  // Instruments (Backend uses 'instruments' not 'cedears')
+  instruments: {
+    list: '/instruments',
+    create: '/instruments',
+    getById: (id: string) => `/instruments/${id}`,
+    update: (id: string) => `/instruments/${id}`,
+    delete: (id: string) => `/instruments/${id}`,
+    search: '/instruments/search',
+    esg: '/instruments/esg',
+    vegan: '/instruments/vegan',
+    bulk: '/instruments/bulk',
+    toggleESG: (id: string) => `/instruments/${id}/toggle-esg`,
+    toggleVegan: (id: string) => `/instruments/${id}/toggle-vegan`,
+  },
+  
+  // CEDEARs (alias for instruments for backward compatibility)
   cedears: {
-    list: '/cedears',
-    create: '/cedears',
-    getById: (id: string) => `/cedears/${id}`,
-    update: (id: string) => `/cedears/${id}`,
-    delete: (id: string) => `/cedears/${id}`,
-    search: '/cedears/search',
+    list: '/instruments',
+    create: '/instruments',
+    getById: (id: string) => `/instruments/${id}`,
+    update: (id: string) => `/instruments/${id}`,
+    delete: (id: string) => `/instruments/${id}`,
+    search: '/instruments/search',
   },
   
   // Quotes

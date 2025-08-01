@@ -14,6 +14,57 @@ export interface CEDEAR {
   updatedAt: Date
 }
 
+// Instrument type matching backend model
+export interface Instrument {
+  id?: number
+  symbol: string
+  company_name: string
+  sector?: string
+  industry?: string
+  market_cap?: number
+  is_esg_compliant?: boolean
+  is_vegan_friendly?: boolean
+  underlying_symbol?: string
+  underlying_currency?: string
+  ratio?: number
+  is_active?: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+// Frontend-friendly instrument interface
+export interface InstrumentUI {
+  id: number
+  symbol: string
+  companyName: string
+  sector?: string
+  industry?: string
+  marketCap?: number
+  isESGCompliant: boolean
+  isVeganFriendly: boolean
+  underlyingSymbol?: string
+  underlyingCurrency: string
+  ratio: number
+  isActive: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
+// Search and filter interfaces
+export interface InstrumentFilters {
+  isActive?: boolean
+  isESG?: boolean
+  isVegan?: boolean
+  sector?: string
+  search?: string
+  limit?: number
+  offset?: number
+}
+
+export interface BulkInstrumentData {
+  instruments: Omit<Instrument, 'id' | 'created_at' | 'updated_at'>[]
+}
+
 export interface Quote {
   id: string
   symbol: string
