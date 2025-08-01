@@ -1,31 +1,267 @@
+import React, { useState } from 'react'
+import { format } from 'date-fns'
+import { Activity, TrendingUp, TrendingDown, RefreshCw, BarChart3 } from 'lucide-react'
+import { Card } from '@/components/ui/Card'
+import { Badge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
+import { QuotesList } from '@/components/quotes/QuotesList'
+import { QuoteChart } from '@/components/quotes/QuoteChart'
+import { useWatchlistQuotes, useMarketHours, useUpdateQuotes, useQuoteChart } from '@/hooks/useQuotes'
+import { useInstruments } from '@/hooks/useInstruments'
+
 export default function Dashboard() {
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null)
+  const [chartTimeRange, setChartTimeRange] = useState<'1D' | '1W' | '1M' | '3M' | '6M' | '1Y' | 'ALL'>('1M')
+
+  // Hooks para datos
+  const { data: instruments, isLoading: instrumentsLoading } = useInstruments()
+  const { quotes, isLoading: quotesLoading, error: quotesError, lastUpdate, forceRefresh } = useWatchlistQuotes()
+  const { data: marketHours } = useMarketHours()
+  const updateQuotes = useUpdateQuotes()
+  
+  // Hook para el gráfico del símbolo seleccionado
+  const { 
+    data: chartData, 
+    isLoading: chartLoading, 
+    changeTimeRange 
+  } = useQuoteChart(
+    selectedSymbol || '', 
+    chartTimeRange, 
+    !!selectedSymbol
+  )
+
+  // Calcular métricas del dashboard
+  const totalInstruments = instruments?.length || 0
+  const totalQuotes = quotes?.length || 0
+  const quotesWithPrices = quotes?.filter(q => q.price > 0) || []
+  
+  // Calcular valor total de cartera (mock - necesitaría datos de portfolio)
+  const totalPortfolioValue = quotesWithPrices.reduce((sum, quote) => sum + quote.price, 0)
+  
+  // Calcular cambios promedio
+  const quotesWithChange = quotesWithPrices.filter(q => q.close && q.price !== q.close)
+  const averageChange = quotesWithChange.length > 0 
+    ? quotesWithChange.reduce((sum, quote) => {
+        if (quote.close) {
+          return sum + ((quote.price - quote.close) / quote.close * 100)
+        }
+        return sum
+      }, 0) / quotesWithChange.length
+    : 0
+
+  const handleSymbolClick = (symbol: string) => {
+    setSelectedSymbol(symbol)
+  }
+
+  const handleTimeRangeChange = (range: string) => {
+    const newRange = range as typeof chartTimeRange
+    setChartTimeRange(newRange)
+    changeTimeRange(newRange)
+  }
+
+  const handleRefresh = async () => {
+    try {
+      await updateQuotes.mutateAsync()
+      forceRefresh()
+    } catch (error) {
+      console.error('Error refreshing quotes:', error)
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Dashboard</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-card p-6 rounded-lg border border-border">
-          <h3 className="text-lg font-semibold mb-2">Cartera Total</h3>
-          <p className="text-2xl font-bold text-success">$0.00</p>
-          <p className="text-sm text-muted-foreground">Sin datos disponibles</p>
-        </div>
-        <div className="bg-card p-6 rounded-lg border border-border">
-          <h3 className="text-lg font-semibold mb-2">Rendimiento</h3>
-          <p className="text-2xl font-bold text-muted-foreground">0.00%</p>
-          <p className="text-sm text-muted-foreground">Últimos 30 días</p>
-        </div>
-        <div className="bg-card p-6 rounded-lg border border-border">
-          <h3 className="text-lg font-semibold mb-2">Watchlist</h3>
-          <p className="text-2xl font-bold text-primary">0</p>
-          <p className="text-sm text-muted-foreground">Instrumentos seguidos</p>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">Dashboard</h2>
+        <div className="flex items-center space-x-3">
+          {marketHours && (
+            <Badge 
+              variant={marketHours.isOpen ? "success" : "secondary"}
+              className="flex items-center"
+            >
+              <Activity className="w-3 h-3 mr-1" />
+              {marketHours.isOpen ? 'Mercado Abierto' : 'Mercado Cerrado'}
+            </Badge>
+          )}
+          
+          {lastUpdate && (
+            <span className="text-sm text-gray-500">
+              Actualizado: {format(lastUpdate, 'HH:mm:ss')}
+            </span>
+          )}
+
+          <Button
+            onClick={handleRefresh}
+            variant="outline"
+            size="sm"
+            disabled={updateQuotes.isPending}
+          >
+            <RefreshCw className={`w-4 h-4 ${updateQuotes.isPending ? 'animate-spin' : ''}`} />
+          </Button>
         </div>
       </div>
-      <div className="bg-card p-6 rounded-lg border border-border">
-        <h3 className="text-lg font-semibold mb-4">Bienvenido a CEDEARs Manager</h3>
-        <p className="text-muted-foreground">
-          Esta es la aplicación de gestión inteligente de cartera de CEDEARs con criterios ESG/veganos.
-          Comienza agregando instrumentos a tu watchlist para comenzar el análisis.
-        </p>
+
+      {/* Métricas principales */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="p-6">
+          <div className="flex items-center space-x-2">
+            <BarChart3 className="w-5 h-5 text-blue-600" />
+            <h3 className="text-lg font-semibold">Instrumentos</h3>
+          </div>
+          <p className="text-2xl font-bold text-blue-600 mt-2">{totalInstruments}</p>
+          <p className="text-sm text-gray-500">En watchlist</p>
+        </Card>
+
+        <Card className="p-6">
+          <div className="flex items-center space-x-2">
+            <Activity className="w-5 h-5 text-green-600" />
+            <h3 className="text-lg font-semibold">Cotizaciones</h3>
+          </div>
+          <p className="text-2xl font-bold text-green-600 mt-2">{totalQuotes}</p>
+          <p className="text-sm text-gray-500">Actualizadas</p>
+        </Card>
+
+        <Card className="p-6">
+          <div className="flex items-center space-x-2">
+            {averageChange >= 0 ? (
+              <TrendingUp className="w-5 h-5 text-green-600" />
+            ) : (
+              <TrendingDown className="w-5 h-5 text-red-600" />
+            )}
+            <h3 className="text-lg font-semibold">Cambio Promedio</h3>
+          </div>
+          <p className={`text-2xl font-bold mt-2 ${averageChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {averageChange >= 0 ? '+' : ''}{averageChange.toFixed(2)}%
+          </p>
+          <p className="text-sm text-gray-500">Hoy</p>
+        </Card>
+
+        <Card className="p-6">
+          <div className="flex items-center space-x-2">
+            <BarChart3 className="w-5 h-5 text-purple-600" />
+            <h3 className="text-lg font-semibold">Valor Total</h3>
+          </div>
+          <p className="text-2xl font-bold text-purple-600 mt-2">
+            ${totalPortfolioValue.toFixed(2)}
+          </p>
+          <p className="text-sm text-gray-500">Mock - Suma de precios</p>
+        </Card>
       </div>
+
+      {/* Gráfico del símbolo seleccionado */}
+      {selectedSymbol && (
+        <div className="grid grid-cols-1 gap-6">
+          <QuoteChart
+            data={chartData || []}
+            symbol={selectedSymbol}
+            height={400}
+            chartType="area"
+            timeRange={chartTimeRange}
+            onTimeRangeChange={handleTimeRangeChange}
+            loading={chartLoading}
+          />
+        </div>
+      )}
+
+      {/* Lista de cotizaciones */}
+      <div className="grid grid-cols-1 gap-6">
+        {instrumentsLoading ? (
+          <Card className="p-6">
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span className="ml-2 text-gray-600">Cargando instrumentos...</span>
+            </div>
+          </Card>
+        ) : totalInstruments === 0 ? (
+          <Card className="p-6">
+            <div className="text-center py-8">
+              <h3 className="text-lg font-semibold mb-4">Bienvenido a CEDEARs Manager</h3>
+              <p className="text-gray-600 mb-4">
+                Esta es la aplicación de gestión inteligente de cartera de CEDEARs con criterios ESG/veganos.
+              </p>
+              <p className="text-gray-500">
+                Comienza agregando instrumentos a tu watchlist para ver cotizaciones en tiempo real y realizar análisis técnico.
+              </p>
+            </div>
+          </Card>
+        ) : (
+          <QuotesList
+            quotes={quotes || []}
+            loading={quotesLoading}
+            error={quotesError?.message}
+            onRefresh={forceRefresh}
+            onSymbolClick={handleSymbolClick}
+            showCompanyName={true}
+            showSector={true}
+            showLastUpdate={true}
+            refreshInterval={30000}
+          />
+        )}
+      </div>
+
+      {/* Información adicional */}
+      {totalInstruments > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Estado del Sistema</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Instrumentos activos:</span>
+                <span className="font-medium">{totalInstruments}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Cotizaciones disponibles:</span>
+                <span className="font-medium">{totalQuotes}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Última actualización:</span>
+                <span className="font-medium">
+                  {lastUpdate ? format(lastUpdate, 'HH:mm:ss') : 'N/A'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Estado del mercado:</span>
+                <Badge variant={marketHours?.isOpen ? "success" : "secondary"}>
+                  {marketHours?.isOpen ? 'Abierto' : 'Cerrado'}
+                </Badge>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Acciones Rápidas</h3>
+            <div className="space-y-3">
+              <Button 
+                onClick={handleRefresh}
+                className="w-full justify-start"
+                variant="outline"
+                disabled={updateQuotes.isPending}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${updateQuotes.isPending ? 'animate-spin' : ''}`} />
+                Actualizar Cotizaciones
+              </Button>
+              
+              <Button 
+                onClick={() => window.location.href = '#/watchlist'}
+                className="w-full justify-start"
+                variant="outline"
+              >
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Ver Watchlist Completo
+              </Button>
+              
+              <Button 
+                onClick={() => window.location.href = '#/instruments'}
+                className="w-full justify-start"
+                variant="outline"
+              >
+                <Activity className="w-4 h-4 mr-2" />
+                Gestionar Instrumentos
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
