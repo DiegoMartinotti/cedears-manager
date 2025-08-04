@@ -186,7 +186,31 @@ export const migrations: Migration[] = [
     `
   },
   {
-    id: '007_create_migrations_log',
+    id: '007_create_uva_values',
+    description: 'Create UVA values table for inflation adjustment tracking',
+    up: `
+      CREATE TABLE IF NOT EXISTS uva_values (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date DATE NOT NULL UNIQUE,
+        value DECIMAL(12,6) NOT NULL,
+        source VARCHAR(50) NOT NULL DEFAULT 'bcra',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      
+      CREATE UNIQUE INDEX idx_uva_values_date ON uva_values(date);
+      CREATE INDEX idx_uva_values_source ON uva_values(source);
+      CREATE INDEX idx_uva_values_value ON uva_values(value);
+    `,
+    down: `
+      DROP INDEX IF EXISTS idx_uva_values_value;
+      DROP INDEX IF EXISTS idx_uva_values_source;
+      DROP INDEX IF EXISTS idx_uva_values_date;
+      DROP TABLE IF EXISTS uva_values;
+    `
+  },
+  {
+    id: '008_create_migrations_log',
     description: 'Create migrations log table for tracking applied migrations',
     up: `
       CREATE TABLE IF NOT EXISTS migrations_log (
@@ -209,7 +233,7 @@ export class MigrationRunner {
     logger.info('Starting database migrations...')
     
     // Ensure migrations log table exists
-    const migrationLogMigration = migrations.find(m => m.id === '007_create_migrations_log')
+    const migrationLogMigration = migrations.find(m => m.id === '008_create_migrations_log')
     if (migrationLogMigration) {
       this.db.exec(migrationLogMigration.up)
     }
