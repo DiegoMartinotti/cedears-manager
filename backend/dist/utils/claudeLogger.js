@@ -267,13 +267,15 @@ export class ClaudeLogger {
                 };
             }
             const instrument = this.metrics.instruments[data.instrumentCode];
-            instrument.analyses++;
-            if (data.confidence !== undefined) {
-                // Promedio móvil simple
-                instrument.avgConfidence =
-                    (instrument.avgConfidence * (instrument.analyses - 1) + data.confidence) / instrument.analyses;
+            if (instrument) {
+                instrument.analyses++;
+                if (data.confidence !== undefined) {
+                    // Promedio móvil simple
+                    instrument.avgConfidence =
+                        (instrument.avgConfidence * (instrument.analyses - 1) + data.confidence) / instrument.analyses;
+                }
+                instrument.lastAnalysis = new Date().toISOString();
             }
-            instrument.lastAnalysis = new Date().toISOString();
         }
     }
     /**
@@ -290,7 +292,10 @@ export class ClaudeLogger {
                     lastAnalysis: new Date().toISOString()
                 };
             }
-            this.metrics.instruments[data.instrumentCode].lastAnalysis = new Date().toISOString();
+            const instrument = this.metrics.instruments[data.instrumentCode];
+            if (instrument) {
+                instrument.lastAnalysis = new Date().toISOString();
+            }
         }
     }
     /**
