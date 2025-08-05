@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
       "Bash(dir:*)",
@@ -33,9 +34,11 @@
       "WebFetch(domain:promptadvance.club)",
       "Bash(claude -p \"Return this response in JSON format with structure: {status: ''success'', data: ''hello world'', timestamp: ''2025-01-01''}\" --output-format json)",
       "Bash(claude -p \"Analyze this financial data and provide technical indicators: AAPL price 150, volume 50M, RSI 65. Return as JSON with fields: symbol, price, rsi, recommendation, reasoning\" --output-format json)",
-      "Bash(tsx:*)"
+      "Bash(tsx:*)",
+      "WebFetch(domain:estadisticasbcra.com)",
+      "WebFetch(domain:www.bcra.gob.ar)",
+      "Bash(npx tsc:*)"
     ],
     "deny": []
-  },
-  "$schema": "https://json.schemastore.org/claude-code-settings.json"
+  }
 }

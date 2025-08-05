@@ -12,7 +12,11 @@ export class Trade {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
             const result = stmt.run(data.instrument_id, data.type, data.quantity, data.price, data.total_amount, data.commission || 0, data.taxes || 0, data.net_amount, data.trade_date, data.settlement_date || null, data.notes || null);
-            return this.findById(result.lastInsertRowid);
+            const newTrade = await this.findById(result.lastInsertRowid);
+            if (!newTrade) {
+                throw new Error('Failed to retrieve created trade');
+            }
+            return newTrade;
         }
         catch (error) {
             logger.error('Error creating trade:', error);
