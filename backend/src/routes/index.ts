@@ -4,6 +4,7 @@ import portfolioRoutes from './portfolioRoutes.js'
 import claudeRoutes from './claudeRoutes.js'
 import quoteRoutes from './quoteRoutes.js'
 import uvaRoutes from './uvaRoutes.js'
+import tradeRoutes from './tradeRoutes.js'
 import SimpleDatabaseConnection from '../database/simple-connection.js'
 
 const router = Router()
@@ -35,6 +36,7 @@ router.get('/', (req, res) => {
       claude: '/api/v1/claude',
       quotes: '/api/v1/quotes',
       uva: '/api/v1/uva',
+      trades: '/api/v1/trades',
       health: '/api/v1/health'
     },
     timestamp: new Date().toISOString()
@@ -47,5 +49,6 @@ router.use('/portfolio', portfolioRoutes)
 router.use('/claude', claudeRoutes)
 router.use('/quotes', quoteRoutes)
 router.use('/uva', uvaRoutes)
+router.use('/trades', tradeRoutes)
 
 export default router

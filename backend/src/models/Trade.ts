@@ -50,7 +50,11 @@ export class Trade {
         data.notes || null
       )
 
-      return this.findById(result.lastInsertRowid as number)!
+      const newTrade = await this.findById(result.lastInsertRowid as number)
+      if (!newTrade) {
+        throw new Error('Failed to retrieve created trade')
+      }
+      return newTrade
     } catch (error) {
       logger.error('Error creating trade:', error)
       throw new Error(`Failed to create trade: ${error instanceof Error ? error.message : String(error)}`)
