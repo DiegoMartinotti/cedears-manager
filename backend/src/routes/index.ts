@@ -5,6 +5,7 @@ import claudeRoutes from './claudeRoutes.js'
 import quoteRoutes from './quoteRoutes.js'
 import uvaRoutes from './uvaRoutes.js'
 import tradeRoutes from './tradeRoutes.js'
+import dashboardRoutes from './dashboardRoutes.js'
 import SimpleDatabaseConnection from '../database/simple-connection.js'
 
 const router = Router()
@@ -37,6 +38,7 @@ router.get('/', (req, res) => {
       quotes: '/api/v1/quotes',
       uva: '/api/v1/uva',
       trades: '/api/v1/trades',
+      dashboard: '/api/v1/dashboard',
       health: '/api/v1/health'
     },
     timestamp: new Date().toISOString()
@@ -50,5 +52,6 @@ router.use('/claude', claudeRoutes)
 router.use('/quotes', quoteRoutes)
 router.use('/uva', uvaRoutes)
 router.use('/trades', tradeRoutes)
+router.use('/dashboard', dashboardRoutes)
 
 export default router

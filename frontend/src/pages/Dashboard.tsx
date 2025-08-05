@@ -6,8 +6,14 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { QuotesList } from '@/components/quotes/QuotesList'
 import { QuoteChart } from '@/components/quotes/QuoteChart'
+import { PortfolioSummary } from '@/components/dashboard/PortfolioSummary'
+import { DistributionChart } from '@/components/dashboard/DistributionChart'
+import { CurrentPositions } from '@/components/dashboard/CurrentPositions'
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
+import { LoadingState, PageLoadingState, PageErrorState } from '@/components/ui/LoadingSpinner'
 import { useWatchlistQuotes, useMarketHours, useUpdateQuotes, useQuoteChart } from '@/hooks/useQuotes'
 import { useInstruments } from '@/hooks/useInstruments'
+import { useDashboardData, useRefreshDashboard } from '@/hooks/useDashboard'
 
 export default function Dashboard() {
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null)
@@ -18,6 +24,13 @@ export default function Dashboard() {
   const { quotes, isLoading: quotesLoading, error: quotesError, lastUpdate, forceRefresh } = useWatchlistQuotes()
   const { data: marketHours } = useMarketHours()
   const updateQuotes = useUpdateQuotes()
+  
+  // Hooks del dashboard avanzado
+  const dashboardData = useDashboardData({ 
+    enabled: true,
+    refetchInterval: 60000 // 1 minuto
+  })
+  const refreshDashboard = useRefreshDashboard()
   
   // Hook para el gráfico del símbolo seleccionado
   const { 
@@ -61,15 +74,49 @@ export default function Dashboard() {
 
   const handleRefresh = async () => {
     try {
+      // Refrescar cotizaciones
       await updateQuotes.mutateAsync()
       forceRefresh()
+      
+      // Refrescar dashboard si hay datos
+      if (dashboardData.portfolioSummary.data) {
+        await refreshDashboard.mutateAsync()
+      }
     } catch (error) {
-      console.error('Error refreshing quotes:', error)
+      console.error('Error refreshing data:', error)
     }
   }
 
+  // Estados de loading y error principales
+  const isInitialLoading = instrumentsLoading && !instruments
+  const hasPortfolioData = dashboardData.portfolioSummary.data
+  const hasCriticalError = dashboardData.isError && !hasPortfolioData
+
+  if (isInitialLoading) {
+    return (
+      <PageLoadingState 
+        title="Cargando Dashboard"
+        subtitle="Obteniendo datos de instrumentos y cotizaciones..."
+      />
+    )
+  }
+
+  if (hasCriticalError) {
+    return (
+      <PageErrorState
+        title="Error en el Dashboard"
+        subtitle="No se pudieron cargar los datos principales del dashboard"
+        onRetry={() => {
+          forceRefresh()
+          dashboardData.summary.refetch()
+        }}
+      />
+    )
+  }
+
   return (
-    <div className="space-y-6">
+    <ErrorBoundary>
+      <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Dashboard</h2>
@@ -94,9 +141,9 @@ export default function Dashboard() {
             onClick={handleRefresh}
             variant="outline"
             size="sm"
-            disabled={updateQuotes.isPending}
+            disabled={updateQuotes.isPending || refreshDashboard.isPending}
           >
-            <RefreshCw className={`w-4 h-4 ${updateQuotes.isPending ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${(updateQuotes.isPending || refreshDashboard.isPending) ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </div>
@@ -147,6 +194,63 @@ export default function Dashboard() {
           <p className="text-sm text-gray-500">Mock - Suma de precios</p>
         </Card>
       </div>
+
+      {/* Portfolio Summary - Nuevo componente */}
+      {dashboardData.portfolioSummary.data && (
+        <ErrorBoundary fallback={
+          <Card className="p-6">
+            <div className="text-center text-red-600">
+              <h3 className="text-lg font-semibold mb-2">Error en resumen del portfolio</h3>
+              <p className="text-sm">No se pudo cargar el resumen del portfolio</p>
+            </div>
+          </Card>
+        }>
+          <PortfolioSummary 
+            data={dashboardData.portfolioSummary.data}
+            isLoading={dashboardData.portfolioSummary.isLoading}
+            showInflationAdjusted={true}
+          />
+        </ErrorBoundary>
+      )}
+
+      {/* Dashboard avanzado - Posiciones actuales y distribución */}
+      {dashboardData.positions.data && dashboardData.positions.data.length > 0 && (
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <div className="xl:col-span-2">
+            <ErrorBoundary fallback={
+              <Card className="p-6">
+                <div className="text-center text-red-600">
+                  <h3 className="text-lg font-semibold mb-2">Error en posiciones</h3>
+                  <p className="text-sm">No se pudieron cargar las posiciones actuales</p>
+                </div>
+              </Card>
+            }>
+              <CurrentPositions 
+                data={dashboardData.positions.data}
+                isLoading={dashboardData.positions.isLoading}
+                limit={10}
+                showFilters={true}
+              />
+            </ErrorBoundary>
+          </div>
+          <div className="xl:col-span-1">
+            <ErrorBoundary fallback={
+              <Card className="p-6">
+                <div className="text-center text-red-600">
+                  <h3 className="text-lg font-semibold mb-2">Error en distribución</h3>
+                  <p className="text-sm">No se pudo cargar el gráfico de distribución</p>
+                </div>
+              </Card>
+            }>
+              <DistributionChart 
+                data={dashboardData.distribution.data}
+                isLoading={dashboardData.distribution.isLoading}
+                height={500}
+              />
+            </ErrorBoundary>
+          </div>
+        </div>
+      )}
 
       {/* Gráfico del símbolo seleccionado */}
       {selectedSymbol && (
@@ -235,10 +339,10 @@ export default function Dashboard() {
                 onClick={handleRefresh}
                 className="w-full justify-start"
                 variant="outline"
-                disabled={updateQuotes.isPending}
+                disabled={updateQuotes.isPending || refreshDashboard.isPending}
               >
-                <RefreshCw className={`w-4 h-4 mr-2 ${updateQuotes.isPending ? 'animate-spin' : ''}`} />
-                Actualizar Cotizaciones
+                <RefreshCw className={`w-4 h-4 mr-2 ${(updateQuotes.isPending || refreshDashboard.isPending) ? 'animate-spin' : ''}`} />
+                Actualizar Dashboard
               </Button>
               
               <Button 
@@ -262,6 +366,7 @@ export default function Dashboard() {
           </Card>
         </div>
       )}
-    </div>
+      </div>
+    </ErrorBoundary>
   )
 }

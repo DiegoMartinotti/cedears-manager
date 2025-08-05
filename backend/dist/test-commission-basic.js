@@ -1,3 +1,4 @@
+"use strict";
 /**
  * Test básico del CommissionService sin dependencias externas
  */
@@ -504,3 +505,4 @@ function main() {
 
 // Ejecutar el test
 main();
+//# sourceMappingURL=test-commission-basic.js.map

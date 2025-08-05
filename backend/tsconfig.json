@@ -60,6 +60,12 @@
   "exclude": [
     "node_modules",
     "dist",
-    "tests"
+    "tests",
+    "src/**/*.test.ts",
+    "src/test-*.ts",
+    "src/**/test-*.ts",
+    "src/seed*.ts",
+    "src/minimal-test.ts",
+    "src/database/seed.ts"
   ]
 }
