@@ -1,4 +1,4 @@
-import { SimpleDatabase } from '../utils/simpleDatabase.js'
+import SimpleDatabaseConnection from '../database/simple-connection.js'
 import { createLogger } from '../utils/logger.js'
 
 const logger = createLogger('CustodyFee')

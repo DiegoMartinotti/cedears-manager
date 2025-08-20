@@ -46,4 +46,7 @@ api.interceptors.response.use(
   }
 )
 
-export default api
+export { api };
+export const apiClient = api;
+export const apiService = api;
+export default api;

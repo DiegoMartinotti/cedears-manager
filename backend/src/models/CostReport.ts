@@ -1,4 +1,4 @@
-import { SimpleDatabase } from '../database/simple-connection';
+import SimpleDatabaseConnection from '../database/simple-connection.js';
 
 export interface CostReportRecord {
   id?: number;
@@ -16,10 +16,17 @@ export interface CostReportRecord {
 }
 
 export class CostReport {
-  private db: SimpleDatabase;
-
   constructor() {
-    this.db = SimpleDatabase.getInstance();
+    // Initialize cost_reports table if it doesn't exist
+    this.initializeTable();
+  }
+
+  private initializeTable() {
+    const db = SimpleDatabaseConnection.getInstance();
+    if (!db.cost_reports) {
+      db.cost_reports = [];
+      SimpleDatabaseConnection.save();
+    }
   }
 
   async create(report: Omit<CostReportRecord, 'id' | 'generatedAt'>): Promise<CostReportRecord> {
