@@ -2,74 +2,76 @@ import { createLogger } from '../utils/logger.js';
 import { Trade } from '../models/Trade.js';
 const logger = createLogger('CommissionService');
 export class CommissionService {
-    tradeModel = new Trade();
-    // Configuraciones predefinidas de comisiones por broker
-    brokerConfigs = {
-        'galicia': {
-            name: 'Banco Galicia',
-            broker: 'galicia',
-            isActive: true,
-            buy: {
-                percentage: 0.005, // 0.5%
-                minimum: 150, // $150 ARS
-                iva: 0.21 // 21%
+    constructor() {
+        this.tradeModel = new Trade();
+        // Configuraciones predefinidas de comisiones por broker
+        this.brokerConfigs = {
+            'galicia': {
+                name: 'Banco Galicia',
+                broker: 'galicia',
+                isActive: true,
+                buy: {
+                    percentage: 0.005, // 0.5%
+                    minimum: 150, // $150 ARS
+                    iva: 0.21 // 21%
+                },
+                sell: {
+                    percentage: 0.005,
+                    minimum: 150,
+                    iva: 0.21
+                },
+                custody: {
+                    exemptAmount: 1000000, // $1M ARS exento
+                    monthlyPercentage: 0.0025, // 0.25% mensual
+                    monthlyMinimum: 500, // $500 ARS mínimo
+                    iva: 0.21
+                }
             },
-            sell: {
-                percentage: 0.005,
-                minimum: 150,
-                iva: 0.21
+            'santander': {
+                name: 'Banco Santander',
+                broker: 'santander',
+                isActive: true,
+                buy: {
+                    percentage: 0.006, // 0.6%
+                    minimum: 200,
+                    iva: 0.21
+                },
+                sell: {
+                    percentage: 0.006,
+                    minimum: 200,
+                    iva: 0.21
+                },
+                custody: {
+                    exemptAmount: 500000,
+                    monthlyPercentage: 0.003, // 0.3% mensual
+                    monthlyMinimum: 600,
+                    iva: 0.21
+                }
             },
-            custody: {
-                exemptAmount: 1000000, // $1M ARS exento
-                monthlyPercentage: 0.0025, // 0.25% mensual
-                monthlyMinimum: 500, // $500 ARS mínimo
-                iva: 0.21
+            'macro': {
+                name: 'Banco Macro',
+                broker: 'macro',
+                isActive: true,
+                buy: {
+                    percentage: 0.0055, // 0.55%
+                    minimum: 180,
+                    iva: 0.21
+                },
+                sell: {
+                    percentage: 0.0055,
+                    minimum: 180,
+                    iva: 0.21
+                },
+                custody: {
+                    exemptAmount: 800000,
+                    monthlyPercentage: 0.0028,
+                    monthlyMinimum: 450,
+                    iva: 0.21
+                }
             }
-        },
-        'santander': {
-            name: 'Banco Santander',
-            broker: 'santander',
-            isActive: true,
-            buy: {
-                percentage: 0.006, // 0.6%
-                minimum: 200,
-                iva: 0.21
-            },
-            sell: {
-                percentage: 0.006,
-                minimum: 200,
-                iva: 0.21
-            },
-            custody: {
-                exemptAmount: 500000,
-                monthlyPercentage: 0.003, // 0.3% mensual
-                monthlyMinimum: 600,
-                iva: 0.21
-            }
-        },
-        'macro': {
-            name: 'Banco Macro',
-            broker: 'macro',
-            isActive: true,
-            buy: {
-                percentage: 0.0055, // 0.55%
-                minimum: 180,
-                iva: 0.21
-            },
-            sell: {
-                percentage: 0.0055,
-                minimum: 180,
-                iva: 0.21
-            },
-            custody: {
-                exemptAmount: 800000,
-                monthlyPercentage: 0.0028,
-                monthlyMinimum: 450,
-                iva: 0.21
-            }
-        }
-    };
-    defaultConfig = this.brokerConfigs['galicia'];
+        };
+        this.defaultConfig = this.brokerConfigs['galicia'];
+    }
     /**
      * Calcula comisiones para una operación específica
      */
@@ -327,4 +329,3 @@ export class CommissionService {
         return false;
     }
 }
-//# sourceMappingURL=CommissionService.js.map

@@ -3,7 +3,6 @@ import { Instrument } from '../models/Instrument.js';
 import { UVA } from '../models/UVA.js';
 import { CommissionService } from './CommissionService.js';
 import { createLogger } from '../utils/logger.js';
-import { calculateInflationAdjustment } from '../utils/uvaHelpers.js';
 const logger = createLogger('TradeService');
 export class TradeService {
     tradeModel = new Trade();

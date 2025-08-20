@@ -2,7 +2,9 @@ import DatabaseConnection from '../database/connection.js';
 import { createLogger } from '../utils/logger.js';
 const logger = createLogger('Trade');
 export class Trade {
-    db = DatabaseConnection.getInstance();
+    constructor() {
+        this.db = DatabaseConnection.getInstance();
+    }
     async create(data) {
         try {
             const stmt = this.db.prepare(`
@@ -221,4 +223,3 @@ export class Trade {
         }
     }
 }
-//# sourceMappingURL=Trade.js.map

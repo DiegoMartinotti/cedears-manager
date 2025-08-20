@@ -26,7 +26,7 @@ class DatabaseConnection {
       }
 
       // Create database connection
-      const db = new sqlite3.Database(DatabaseConnection.DB_PATH, (err) => {
+      const db = new sqlite3.Database(DatabaseConnection.DB_PATH, (err: Error | null) => {
         if (err) {
           logger.error('Failed to connect to database:', err)
           throw err
@@ -52,7 +52,7 @@ class DatabaseConnection {
 
   static close(): void {
     if (DatabaseConnection.instance) {
-      DatabaseConnection.instance.close((err) => {
+      DatabaseConnection.instance.close((err: Error | null) => {
         if (err) {
           logger.error('Error closing database:', err)
         } else {
@@ -82,7 +82,7 @@ class DatabaseConnection {
   static run(sql: string, params: any[] = []): Promise<sqlite3.RunResult> {
     return new Promise((resolve, reject) => {
       const db = DatabaseConnection.getInstance()
-      db.run(sql, params, function(err) {
+      db.run(sql, params, function(this: sqlite3.RunResult, err: Error | null) {
         if (err) {
           reject(err)
         } else {
@@ -95,7 +95,7 @@ class DatabaseConnection {
   static get(sql: string, params: any[] = []): Promise<any> {
     return new Promise((resolve, reject) => {
       const db = DatabaseConnection.getInstance()
-      db.get(sql, params, (err, row) => {
+      db.get(sql, params, (err: Error | null, row: any) => {
         if (err) {
           reject(err)
         } else {
@@ -108,7 +108,7 @@ class DatabaseConnection {
   static all(sql: string, params: any[] = []): Promise<any[]> {
     return new Promise((resolve, reject) => {
       const db = DatabaseConnection.getInstance()
-      db.all(sql, params, (err, rows) => {
+      db.all(sql, params, (err: Error | null, rows: any[]) => {
         if (err) {
           reject(err)
         } else {
@@ -121,7 +121,7 @@ class DatabaseConnection {
   static exec(sql: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const db = DatabaseConnection.getInstance()
-      db.exec(sql, (err) => {
+      db.exec(sql, (err: Error | null) => {
         if (err) {
           reject(err)
         } else {

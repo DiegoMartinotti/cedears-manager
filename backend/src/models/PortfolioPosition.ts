@@ -39,7 +39,11 @@ export class PortfolioPosition {
         data.total_cost
       )
 
-      return this.findById(result.lastInsertRowid as number)!
+      const created = await this.findById(result.lastInsertRowid as number)
+      if (!created) {
+        throw new Error('Failed to retrieve created portfolio position')
+      }
+      return created
     } catch (error) {
       logger.error('Error creating portfolio position:', error)
       throw new Error(`Failed to create portfolio position: ${error instanceof Error ? error.message : String(error)}`)

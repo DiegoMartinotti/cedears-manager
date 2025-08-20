@@ -57,7 +57,11 @@ export class Quote {
         data.source || 'yahoo_finance'
       )
 
-      return this.findById(result.lastInsertRowid as number)!
+      const created = await this.findById(result.lastInsertRowid as number)
+      if (!created) {
+        throw new Error('Failed to retrieve created quote')
+      }
+      return created
     } catch (error) {
       logger.error('Error creating quote:', error)
       throw new Error(`Failed to create quote: ${error instanceof Error ? error.message : String(error)}`)
@@ -304,7 +308,11 @@ export class Quote {
           existing.id
         )
         
-        return this.findById(existing.id)!
+        const updated = await this.findById(existing.id)
+        if (!updated) {
+          throw new Error('Failed to retrieve updated quote')
+        }
+        return updated
       } else {
         // Create new quote
         return this.create(data)

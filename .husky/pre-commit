@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔍 Ejecutando controles de calidad de código..."
+
+# Ejecutar lint-staged para archivos modificados
+echo "📝 Analizando archivos modificados..."
+npx lint-staged
+
+# Si hay errores, cancelar commit
+if [ $? -ne 0 ]; then
+  echo "❌ Falló el control de calidad. Corrige los errores antes del commit."
+  echo "💡 Usa 'npm run quality:report' para ver un reporte completo."
+  exit 1
+fi
+
+echo "✅ Control de calidad completado exitosamente!"

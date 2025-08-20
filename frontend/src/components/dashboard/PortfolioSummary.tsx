@@ -181,6 +181,40 @@ export const PortfolioSummary: React.FC<PortfolioSummaryProps> = ({
         </div>
       )}
 
+      {/* Métricas de comisiones */}
+      {data && (
+        <div className="border-t pt-4 mt-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">
+            Impacto de Comisiones
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <SummaryCard
+              title="Comisiones Pagadas"
+              value={data.totalCommissions || 0}
+              subtitle="Total en operaciones"
+              variant="negative"
+              isLoading={isLoading}
+            />
+            
+            <SummaryCard
+              title="Custodia Estimada"
+              value={data.estimatedCustodyFee || 0}
+              subtitle="Mensual proyectada"
+              variant="negative"
+              isLoading={isLoading}
+            />
+            
+            <SummaryCard
+              title="Rentabilidad Neta"
+              value={formatPercentage((data.unrealizedPnLPercentage || 0) - (data.commissionImpact || 0))}
+              subtitle="Después de comisiones"
+              variant={getPercentageVariant((data.unrealizedPnLPercentage || 0) - (data.commissionImpact || 0))}
+              isLoading={isLoading}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Indicadores de rendimiento */}
       {data && !isLoading && (
         <div className="border-t pt-4 mt-4">

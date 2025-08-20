@@ -128,7 +128,7 @@ export class CommissionService {
     }
   }
 
-  private defaultConfig: CommissionConfig = this.brokerConfigs['galicia']
+  private defaultConfig: CommissionConfig = this.brokerConfigs['galicia']!
 
   /**
    * Calcula comisiones para una operación específica

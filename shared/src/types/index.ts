@@ -262,6 +262,9 @@ export interface PortfolioSummary {
   dayChangePercentage: number
   inflationAdjustedValue?: number
   inflationAdjustedReturn?: number
+  totalCommissions?: number
+  estimatedCustodyFee?: number
+  commissionImpact?: number
 }
 
 export interface CurrentPosition {

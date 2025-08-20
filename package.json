@@ -29,17 +29,32 @@
     "lint": "npm run frontend:lint && npm run backend:lint",
     "frontend:lint": "cd frontend && npm run lint",
     "backend:lint": "cd backend && npm run lint",
+    "lint:complexity": "npm run frontend:lint && npm run backend:lint",
+    "lint:duplicates": "jscpd --config .jscpdrc.json",
+    "quality:check": "npm run lint:complexity && npm run lint:duplicates",
+    "quality:report": "npm run quality:setup && npm run quality:check && npm run quality:dashboard",
+    "quality:setup": "rimraf quality-reports && mkdir quality-reports && mkdir quality-reports\\eslint && mkdir quality-reports\\duplicates",
+    "quality:dashboard": "node scripts/create-quality-dashboard.js",
+    "quality:html-reports": "npm run quality:eslint-html && npm run lint:duplicates",
+    "quality:eslint-html": "cd frontend && npx eslint src --format html -o ../quality-reports/eslint/frontend.html && cd ../backend && npx eslint src --format html -o ../quality-reports/eslint/backend.html",
+    "quality:test": "node scripts/test-quality-system.js",
     "install:all": "npm install && npm run install:workspaces",
     "install:workspaces": "npm install --workspaces",
     "clean": "rimraf node_modules */node_modules */dist */build",
-    "reset": "npm run clean && npm run install:all"
+    "reset": "npm run clean && npm run install:all",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2",
-    "wait-on": "^7.2.0",
-    "rimraf": "^5.0.5",
+    "@types/eslint": "^9.6.1",
     "@types/node": "^20.10.5",
-    "typescript": "^5.3.3"
+    "concurrently": "^8.2.2",
+    "eslint-html-reporter": "^0.7.4",
+    "husky": "^9.1.7",
+    "jscpd": "^4.0.5",
+    "lint-staged": "^16.1.5",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.3",
+    "wait-on": "^7.2.0"
   },
   "engines": {
     "node": ">=20.0.0",

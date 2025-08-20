@@ -5,7 +5,8 @@ import {
   Target, 
   Settings, 
   TrendingUp,
-  DollarSign 
+  DollarSign,
+  Calculator 
 } from 'lucide-react'
 import NavigationItem from './NavigationItem'
 
@@ -39,15 +40,27 @@ export default function Sidebar() {
           />
           
           <NavigationItem
+            to="/trades"
+            icon={<TrendingUp />}
+            label="Operaciones"
+          />
+          
+          <NavigationItem
             to="/portfolio"
             icon={<Briefcase />}
-            label="Operaciones"
+            label="Cartera"
           />
           
           <NavigationItem
             to="/goals"
             icon={<Target />}
             label="Objetivos"
+          />
+          
+          <NavigationItem
+            to="/commissions"
+            icon={<Calculator />}
+            label="Comisiones"
           />
         </div>
 

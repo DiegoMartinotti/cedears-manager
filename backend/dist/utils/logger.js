@@ -47,4 +47,3 @@ export function createLogger(service) {
 }
 // Default logger instance
 export const logger = createLogger('app');
-//# sourceMappingURL=logger.js.map

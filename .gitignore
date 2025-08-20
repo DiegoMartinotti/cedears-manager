@@ -1,3 +1,10 @@
 notas.md
 node_modules
 backend/logs/
+
+# Quality Reports (generados automáticamente)
+quality-reports/
+
+# Serena (MCP agent toolkit)
+toolsserena/
+.serena/

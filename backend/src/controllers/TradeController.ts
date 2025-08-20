@@ -1,6 +1,6 @@
 import { Request, Response } from 'express'
-import { TradeService, CommissionConfig } from '../services/TradeService.js'
-import { CommissionService } from '../services/CommissionService.js'
+import { TradeService } from '../services/TradeService.js'
+import { CommissionService, CommissionConfig } from '../services/CommissionService.js'
 import {
   TradeCreateSchema,
   TradeUpdateSchema,

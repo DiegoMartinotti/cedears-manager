@@ -3,6 +3,7 @@ import { TradeService } from './TradeService.js'
 import { QuoteService } from './QuoteService.js'
 import { UVAService } from './UVAService.js'
 import { InstrumentService } from './InstrumentService.js'
+import { CommissionService } from './CommissionService.js'
 import { createLogger } from '../utils/logger.js'
 // Tipos del dashboard - definidos localmente para evitar problemas de import
 export interface DashboardSummary {
@@ -23,6 +24,9 @@ export interface PortfolioSummary {
   dayChangePercentage: number
   inflationAdjustedValue?: number
   inflationAdjustedReturn?: number
+  totalCommissions?: number
+  estimatedCustodyFee?: number
+  commissionImpact?: number
 }
 
 export interface CurrentPosition {
@@ -226,6 +230,33 @@ export class DashboardService {
         dayChangePercentage,
         inflationAdjustedValue,
         inflationAdjustedReturn
+      }
+
+      // Calculate commission metrics
+      try {
+        const commissionService = new CommissionService()
+        const trades = await this.tradeService.getTradeHistory({})
+        
+        // Calculate total commissions paid
+        portfolioSummary.totalCommissions = trades.reduce((sum, trade) => {
+          return sum + (trade.commission || 0) + (trade.taxes || 0)
+        }, 0)
+
+        // Estimate monthly custody fee based on current portfolio value
+        const custodyProjection = await commissionService.calculateCustodyFee(
+          portfolioSummary.totalValue,
+          1,
+          'galicia'
+        )
+        portfolioSummary.estimatedCustodyFee = custodyProjection.monthlyFee
+
+        // Calculate commission impact on returns
+        const totalCosts = portfolioSummary.totalCommissions + (custodyProjection.monthlyFee * 12)
+        portfolioSummary.commissionImpact = portfolioSummary.totalValue > 0 
+          ? (totalCosts / portfolioSummary.totalValue) * 100 
+          : 0
+      } catch (error) {
+        logger.warn('Could not calculate commission metrics:', error)
       }
 
       return portfolioSummary

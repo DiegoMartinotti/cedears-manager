@@ -4,8 +4,6 @@ import { existsSync, mkdirSync } from 'fs';
 import { createLogger } from '../utils/logger.js';
 const logger = createLogger('database');
 class DatabaseConnection {
-    static instance = null;
-    static DB_PATH = process.env.DB_PATH || join(process.cwd(), 'database', 'cedears.db');
     static getInstance() {
         if (!DatabaseConnection.instance) {
             DatabaseConnection.instance = DatabaseConnection.createConnection();
@@ -56,5 +54,6 @@ class DatabaseConnection {
         }
     }
 }
+DatabaseConnection.instance = null;
+DatabaseConnection.DB_PATH = process.env.DB_PATH || join(process.cwd(), 'database', 'cedears.db');
 export default DatabaseConnection;
-//# sourceMappingURL=connection.js.map

@@ -1,0 +1,46 @@
+{
+  "threshold": 5,
+  "reporters": ["html", "console", "json"],
+  "output": "./quality-reports/duplicates",
+  "blame": true,
+  "gitignore": true,
+  "ignore": [
+    "node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "**/*.d.ts",
+    "**/coverage/**",
+    "quality-reports/**",
+    ".husky/**",
+    "electron/dist/**"
+  ],
+  "path": [
+    "backend/src",
+    "frontend/src", 
+    "shared/src"
+  ],
+  "format": [
+    "typescript",
+    "javascript",
+    "jsx"
+  ],
+  "minLines": 5,
+  "minTokens": 70,
+  "maxLines": 1000,
+  "maxSize": "50kb",
+  "config": {
+    "typescript": {
+      "threshold": 5
+    },
+    "javascript": {
+      "threshold": 5
+    },
+    "jsx": {
+      "threshold": 5
+    }
+  }
+}

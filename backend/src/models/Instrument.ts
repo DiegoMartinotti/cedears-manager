@@ -47,7 +47,11 @@ export class Instrument {
         data.is_active !== undefined ? data.is_active : true
       )
 
-      return this.findById(result.lastInsertRowid as number)!
+      const created = await this.findById(result.lastInsertRowid as number)
+      if (!created) {
+        throw new Error('Failed to retrieve created instrument')
+      }
+      return created
     } catch (error) {
       logger.error('Error creating instrument:', error)
       throw new Error(`Failed to create instrument: ${error instanceof Error ? error.message : String(error)}`)
