@@ -155,19 +155,19 @@ export const endpoints = {
 // Utility functions for common API patterns
 export const apiUtils = {
   // Generic GET request
-  get: async <T>(url: string, params?: Record<string, any>): Promise<T> => {
+  get: async <T>(url: string, params?: Record<string, string | number | boolean>): Promise<T> => {
     const response = await api.get<ApiResponse<T>>(url, { params })
     return response.data.data as T
   },
   
   // Generic POST request
-  post: async <T>(url: string, data?: any): Promise<T> => {
+  post: async <T>(url: string, data?: Record<string, unknown>): Promise<T> => {
     const response = await api.post<ApiResponse<T>>(url, data)
     return response.data.data as T
   },
   
   // Generic PUT request
-  put: async <T>(url: string, data?: any): Promise<T> => {
+  put: async <T>(url: string, data?: Record<string, unknown>): Promise<T> => {
     const response = await api.put<ApiResponse<T>>(url, data)
     return response.data.data as T
   },

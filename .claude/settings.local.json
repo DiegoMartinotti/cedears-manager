@@ -46,7 +46,11 @@
       "mcp__serena__write_memory",
       "mcp__serena__read_memory",
       "Bash(mv:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(git checkout:*)",
+      "Bash(git push:*)",
+      "mcp__serena__find_symbol",
+      "mcp__serena__replace_symbol_body"
     ],
     "deny": []
   }

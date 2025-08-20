@@ -5,10 +5,30 @@ import { createLogger } from '../utils/logger.js'
 
 const logger = createLogger('claude-service')
 
+export interface MarketDataResponse {
+  price: number
+  change: number
+  changePercent: number
+  volume?: number
+  marketCap?: number
+  fiftyTwoWeekHigh?: number
+  fiftyTwoWeekLow?: number
+  timestamp: Date
+}
+
+export interface ClaudeAnalysisDetails {
+  requestId: string
+  processingTime: number
+  confidence: number
+  dataPoints: string[]
+  model: string
+  tokens?: number
+}
+
 export interface ClaudeAnalysisRequest {
   prompt: string
   instrumentCode?: string
-  marketData?: any
+  marketData?: MarketDataResponse
   context?: string
 }
 
@@ -26,7 +46,7 @@ export class ClaudeServiceError extends Error {
   constructor(
     message: string,
     public code: string,
-    public details?: any
+    public details?: ClaudeAnalysisDetails | Record<string, unknown> | Error
   ) {
     super(message)
     this.name = 'ClaudeServiceError'
@@ -36,7 +56,7 @@ export class ClaudeServiceError extends Error {
 export class ClaudeService extends EventEmitter {
   private claudeCliPath: string
   private isInitialized: boolean = false
-  private pendingRequests: Map<string, any> = new Map()
+  private pendingRequests: Map<string, ClaudeAnalysisRequest> = new Map()
 
   constructor() {
     super()

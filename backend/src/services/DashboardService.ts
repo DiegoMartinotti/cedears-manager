@@ -11,7 +11,7 @@ export interface DashboardSummary {
   recentPositions: CurrentPosition[]
   marketSummary: MarketSummary
   performanceMetrics: PerformanceMetrics
-  notifications: any[]
+  notifications: NotificationItem[]
 }
 
 export interface PortfolioSummary {
@@ -119,8 +119,18 @@ export interface SectorDistribution {
   color?: string
 }
 
+export interface NotificationItem {
+  id: string
+  type: 'INFO' | 'WARNING' | 'SUCCESS' | 'ERROR'
+  title: string
+  message: string
+  timestamp: Date
+  read: boolean
+  actionUrl?: string
+}
+
 export interface ESGDistribution {
-  category: 'ESG Compliant' | 'Non-ESG' | 'Vegan Friendly' | 'Non-Vegan'
+  category: 'ESG' | 'Vegano' | 'Convencional' | 'No clasificado'
   value: number
   percentage: number
   positionsCount: number
@@ -520,7 +530,7 @@ export class DashboardService {
       }
 
       const byESGStatus: ESGDistribution[] = Array.from(esgMap.entries()).map(([category, data], index) => ({
-        category: category as any,
+        category: category as 'ESG' | 'Vegano' | 'Convencional' | 'No clasificado',
         value: data.value,
         percentage: totalValue > 0 ? (data.value / totalValue) * 100 : 0,
         positionsCount: data.count,
@@ -596,7 +606,7 @@ export class DashboardService {
     }
   }
 
-  private calculateDiversificationScore(positions: any[]): number {
+  private calculateDiversificationScore(positions: CurrentPosition[]): number {
     if (positions.length === 0) return 0
 
     // Score basado en número de posiciones y distribución de pesos

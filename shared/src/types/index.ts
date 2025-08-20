@@ -151,18 +151,18 @@ export interface ClaudeAnalysis {
 }
 
 // API response types
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean
   data?: T
   error?: {
     message: string
     code?: string
-    details?: any
+    details?: Record<string, unknown> | Error | ValidationError
   }
   timestamp: Date
 }
 
-export interface PaginatedResponse<T = any> extends ApiResponse<T> {
+export interface PaginatedResponse<T = unknown> extends ApiResponse<T> {
   pagination: {
     page: number
     limit: number
@@ -239,7 +239,7 @@ export interface DatabaseEntity {
 export interface AppError {
   code: string
   message: string
-  details?: any
+  details?: Record<string, unknown>
   timestamp: Date
 }
 

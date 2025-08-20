@@ -42,18 +42,34 @@ module.exports = {
       argsIgnorePattern: '^_',
       varsIgnorePattern: '^_' 
     }],
-    '@typescript-eslint/explicit-function-return-type': 'warn',
-    '@typescript-eslint/no-explicit-any': 'warn',
+    '@typescript-eslint/explicit-function-return-type': 'error',
+    '@typescript-eslint/no-explicit-any': 'error',
+    '@typescript-eslint/strict-boolean-expressions': 'error',
+    '@typescript-eslint/prefer-nullish-coalescing': 'error',
+    '@typescript-eslint/prefer-optional-chain': 'error',
+    '@typescript-eslint/no-floating-promises': 'error',
     
     // ESLint base
-    'complexity': ['error', 10],
+    'complexity': ['error', 8],
     'max-depth': ['error', 4],
-    'max-lines-per-function': ['error', 50],
+    'max-lines-per-function': ['error', 40],
     'max-params': ['error', 4],
     'no-console': 'warn',
     'prefer-const': 'error',
-    'no-var': 'error'
+    'no-var': 'error',
+    'prefer-template': 'error',
+    'no-useless-return': 'error',
+    'no-unneeded-ternary': 'error'
   },
+  overrides: [
+    {
+      files: ['*.test.ts', '*.spec.ts', '**/tests/**/*.ts'],
+      rules: {
+        '@typescript-eslint/no-explicit-any': 'warn',
+        'max-lines-per-function': ['error', 100]
+      }
+    }
+  ],
   ignorePatterns: [
     'dist/**/*',
     'node_modules/**/*',
