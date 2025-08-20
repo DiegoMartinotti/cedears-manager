@@ -245,23 +245,21 @@ export class DashboardService {
       // Calculate commission metrics
       try {
         const commissionService = new CommissionService()
-        const trades = await this.tradeService.getTradeHistory({})
+        const trades = await this.tradeService.findAll({})
         
         // Calculate total commissions paid
-        portfolioSummary.totalCommissions = trades.reduce((sum, trade) => {
+        portfolioSummary.totalCommissions = trades.reduce((sum: number, trade: any) => {
           return sum + (trade.commission || 0) + (trade.taxes || 0)
         }, 0)
 
         // Estimate monthly custody fee based on current portfolio value
-        const custodyProjection = await commissionService.calculateCustodyFee(
-          portfolioSummary.totalValue,
-          1,
-          'galicia'
+        const custodyProjection = commissionService.calculateCustodyFee(
+          portfolioSummary.totalValue
         )
         portfolioSummary.estimatedCustodyFee = custodyProjection.monthlyFee
 
         // Calculate commission impact on returns
-        const totalCosts = portfolioSummary.totalCommissions + (custodyProjection.monthlyFee * 12)
+        const totalCosts = (portfolioSummary.totalCommissions || 0) + (custodyProjection.monthlyFee * 12)
         portfolioSummary.commissionImpact = portfolioSummary.totalValue > 0 
           ? (totalCosts / portfolioSummary.totalValue) * 100 
           : 0
@@ -611,7 +609,7 @@ export class DashboardService {
 
     // Score basado en número de posiciones y distribución de pesos
     const positionCount = positions.length
-    const maxWeight = Math.max(...positions.map(p => p.weight_percentage))
+    const maxWeight = Math.max(...positions.map(p => p.weightPercentage))
     
     // Score base por número de posiciones (0-50 puntos)
     const positionScore = Math.min((positionCount / 20) * 50, 50)
@@ -623,11 +621,11 @@ export class DashboardService {
   }
 
   private generateColor(index: number): string {
-    const colors = [
+    const colors: string[] = [
       '#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6',
       '#06B6D4', '#F97316', '#84CC16', '#EC4899', '#6366F1',
       '#14B8A6', '#F472B6', '#A78BFA', '#34D399', '#FBBF24'
     ]
-    return colors[index % colors.length]
+    return colors[index % colors.length] || '#3B82F6'
   }
 }

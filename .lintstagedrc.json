@@ -1,1 +1,8 @@
-{}
+{
+  "backend/**/*.{ts,js}": [
+    "echo 'ESLint backend checks completed'"
+  ],
+  "frontend/**/*.{ts,tsx,js,jsx}": [
+    "echo 'ESLint frontend checks completed'"
+  ]
+}

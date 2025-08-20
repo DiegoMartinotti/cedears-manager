@@ -84,7 +84,7 @@ export class ClaudeService extends EventEmitter {
       throw new ClaudeServiceError(
         'Failed to initialize Claude service',
         'INIT_ERROR',
-        error
+        error as Error
       )
     }
   }

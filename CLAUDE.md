@@ -226,3 +226,4 @@ Task(description="Descripción corta", prompt="Tarea específica", subagent_type
 
 *Última actualización: 2025-07-24*
 *Versión: 1.1.0*
+- esta terminantemente prohibido hacer bypass de los hooks. No se puede hacer commit con errores.
