@@ -7,6 +7,7 @@ import Goals from './pages/Goals'
 import Settings from './pages/Settings'
 import { Commissions } from './pages/Commissions'
 import { Trades } from './pages/Trades'
+import CustodyPage from './pages/Custody'
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
           <Route path="/portfolio" element={<Portfolio />} />
           <Route path="/goals" element={<Goals />} />
           <Route path="/commissions" element={<Commissions />} />
+          <Route path="/custody" element={<CustodyPage />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </Layout>

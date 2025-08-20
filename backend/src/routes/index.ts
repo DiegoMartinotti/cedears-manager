@@ -7,6 +7,7 @@ import uvaRoutes from './uvaRoutes.js'
 import tradeRoutes from './tradeRoutes.js'
 import dashboardRoutes from './dashboardRoutes.js'
 import commissionRoutes from './commission-routes.js'
+import { custodyRoutes } from './custodyRoutes.js'
 import SimpleDatabaseConnection from '../database/simple-connection.js'
 
 const router = Router()
@@ -41,6 +42,7 @@ router.get('/', (req, res) => {
       trades: '/api/v1/trades',
       dashboard: '/api/v1/dashboard',
       commissions: '/api/v1/commissions',
+      custody: '/api/v1/custody',
       health: '/api/v1/health'
     },
     timestamp: new Date().toISOString()
@@ -56,5 +58,6 @@ router.use('/uva', uvaRoutes)
 router.use('/trades', tradeRoutes)
 router.use('/dashboard', dashboardRoutes)
 router.use('/commissions', commissionRoutes)
+router.use('/custody', custodyRoutes)
 
 export default router

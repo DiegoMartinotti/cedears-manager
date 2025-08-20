@@ -199,4 +199,18 @@ export class CommissionService {
   setDefaultConfiguration(broker: string): boolean {
     return this.configService.setDefaultConfiguration(broker)
   }
+
+  /**
+   * Obtiene el servicio de custodia para acceso directo
+   */
+  getCustodyService(): CustodyCommissionService {
+    return this.custodyService
+  }
+
+  /**
+   * Obtiene todas las configuraciones disponibles
+   */
+  getAllConfigurations(): CommissionConfig[] {
+    return this.configService.getAvailableConfigurations()
+  }
 }

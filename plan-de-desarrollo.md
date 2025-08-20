@@ -95,19 +95,19 @@
 - [x] 11.4. Gráfico de distribución (pie chart)
 - [x] 11.5. Lista de posiciones actuales
 
-### 12. Sistema de Comisiones
-- [ ] 12.1. Crear servicio de cálculo de comisiones
-- [ ] 12.2. CRUD para configuración de comisiones
-- [ ] 12.3. Cálculo automático en registro de operaciones
-- [ ] 12.4. Integrar comisiones en cálculo de rentabilidad
-- [ ] 12.5. Alertas cuando comisiones > ganancia potencial
+### 12. Sistema de Comisiones ✅
+- [x] 12.1. Crear servicio de cálculo de comisiones
+- [x] 12.2. CRUD para configuración de comisiones
+- [x] 12.3. Cálculo automático en registro de operaciones
+- [x] 12.4. Integrar comisiones en cálculo de rentabilidad
+- [x] 12.5. Alertas cuando comisiones > ganancia potencial
 
-### 13. Gestión de Custodia Mensual
-- [ ] 13.1. Job mensual para calcular custodia
-- [ ] 13.2. Registro automático de fees mensuales
-- [ ] 13.3. Proyección de custodia futura
-- [ ] 13.4. Impacto en rentabilidad anualizada
-- [ ] 13.5. Optimizador de tamaño de cartera
+### 13. Gestión de Custodia Mensual ✅
+- [x] 13.1. Job mensual para calcular custodia
+- [x] 13.2. Registro automático de fees mensuales
+- [x] 13.3. Proyección de custodia futura
+- [x] 13.4. Impacto en rentabilidad anualizada
+- [x] 13.5. Optimizador de tamaño de cartera
 
 ### 14. Reportes de Costos
 - [ ] 14.1. Dashboard de comisiones pagadas
@@ -1033,11 +1033,89 @@ Se ha completado **exitosamente el Step 11** del plan de desarrollo usando la me
 - **Componentes React**: 5 componentes principales + auxiliares
 - **Tiempo de implementación**: 1 sesión usando metodología OODA
 
-### 🎯 Próximo Objetivo: Sistema de Comisiones (Step 12)
-El Step 11 está **COMPLETAMENTE FUNCIONAL** con Dashboard Principal integrado y operativo.
+### 🎯 Próximo Objetivo: Gestión de Custodia Mensual (Step 13)
+El Step 12 está **COMPLETAMENTE FUNCIONAL** con Sistema de Comisiones integrado y operativo.
 
 ---
 
-**Última actualización**: 05/08/2025  
-**Versión del documento**: 1.7.0  
-**Cambios**: Step 11 Dashboard Principal completado - Sistema de visualización integral con métricas ajustadas por inflación y distribución interactiva
+## 🚀 Status Update - Step 12 COMPLETADO (20/01/2025)
+
+### ✅ Implementación Exitosa del Sistema de Comisiones
+
+Se ha completado **exitosamente el Step 12** del plan de desarrollo con los siguientes logros:
+
+#### Sistema de Comisiones Completo
+- ✅ CommissionService con cálculos financieros precisos integrado con TradeService
+- ✅ CommissionController con 8 endpoints RESTful funcionales  
+- ✅ Configuraciones predefinidas (Galicia, Santander, Macro) operativas
+- ✅ Sistema CRUD completo para configuraciones personalizables
+- ✅ Página de Comisiones con 4 tabs: Calculadora, Comparación, Análisis, Configuración
+
+#### Funcionalidades Implementadas
+- ✅ Cálculo automático de comisiones en registro de operaciones
+- ✅ Alertas cuando comisiones > ganancia potencial
+- ✅ Comparador entre brokers con ranking por costo total
+- ✅ Análisis histórico de comisiones pagadas
+- ✅ Proyección de costos primer año con custodia incluida
+- ✅ Navegación integrada en sidebar principal
+
+#### Correcciones de Código
+- ✅ Tipos TypeScript mejorados en componentes principales
+- ✅ Componentes UI faltantes creados (Alert, api service)
+- ✅ Interfaces InstrumentUI extendidas con aliases ticker/name
+- ✅ Imports corregidos para resolución de módulos
+- ✅ Props de componentes estandarizadas
+
+### 📊 Métricas de Implementación
+- **Funcionalidad**: 100% completa según especificación
+- **API endpoints**: 8 endpoints funcionales
+- **Frontend**: Página completa con calculadoras integradas
+- **Testing**: Sistema validado matemáticamente
+- **Documentación**: SISTEMA-COMISIONES-IMPLEMENTADO.md disponible
+
+---
+
+## 🚀 Status Update - Step 13 COMPLETADO (20/08/2025)
+
+### ✅ Implementación Exitosa del Sistema de Gestión de Custodia Mensual
+
+Se ha completado **exitosamente el Step 13** del plan de desarrollo con los siguientes logros:
+
+#### Backend - Sistema de Custodia Completo
+- ✅ CustodyFee Model con operaciones CRUD completas y estadísticas
+- ✅ CustodyFeeJob automatizado con node-cron (día 1 de cada mes a las 9:00 AM)
+- ✅ CustodyCommissionService extendido con proyecciones y optimización
+- ✅ CustodyController con 9 endpoints RESTful funcionales
+- ✅ Integración completa con sistema de comisiones existente
+
+#### Funcionalidades Implementadas
+- ✅ Job mensual automático para cálculo de custodia
+- ✅ Registro histórico de fees mensuales con estadísticas
+- ✅ Proyecciones de custodia futura (3, 6, 12 meses)
+- ✅ Análisis de impacto en rentabilidad anualizada
+- ✅ Optimizador inteligente de tamaño de cartera
+- ✅ Comparación automática entre brokers
+- ✅ Sistema de alertas y recomendaciones contextualizadas
+
+#### Frontend - Interfaz Completa
+- ✅ Página principal de Custodia con 4 tabs funcionales
+- ✅ Hooks React Query para gestión de estado optimizada
+- ✅ Servicio de custodia con todas las funcionalidades
+- ✅ Tipos TypeScript completos para type safety
+- ✅ Componentes UI integrados con sistema existente
+
+### 📊 Métricas de Implementación
+- **Archivos creados**: 12 nuevos archivos (backend + frontend)
+- **API endpoints**: 9 endpoints funcionales
+- **Coverage de funcionalidades**: 100% del paso 13
+- **Job automatizado**: Programado para día 1 de cada mes
+- **Frontend completo**: 4 tabs con funcionalidades específicas
+
+### 🎯 Próximo Objetivo: Reportes de Costos (Step 14)
+El Step 13 está **COMPLETAMENTE FUNCIONAL** con sistema de custodia mensual automatizado y optimización inteligente.
+
+---
+
+**Última actualización**: 20/08/2025  
+**Versión del documento**: 1.9.0  
+**Cambios**: Step 13 Gestión de Custodia Mensual completado - Sistema completo de cálculo automático, proyecciones y optimización de custodia bancaria

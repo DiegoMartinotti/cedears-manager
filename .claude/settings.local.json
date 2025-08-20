@@ -53,7 +53,8 @@
       "mcp__serena__replace_symbol_body",
       "mcp__serena__think_about_collected_information",
       "mcp__serena__think_about_whether_you_are_done",
-      "Bash(pnpm lint:complexity:*)"
+      "Bash(pnpm lint:complexity:*)",
+      "mcp__serena__search_for_pattern"
     ],
     "deny": []
   }
