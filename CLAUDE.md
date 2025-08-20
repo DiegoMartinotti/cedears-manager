@@ -178,40 +178,6 @@ El proyecto tiene un **plan de desarrollo detallado en 6 fases** con 37 módulos
 
 **14 semanas** desde el inicio del desarrollo hasta la primera versión productiva.
 
-## Subagentes OODA Configurados
-
-### 🤖 Metodología de Trabajo Proactiva
-**IMPORTANTE**: Para TODAS las tareas asignadas, utilizar proactivamente los subagentes OODA en secuencia:
-
-1. **🔍 /observe** - Recopilar información sobre el problema/tarea
-2. **🧭 /orient** - Analizar y sintetizar los datos obtenidos  
-3. **🎯 /decide** - Evaluar opciones y generar recomendaciones
-4. **⚡ /act** - Implementar la solución decidida
-
-### Subagentes Disponibles
-```bash
-# Subagentes especializados en .claude/agents/
-observe     # Fase de observación y recolección de datos
-orient      # Fase de análisis y síntesis de información  
-decide      # Fase de evaluación y recomendaciones
-act         # Fase de implementación y ejecución
-```
-
-### Invocación Correcta
-Los subagentes se invocan usando la herramienta Task:
-```
-Task(description="Descripción corta", prompt="Tarea específica", subagent_type="observe")
-Task(description="Descripción corta", prompt="Tarea específica", subagent_type="orient")
-Task(description="Descripción corta", prompt="Tarea específica", subagent_type="decide")
-Task(description="Descripción corta", prompt="Tarea específica", subagent_type="act")
-```
-
-### Uso Proactivo Obligatorio
-- **Usar siempre los 4 subagentes** para tareas complejas (3+ pasos)
-- **Seguir la secuencia OODA** para resolver problemas sistemáticamente
-- **Cada subagente se especializa** en su fase específica del proceso
-- **Documentar el flujo** de decisiones entre fases
-
 ## Comandos Importantes para el Desarrollo
 
 ### Cuando empieces a desarrollar:
