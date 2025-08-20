@@ -8,7 +8,9 @@ export const transformInstrumentToUI = (instrument: Instrument): InstrumentUI =>
   return {
     id: instrument.id!,
     symbol: instrument.symbol,
+    ticker: instrument.symbol, // Alias
     companyName: instrument.company_name,
+    name: instrument.company_name, // Alias
     sector: instrument.sector,
     industry: instrument.industry,
     marketCap: instrument.market_cap,

@@ -383,42 +383,48 @@ export const Commissions: React.FC = () => {
             <h3 className="text-lg font-semibold mb-4">Comparación entre Brokers</h3>
             
             <form onSubmit={handleComparisonSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Select
-                label="Tipo de operación"
-                value={comparisonForm.operationType}
-                onChange={(value) => setComparisonForm(prev => ({ ...prev, operationType: value as 'BUY' | 'SELL' }))}
-              >
-                <option value="BUY">Compra</option>
-                <option value="SELL">Venta</option>
-              </Select>
+              <div className="flex flex-col space-y-2">
+                <label className="text-sm font-medium">Tipo de operación</label>
+                <Select
+                  value={comparisonForm.operationType}
+                  onChange={(e) => setComparisonForm(prev => ({ ...prev, operationType: e.target.value as 'BUY' | 'SELL' }))}
+                >
+                  <option value="BUY">Compra</option>
+                  <option value="SELL">Venta</option>
+                </Select>
+              </div>
 
-              <Input
-                label="Monto operación (ARS)"
-                type="number"
-                min="0"
-                step="0.01"
-                value={comparisonForm.amount}
-                onChange={(e) => setComparisonForm(prev => ({ ...prev, amount: e.target.value }))}
-                placeholder="50000"
-                required
-              />
+              <div className="flex flex-col space-y-2">
+                <label className="text-sm font-medium">Monto operación (ARS)</label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={comparisonForm.amount}
+                  onChange={(e) => setComparisonForm(prev => ({ ...prev, amount: e.target.value }))}
+                  placeholder="50000"
+                  required
+                />
+              </div>
 
-              <Input
-                label="Valor de cartera (ARS)"
-                type="number"
-                min="0"
-                step="0.01"
-                value={comparisonForm.portfolioValue}
-                onChange={(e) => setComparisonForm(prev => ({ ...prev, portfolioValue: e.target.value }))}
-                placeholder="1000000"
-                required
-              />
+              <div className="flex flex-col space-y-2">
+                <label className="text-sm font-medium">Valor de cartera (ARS)</label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={comparisonForm.portfolioValue}
+                  onChange={(e) => setComparisonForm(prev => ({ ...prev, portfolioValue: e.target.value }))}
+                  placeholder="1000000"
+                  required
+                />
+              </div>
 
               <div className="flex items-end">
                 <Button
                   type="submit"
                   disabled={isCalculating || !comparisonForm.amount || !comparisonForm.portfolioValue}
-                  variant="primary"
+                  variant="default"
                   className="w-full"
                 >
                   {isCalculating ? <LoadingSpinner size="sm" /> : 'Comparar'}

@@ -13,8 +13,6 @@ import {
   TrendingUp, 
   TrendingDown,
   Search,
-  Filter,
-  MoreVertical,
   Edit,
   Trash2,
   Leaf,

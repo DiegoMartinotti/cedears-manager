@@ -293,7 +293,7 @@ export function Trades() {
 
                 {/* Alerta cuando comisiones superan ganancia potencial */}
                 {formData.type === 'SELL' && formData.instrumentId > 0 && (() => {
-                  const position = trades?.find(t => 
+                  const position = trades?.find((t: any) => 
                     t.instrumentId === formData.instrumentId && 
                     t.type === 'BUY'
                   );
@@ -384,7 +384,7 @@ export function Trades() {
                         {new Date(trade.tradeDate).toLocaleDateString()}
                       </td>
                       <td className="py-3">
-                        <Badge variant={trade.type === 'BUY' ? 'blue' : 'green'}>
+                        <Badge variant={trade.type === 'BUY' ? 'secondary' : 'success'}>
                           <div className="flex items-center">
                             {trade.type === 'BUY' ? (
                               <TrendingDown className="h-3 w-3 mr-1" />

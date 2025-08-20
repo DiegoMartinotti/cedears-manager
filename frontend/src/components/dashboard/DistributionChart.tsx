@@ -1,10 +1,10 @@
 import React, { useState } from 'react'
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis } from 'recharts'
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { useDistributionData } from '../../hooks/useDashboard'
-import type { DistributionData, AssetDistribution, SectorDistribution, ESGDistribution } from '../../../../shared/src/types'
+import type { DistributionData } from '../../../../shared/src/types'
 
 interface DistributionChartProps {
   data?: DistributionData

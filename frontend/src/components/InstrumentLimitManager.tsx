@@ -1,5 +1,5 @@
 import React from 'react'
-import { InstrumentUI } from '@cedears-manager/shared/types'
+// import { InstrumentUI } from '@cedears-manager/shared/types'
 import { useInstrumentsCount } from '../hooks/useInstruments'
 import { Card, CardContent } from './ui/Card'
 import { Badge } from './ui/Badge'
@@ -8,10 +8,8 @@ import {
   AlertTriangle, 
   CheckCircle, 
   TrendingUp, 
-  Zap,
   Target,
-  AlertCircle,
-  Info
+  AlertCircle
 } from 'lucide-react'
 import { cn } from '../utils/cn'
 
@@ -281,9 +279,6 @@ export const useCanAddInstrument = () => {
   const limit = useInstrumentLimit()
   return {
     canAdd: limit.canAddMore,
-    remaining: limit.remaining,
-    isNearLimit: limit.isNearLimit,
-    isAtLimit: limit.isAtLimit,
     ...limit,
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { format } from 'date-fns'
 import { Activity, TrendingUp, TrendingDown, RefreshCw, BarChart3 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
@@ -10,7 +10,7 @@ import { PortfolioSummary } from '@/components/dashboard/PortfolioSummary'
 import { DistributionChart } from '@/components/dashboard/DistributionChart'
 import { CurrentPositions } from '@/components/dashboard/CurrentPositions'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
-import { LoadingState, PageLoadingState, PageErrorState } from '@/components/ui/LoadingSpinner'
+import { PageLoadingState, PageErrorState } from '@/components/ui/LoadingSpinner'
 import { useWatchlistQuotes, useMarketHours, useUpdateQuotes, useQuoteChart } from '@/hooks/useQuotes'
 import { useInstruments } from '@/hooks/useInstruments'
 import { useDashboardData, useRefreshDashboard } from '@/hooks/useDashboard'
@@ -21,7 +21,12 @@ export default function Dashboard() {
 
   // Hooks para datos
   const { data: instruments, isLoading: instrumentsLoading } = useInstruments()
-  const { quotes, isLoading: quotesLoading, error: quotesError, lastUpdate, forceRefresh } = useWatchlistQuotes()
+  const watchlistQuotes = useWatchlistQuotes()
+  const quotes = watchlistQuotes.data || []
+  const quotesLoading = watchlistQuotes.isLoading
+  const quotesError = watchlistQuotes.error
+  const lastUpdate = watchlistQuotes.lastUpdate || null
+  const forceRefresh = () => watchlistQuotes.refetch?.()
   const { data: marketHours } = useMarketHours()
   const updateQuotes = useUpdateQuotes()
   
@@ -46,15 +51,15 @@ export default function Dashboard() {
   // Calcular métricas del dashboard
   const totalInstruments = instruments?.length || 0
   const totalQuotes = quotes?.length || 0
-  const quotesWithPrices = quotes?.filter(q => q.price > 0) || []
+  const quotesWithPrices = quotes?.filter((q: any) => q.price > 0) || []
   
   // Calcular valor total de cartera (mock - necesitaría datos de portfolio)
-  const totalPortfolioValue = quotesWithPrices.reduce((sum, quote) => sum + quote.price, 0)
+  const totalPortfolioValue = quotesWithPrices.reduce((sum: number, quote: any) => sum + quote.price, 0)
   
   // Calcular cambios promedio
-  const quotesWithChange = quotesWithPrices.filter(q => q.close && q.price !== q.close)
+  const quotesWithChange = quotesWithPrices.filter((q: any) => q.close && q.price !== q.close)
   const averageChange = quotesWithChange.length > 0 
-    ? quotesWithChange.reduce((sum, quote) => {
+    ? quotesWithChange.reduce((sum: number, quote: any) => {
         if (quote.close) {
           return sum + ((quote.price - quote.close) / quote.close * 100)
         }

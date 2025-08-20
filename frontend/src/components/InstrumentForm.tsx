@@ -47,8 +47,8 @@ const instrumentSchema = z.object({
     .number()
     .positive('Market cap must be positive')
     .optional(),
-  isESGCompliant: z.boolean().default(false),
-  isVeganFriendly: z.boolean().default(false),
+  isESGCompliant: z.boolean().optional().default(false),
+  isVeganFriendly: z.boolean().optional().default(false),
   underlyingSymbol: z
     .string()
     .max(10, 'Underlying symbol must be 10 characters or less')
@@ -60,8 +60,9 @@ const instrumentSchema = z.object({
   ratio: z
     .number()
     .positive('Ratio must be positive')
+    .optional()
     .default(1.0),
-  isActive: z.boolean().default(true),
+  isActive: z.boolean().optional().default(true),
 })
 
 type InstrumentFormData = z.infer<typeof instrumentSchema>

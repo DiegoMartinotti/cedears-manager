@@ -36,7 +36,9 @@ export interface Instrument {
 export interface InstrumentUI {
   id: number
   symbol: string
+  ticker: string // Alias for symbol
   companyName: string
+  name: string // Alias for companyName
   sector?: string
   industry?: string
   marketCap?: number
@@ -61,7 +63,7 @@ export interface InstrumentFilters {
   offset?: number
 }
 
-export interface BulkInstrumentData {
+export interface BulkInstrumentData extends Record<string, unknown> {
   instruments: Omit<Instrument, 'id' | 'created_at' | 'updated_at'>[]
 }
 
@@ -157,7 +159,7 @@ export interface ApiResponse<T = unknown> {
   error?: {
     message: string
     code?: string
-    details?: Record<string, unknown> | Error | ValidationError
+    details?: Record<string, unknown> | Error
   }
   timestamp: Date
 }
