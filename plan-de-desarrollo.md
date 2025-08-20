@@ -110,11 +110,11 @@
 - [x] 13.5. Optimizador de tamaño de cartera
 
 ### 14. Reportes de Costos
-- [ ] 14.1. Dashboard de comisiones pagadas
-- [ ] 14.2. Análisis de impacto de comisiones
-- [ ] 14.3. Comparación comisiones vs ganancia
-- [ ] 14.4. Reporte anual de costos totales
-- [ ] 14.5. Exportación de datos para impuestos
+- [x] 14.1. Dashboard de comisiones pagadas
+- [x] 14.2. Análisis de impacto de comisiones
+- [x] 14.3. Comparación comisiones vs ganancia
+- [x] 14.4. Reporte anual de costos totales
+- [x] 14.5. Exportación de datos para impuestos
 
 ---
 
