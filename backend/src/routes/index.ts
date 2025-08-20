@@ -8,6 +8,7 @@ import tradeRoutes from './tradeRoutes.js'
 import dashboardRoutes from './dashboardRoutes.js'
 import commissionRoutes from './commission-routes.js'
 import { custodyRoutes } from './custodyRoutes.js'
+import reportsRoutes from './reportsRoutes.js'
 import SimpleDatabaseConnection from '../database/simple-connection.js'
 
 const router = Router()
@@ -43,6 +44,7 @@ router.get('/', (req, res) => {
       dashboard: '/api/v1/dashboard',
       commissions: '/api/v1/commissions',
       custody: '/api/v1/custody',
+      reports: '/api/v1/reports',
       health: '/api/v1/health'
     },
     timestamp: new Date().toISOString()
@@ -59,5 +61,6 @@ router.use('/trades', tradeRoutes)
 router.use('/dashboard', dashboardRoutes)
 router.use('/commissions', commissionRoutes)
 router.use('/custody', custodyRoutes)
+router.use('/reports', reportsRoutes)
 
 export default router

@@ -223,6 +223,38 @@ export const migrations: Migration[] = [
     down: `
       DROP TABLE IF EXISTS migrations_log;
     `
+  },
+  {
+    id: '009_create_cost_reports',
+    description: 'Create cost reports table for managing report exports',
+    up: `
+      CREATE TABLE IF NOT EXISTS cost_reports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        reportType VARCHAR(50) NOT NULL,
+        reportDate DATE NOT NULL,
+        dateRange VARCHAR(50) NOT NULL,
+        reportData TEXT NOT NULL,
+        generatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        expiresAt DATETIME,
+        fileSize INTEGER,
+        recordCount INTEGER,
+        parameters TEXT NOT NULL,
+        status VARCHAR(20) NOT NULL CHECK (status IN ('generating', 'ready', 'expired', 'error')),
+        error TEXT
+      );
+      
+      CREATE INDEX idx_cost_reports_type ON cost_reports(reportType);
+      CREATE INDEX idx_cost_reports_status ON cost_reports(status);
+      CREATE INDEX idx_cost_reports_date ON cost_reports(reportDate);
+      CREATE INDEX idx_cost_reports_generated ON cost_reports(generatedAt);
+    `,
+    down: `
+      DROP INDEX IF EXISTS idx_cost_reports_generated;
+      DROP INDEX IF EXISTS idx_cost_reports_date;
+      DROP INDEX IF EXISTS idx_cost_reports_status;
+      DROP INDEX IF EXISTS idx_cost_reports_type;
+      DROP TABLE IF EXISTS cost_reports;
+    `
   }
 ]
 
