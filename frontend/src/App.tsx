@@ -10,6 +10,7 @@ import { Commissions } from './pages/Commissions'
 import { Trades } from './pages/Trades'
 import CustodyPage from './pages/Custody'
 import SellAnalysis from './pages/SellAnalysis'
+import { ContextualAnalysis } from './pages/ContextualAnalysis'
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
           <Route path="/commissions" element={<Commissions />} />
           <Route path="/custody" element={<CustodyPage />} />
           <Route path="/sell-analysis" element={<SellAnalysis />} />
+          <Route path="/contextual" element={<ContextualAnalysis />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </Layout>

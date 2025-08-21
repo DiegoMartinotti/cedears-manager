@@ -12,6 +12,7 @@ import apiRoutes from './routes/index.js'
 import { initializeTechnicalAnalysisJob } from './jobs/technicalAnalysisJob.js'
 import { initializeOpportunityScannerJob } from './jobs/opportunityScannerJob.js'
 import { sellMonitorJob } from './jobs/SellMonitorJob.js'
+import { contextualAnalysisJob } from './jobs/ContextualAnalysisJob.js'
 
 // Load environment variables
 dotenv.config()
@@ -109,6 +110,10 @@ async function startServer() {
     // Initialize sell monitor job
     logger.info('✅ Sell monitor job initialized')
 
+    // Initialize contextual analysis job
+    contextualAnalysisJob.start()
+    logger.info('✅ Contextual analysis job initialized')
+
     // Start the server
     const server = app.listen(PORT, () => {
       logger.info(`🚀 CEDEARs Manager Backend started on port ${PORT}`)
@@ -143,6 +148,14 @@ async function startServer() {
         logger.info('Sell monitor job stopped')
       } catch (error) {
         logger.error('Error stopping sell monitor job:', error)
+      }
+
+      // Stop contextual analysis job
+      try {
+        contextualAnalysisJob.stop()
+        logger.info('Contextual analysis job stopped')
+      } catch (error) {
+        logger.error('Error stopping contextual analysis job:', error)
       }
 
       server.close(() => {

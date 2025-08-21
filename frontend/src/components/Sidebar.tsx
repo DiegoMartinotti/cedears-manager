@@ -8,7 +8,8 @@ import {
   DollarSign,
   Calculator,
   Zap,
-  TrendingDown
+  TrendingDown,
+  Brain
 } from 'lucide-react'
 import NavigationItem from './NavigationItem'
 
@@ -75,6 +76,12 @@ export default function Sidebar() {
             to="/sell-analysis"
             icon={<TrendingDown />}
             label="Análisis de Venta"
+          />
+          
+          <NavigationItem
+            to="/contextual"
+            icon={<Brain />}
+            label="Análisis Contextual"
           />
         </div>
 
