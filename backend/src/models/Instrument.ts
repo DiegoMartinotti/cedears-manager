@@ -195,3 +195,6 @@ export class Instrument {
     }
   }
 }
+
+// Singleton instance
+export const instrumentModel = new Instrument()

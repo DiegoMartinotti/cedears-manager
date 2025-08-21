@@ -120,12 +120,12 @@
 
 ## 🤖 FASE 3: Inteligencia con Claude (Semana 6-8)
 
-### 15. Análisis Técnico Básico
-- [ ] 15.1. Cálculo de RSI para cada instrumento
-- [ ] 15.2. Detección de mínimos/máximos anuales
-- [ ] 15.3. Cálculo de medias móviles (20, 50, 200)
-- [ ] 15.4. Almacenamiento de indicadores en DB
-- [ ] 15.5. API endpoints para obtener indicadores
+### 15. Análisis Técnico Básico ✅
+- [x] 15.1. Cálculo de RSI para cada instrumento
+- [x] 15.2. Detección de mínimos/máximos anuales
+- [x] 15.3. Cálculo de medias móviles (20, 50, 200)
+- [x] 15.4. Almacenamiento de indicadores en DB
+- [x] 15.5. API endpoints para obtener indicadores
 
 ### 16. Scanner de Oportunidades de Compra
 - [ ] 16.1. Job diario a las 10:30 AM

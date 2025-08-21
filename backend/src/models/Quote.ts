@@ -434,3 +434,5 @@ export class Quote {
     }
   }
 }
+// Singleton instance
+export const quoteModel = new Quote()

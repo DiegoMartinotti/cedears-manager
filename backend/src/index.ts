@@ -9,6 +9,7 @@ import { errorHandler } from './middleware/errorHandler.js'
 import { notFoundHandler } from './middleware/notFoundHandler.js'
 import SimpleDatabaseConnection from './database/simple-connection.js'
 import apiRoutes from './routes/index.js'
+import { initializeTechnicalAnalysisJob } from './jobs/technicalAnalysisJob.js'
 
 // Load environment variables
 dotenv.config()
@@ -95,6 +96,10 @@ async function startServer() {
     SimpleDatabaseConnection.getInstance()
     logger.info('✅ Database initialized')
 
+    // Initialize technical analysis job
+    const technicalAnalysisJob = initializeTechnicalAnalysisJob()
+    logger.info('✅ Technical analysis job initialized')
+
     // Start the server
     const server = app.listen(PORT, () => {
       logger.info(`🚀 CEDEARs Manager Backend started on port ${PORT}`)
@@ -104,8 +109,17 @@ async function startServer() {
     })
 
     // Graceful shutdown handlers
-    const gracefulShutdown = (signal: string) => {
+    const gracefulShutdown = async (signal: string) => {
       logger.info(`${signal} received, shutting down gracefully`)
+      
+      // Stop technical analysis job
+      try {
+        await technicalAnalysisJob.stop()
+        logger.info('Technical analysis job stopped')
+      } catch (error) {
+        logger.error('Error stopping technical analysis job:', error)
+      }
+
       server.close(() => {
         logger.info('HTTP server closed')
         // Close database connection

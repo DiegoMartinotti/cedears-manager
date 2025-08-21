@@ -9,11 +9,14 @@ import { QuoteChart } from '@/components/quotes/QuoteChart'
 import { PortfolioSummary } from '@/components/dashboard/PortfolioSummary'
 import { DistributionChart } from '@/components/dashboard/DistributionChart'
 import { CurrentPositions } from '@/components/dashboard/CurrentPositions'
+import { SignalAlerts } from '@/components/TechnicalIndicators/SignalAlerts'
+import { TechnicalIndicatorsList } from '@/components/TechnicalIndicators/TechnicalIndicatorsList'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { PageLoadingState, PageErrorState } from '@/components/ui/LoadingSpinner'
 import { useWatchlistQuotes, useMarketHours, useUpdateQuotes, useQuoteChart } from '@/hooks/useQuotes'
 import { useInstruments } from '@/hooks/useInstruments'
 import { useDashboardData, useRefreshDashboard } from '@/hooks/useDashboard'
+import { useSignalsOverview } from '@/hooks/useTechnicalIndicators'
 
 export default function Dashboard() {
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null)
@@ -36,6 +39,9 @@ export default function Dashboard() {
     refetchInterval: 60000 // 1 minuto
   })
   const refreshDashboard = useRefreshDashboard()
+  
+  // Hook para señales técnicas
+  const { buySignals, sellSignals, totalSignals, isLoading: signalsLoading } = useSignalsOverview()
   
   // Hook para el gráfico del símbolo seleccionado
   const { 
@@ -154,7 +160,7 @@ export default function Dashboard() {
       </div>
 
       {/* Métricas principales */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         <Card className="p-6">
           <div className="flex items-center space-x-2">
             <BarChart3 className="w-5 h-5 text-blue-600" />
@@ -198,7 +204,60 @@ export default function Dashboard() {
           </p>
           <p className="text-sm text-gray-500">Mock - Suma de precios</p>
         </Card>
+
+        <Card className="p-6">
+          <div className="flex items-center space-x-2">
+            <Activity className="w-5 h-5 text-orange-600" />
+            <h3 className="text-lg font-semibold">Señales Técnicas</h3>
+          </div>
+          <div className="flex items-baseline space-x-2 mt-2">
+            <p className="text-2xl font-bold text-orange-600">{totalSignals}</p>
+            {signalsLoading && <div className="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"></div>}
+          </div>
+          <div className="flex space-x-2 text-xs mt-1">
+            <span className="text-green-600">BUY: {buySignals.length}</span>
+            <span className="text-red-600">SELL: {sellSignals.length}</span>
+          </div>
+        </Card>
       </div>
+
+      {/* Señales Técnicas Activas */}
+      {totalSignals > 0 && (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <ErrorBoundary fallback={
+            <Card className="p-6">
+              <div className="text-center text-red-600">
+                <h3 className="text-lg font-semibold mb-2">Error en señales técnicas</h3>
+                <p className="text-sm">No se pudieron cargar las señales técnicas</p>
+              </div>
+            </Card>
+          }>
+            <SignalAlerts 
+              showFilters={false}
+              maxSignals={10}
+              minStrength={60}
+              compact={true}
+            />
+          </ErrorBoundary>
+          
+          {selectedSymbol && (
+            <ErrorBoundary fallback={
+              <Card className="p-6">
+                <div className="text-center text-red-600">
+                  <h3 className="text-lg font-semibold mb-2">Error en indicadores</h3>
+                  <p className="text-sm">No se pudieron cargar los indicadores técnicos</p>
+                </div>
+              </Card>
+            }>
+              <TechnicalIndicatorsList 
+                symbol={selectedSymbol}
+                showCalculateButton={true}
+                compact={true}
+              />
+            </ErrorBoundary>
+          )}
+        </div>
+      )}
 
       {/* Portfolio Summary - Nuevo componente */}
       {dashboardData.portfolioSummary.data && (

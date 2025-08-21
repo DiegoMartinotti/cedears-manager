@@ -56,6 +56,9 @@
       "Bash(pnpm lint:complexity:*)",
       "mcp__serena__search_for_pattern"
     ],
-    "deny": []
+    "deny": [],
+    "additionalDirectories": [
+      "C:\\c\\proyectos\\cedears-manager"
+    ]
   }
 }
