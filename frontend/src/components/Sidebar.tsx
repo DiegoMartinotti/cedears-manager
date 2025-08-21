@@ -6,7 +6,8 @@ import {
   Settings, 
   TrendingUp,
   DollarSign,
-  Calculator 
+  Calculator,
+  Zap
 } from 'lucide-react'
 import NavigationItem from './NavigationItem'
 
@@ -37,6 +38,12 @@ export default function Sidebar() {
             to="/watchlist"
             icon={<Eye />}
             label="Watchlist"
+          />
+
+          <NavigationItem
+            to="/opportunities"
+            icon={<Zap />}
+            label="Oportunidades"
           />
           
           <NavigationItem

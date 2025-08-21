@@ -10,6 +10,7 @@ import { notFoundHandler } from './middleware/notFoundHandler.js'
 import SimpleDatabaseConnection from './database/simple-connection.js'
 import apiRoutes from './routes/index.js'
 import { initializeTechnicalAnalysisJob } from './jobs/technicalAnalysisJob.js'
+import { initializeOpportunityScannerJob } from './jobs/opportunityScannerJob.js'
 
 // Load environment variables
 dotenv.config()
@@ -100,6 +101,10 @@ async function startServer() {
     const technicalAnalysisJob = initializeTechnicalAnalysisJob()
     logger.info('✅ Technical analysis job initialized')
 
+    // Initialize opportunity scanner job
+    const opportunityScannerJob = initializeOpportunityScannerJob()
+    logger.info('✅ Opportunity scanner job initialized')
+
     // Start the server
     const server = app.listen(PORT, () => {
       logger.info(`🚀 CEDEARs Manager Backend started on port ${PORT}`)
@@ -118,6 +123,14 @@ async function startServer() {
         logger.info('Technical analysis job stopped')
       } catch (error) {
         logger.error('Error stopping technical analysis job:', error)
+      }
+
+      // Stop opportunity scanner job
+      try {
+        await opportunityScannerJob.stop()
+        logger.info('Opportunity scanner job stopped')
+      } catch (error) {
+        logger.error('Error stopping opportunity scanner job:', error)
       }
 
       server.close(() => {

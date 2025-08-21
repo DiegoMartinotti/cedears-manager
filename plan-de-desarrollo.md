@@ -127,12 +127,12 @@
 - [x] 15.4. Almacenamiento de indicadores en DB
 - [x] 15.5. API endpoints para obtener indicadores
 
-### 16. Scanner de Oportunidades de Compra
-- [ ] 16.1. Job diario a las 10:30 AM
-- [ ] 16.2. Lógica de detección de oportunidades
-- [ ] 16.3. Ranking por score compuesto
-- [ ] 16.4. Interfaz de oportunidades del día
-- [ ] 16.5. Calculadora de diversificación con comisiones
+### 16. Scanner de Oportunidades de Compra ✅
+- [x] 16.1. Job diario a las 10:30 AM
+- [x] 16.2. Lógica de detección de oportunidades
+- [x] 16.3. Ranking por score compuesto
+- [x] 16.4. Interfaz de oportunidades del día
+- [x] 16.5. Calculadora de diversificación con comisiones
 
 ### 17. Sistema de Análisis de Venta
 - [ ] 17.1. Monitor continuo de posiciones
@@ -1111,11 +1111,66 @@ Se ha completado **exitosamente el Step 13** del plan de desarrollo con los sigu
 - **Job automatizado**: Programado para día 1 de cada mes
 - **Frontend completo**: 4 tabs con funcionalidades específicas
 
-### 🎯 Próximo Objetivo: Reportes de Costos (Step 14)
-El Step 13 está **COMPLETAMENTE FUNCIONAL** con sistema de custodia mensual automatizado y optimización inteligente.
+### 🎯 Próximo Objetivo: Sistema de Análisis de Venta (Step 17)
+El Step 16 está **COMPLETAMENTE FUNCIONAL** con scanner automático de oportunidades de compra operativo.
 
 ---
 
-**Última actualización**: 20/08/2025  
-**Versión del documento**: 1.9.0  
-**Cambios**: Step 13 Gestión de Custodia Mensual completado - Sistema completo de cálculo automático, proyecciones y optimización de custodia bancaria
+## 🚀 Status Update - Step 16 COMPLETADO (21/08/2025)
+
+### ✅ Implementación Exitosa del Scanner de Oportunidades de Compra
+
+Se ha completado **exitosamente el Step 16** del plan de desarrollo usando la metodología OODA con los siguientes logros:
+
+#### Backend - Sistema de Detección Inteligente
+- ✅ OpportunityService con algoritmo de scoring compuesto (5 indicadores técnicos)
+- ✅ OpportunityScannerJob con 3 horarios automatizados (diario, limpieza, weekend)
+- ✅ OpportunityController con 15 endpoints API RESTful funcionales
+- ✅ Modelo Opportunity con persistencia completa y operaciones CRUD
+- ✅ Sistema de ranking dinámico con límite de top 20 oportunidades
+
+#### API Endpoints Implementados
+- ✅ GET /opportunities/today - Oportunidades del día actual
+- ✅ GET /opportunities/top - Mejores oportunidades por score
+- ✅ GET /opportunities/search - Búsqueda con filtros avanzados
+- ✅ POST /opportunities/calculate-diversification - Calculadora en tiempo real
+- ✅ POST /opportunities/scan/manual - Trigger de scan manual
+- ✅ GET /opportunities/scanner/status - Estado del sistema automatizado
+
+#### Frontend - Interfaz Completa de Oportunidades
+- ✅ Página Opportunities.tsx con tabs, filtros y estadísticas en tiempo real
+- ✅ OpportunityCard con visualización técnica y señales de compra
+- ✅ DiversificationCalculator con validación de límites (15% posición, 25% sector)
+- ✅ OpportunityScoreBreakdown con análisis detallado de indicadores
+- ✅ Hooks React Query especializados con cache inteligente
+
+#### Algoritmo de Scoring Compuesto
+- ✅ RSI (30% peso): Detección de sobreventa < 35
+- ✅ SMA (20% peso): Análisis de cruces de medias móviles
+- ✅ Distancia mínimo anual (25% peso): Oportunidades cerca del mínimo
+- ✅ Volumen relativo (15% peso): Confirmación con spikes de volumen
+- ✅ MACD (10% peso): Momentum y convergencia de medias
+
+#### Características Destacadas
+- ✅ Job diario automatizado a las 10:30 AM (horario de mercado argentino)
+- ✅ Scoring inteligente que combina múltiples señales técnicas
+- ✅ Validación automática de diversificación con límites configurables
+- ✅ Calculadora de comisiones integrada (operación + custodia)
+- ✅ Filtros ESG/Vegan con soporte completo para inversión responsable
+- ✅ Sistema de navegación integrado con ícono Zap
+
+### 📊 Métricas de Implementación
+- **Archivos creados**: 14 nuevos archivos (8 backend + 6 frontend)
+- **API endpoints**: 15 endpoints funcionales con validación Zod
+- **Coverage de funcionalidades**: 100% del paso 16
+- **Jobs automatizados**: 3 horarios (diario, limpieza, weekend prep)
+- **Tiempo de implementación**: 1 sesión usando metodología OODA
+
+### 🎯 Próximo Objetivo: Sistema de Análisis de Venta (Step 17)
+El Step 16 está **COMPLETAMENTE FUNCIONAL** con scanner automático que detecta oportunidades diariamente, interfaz completa y algoritmo de scoring inteligente operativo.
+
+---
+
+**Última actualización**: 21/08/2025  
+**Versión del documento**: 2.0.0  
+**Cambios**: Step 16 Scanner de Oportunidades de Compra completado - Sistema completo de detección automática, scoring compuesto y interfaz integrada

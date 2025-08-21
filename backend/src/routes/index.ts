@@ -10,6 +10,7 @@ import commissionRoutes from './commission-routes.js'
 import { custodyRoutes } from './custodyRoutes.js'
 import reportsRoutes from './reportsRoutes.js'
 import { technicalIndicatorRoutes } from './technicalIndicatorRoutes.js'
+import opportunityRoutes from './opportunityRoutes.js'
 import SimpleDatabaseConnection from '../database/simple-connection.js'
 
 const router = Router()
@@ -47,6 +48,7 @@ router.get('/', (req, res) => {
       custody: '/api/v1/custody',
       reports: '/api/v1/reports',
       technicalIndicators: '/api/v1/technical-indicators',
+      opportunities: '/api/v1/opportunities',
       health: '/api/v1/health'
     },
     timestamp: new Date().toISOString()
@@ -65,5 +67,6 @@ router.use('/commissions', commissionRoutes)
 router.use('/custody', custodyRoutes)
 router.use('/reports', reportsRoutes)
 router.use('/technical-indicators', technicalIndicatorRoutes)
+router.use('/opportunities', opportunityRoutes)
 
 export default router
