@@ -255,6 +255,172 @@ export const migrations: Migration[] = [
       DROP INDEX IF EXISTS idx_cost_reports_type;
       DROP TABLE IF EXISTS cost_reports;
     `
+  },
+  {
+    id: '013_create_esg_vegan_tables',
+    description: 'Create ESG and Vegan evaluation tables for automated sustainability analysis',
+    up: `
+      -- ESG Evaluations Table
+      CREATE TABLE IF NOT EXISTS esg_evaluations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        instrument_id INTEGER NOT NULL,
+        environmental_score DECIMAL(5,2) DEFAULT 0.00,
+        social_score DECIMAL(5,2) DEFAULT 0.00,
+        governance_score DECIMAL(5,2) DEFAULT 0.00,
+        total_score DECIMAL(5,2) DEFAULT 0.00,
+        evaluation_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        data_sources TEXT,
+        confidence_level DECIMAL(5,2) DEFAULT 0.00,
+        next_review_date DATE,
+        analysis_summary TEXT,
+        key_metrics TEXT,
+        controversies TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (instrument_id) REFERENCES instruments(id) ON DELETE CASCADE
+      );
+
+      -- Vegan Evaluations Table
+      CREATE TABLE IF NOT EXISTS vegan_evaluations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        instrument_id INTEGER NOT NULL,
+        no_animal_testing BOOLEAN DEFAULT FALSE,
+        no_animal_products BOOLEAN DEFAULT FALSE,
+        plant_based_focus BOOLEAN DEFAULT FALSE,
+        supply_chain_vegan BOOLEAN DEFAULT FALSE,
+        vegan_score DECIMAL(5,2) DEFAULT 0.00,
+        evaluation_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        certification_status VARCHAR(50),
+        vegan_certifications TEXT,
+        animal_testing_policy TEXT,
+        supply_chain_analysis TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (instrument_id) REFERENCES instruments(id) ON DELETE CASCADE
+      );
+
+      -- ESG Criteria History Table
+      CREATE TABLE IF NOT EXISTS esg_criteria_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        instrument_id INTEGER NOT NULL,
+        criteria_type VARCHAR(20) NOT NULL CHECK (criteria_type IN ('ESG', 'VEGAN', 'ENVIRONMENTAL', 'SOCIAL', 'GOVERNANCE')),
+        field_name VARCHAR(50) NOT NULL,
+        old_value TEXT,
+        new_value TEXT,
+        change_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        change_magnitude DECIMAL(5,2),
+        reason TEXT,
+        source VARCHAR(100),
+        confidence_level DECIMAL(5,2) DEFAULT 0.00,
+        impact_level VARCHAR(10) CHECK (impact_level IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (instrument_id) REFERENCES instruments(id) ON DELETE CASCADE
+      );
+
+      -- Sustainability Reports Table
+      CREATE TABLE IF NOT EXISTS sustainability_reports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        instrument_id INTEGER NOT NULL,
+        report_year INTEGER NOT NULL,
+        report_title VARCHAR(255),
+        report_url TEXT,
+        report_type VARCHAR(50) DEFAULT 'SUSTAINABILITY',
+        file_size INTEGER,
+        page_count INTEGER,
+        key_metrics TEXT,
+        analysis_summary TEXT,
+        extraction_confidence DECIMAL(5,2) DEFAULT 0.00,
+        processing_status VARCHAR(20) DEFAULT 'PENDING' CHECK (processing_status IN ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED')),
+        processing_error TEXT,
+        processed_date DATE,
+        download_date DATE,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (instrument_id) REFERENCES instruments(id) ON DELETE CASCADE
+      );
+
+      -- ESG Data Sources Table
+      CREATE TABLE IF NOT EXISTS esg_data_sources (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_name VARCHAR(100) NOT NULL UNIQUE,
+        source_type VARCHAR(50) NOT NULL CHECK (source_type IN ('API', 'SCRAPING', 'MANUAL', 'REPORT')),
+        source_url TEXT,
+        reliability_score DECIMAL(5,2) DEFAULT 0.00,
+        last_update_date DATE,
+        update_frequency VARCHAR(20) DEFAULT 'WEEKLY',
+        is_active BOOLEAN DEFAULT TRUE,
+        rate_limit_per_day INTEGER DEFAULT 100,
+        api_key_required BOOLEAN DEFAULT FALSE,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Indexes for ESG Evaluations
+      CREATE UNIQUE INDEX idx_esg_evaluations_instrument_date ON esg_evaluations(instrument_id, evaluation_date);
+      CREATE INDEX idx_esg_evaluations_total_score ON esg_evaluations(total_score);
+      CREATE INDEX idx_esg_evaluations_date ON esg_evaluations(evaluation_date);
+      CREATE INDEX idx_esg_evaluations_confidence ON esg_evaluations(confidence_level);
+      
+      -- Indexes for Vegan Evaluations
+      CREATE UNIQUE INDEX idx_vegan_evaluations_instrument_date ON vegan_evaluations(instrument_id, evaluation_date);
+      CREATE INDEX idx_vegan_evaluations_score ON vegan_evaluations(vegan_score);
+      CREATE INDEX idx_vegan_evaluations_date ON vegan_evaluations(evaluation_date);
+      CREATE INDEX idx_vegan_evaluations_certification ON vegan_evaluations(certification_status);
+      
+      -- Indexes for History
+      CREATE INDEX idx_esg_history_instrument ON esg_criteria_history(instrument_id);
+      CREATE INDEX idx_esg_history_date ON esg_criteria_history(change_date);
+      CREATE INDEX idx_esg_history_type ON esg_criteria_history(criteria_type);
+      CREATE INDEX idx_esg_history_impact ON esg_criteria_history(impact_level);
+      
+      -- Indexes for Reports
+      CREATE UNIQUE INDEX idx_sustainability_reports_instrument_year ON sustainability_reports(instrument_id, report_year);
+      CREATE INDEX idx_sustainability_reports_status ON sustainability_reports(processing_status);
+      CREATE INDEX idx_sustainability_reports_year ON sustainability_reports(report_year);
+      
+      -- Indexes for Data Sources
+      CREATE INDEX idx_esg_sources_active ON esg_data_sources(is_active);
+      CREATE INDEX idx_esg_sources_type ON esg_data_sources(source_type);
+      CREATE INDEX idx_esg_sources_reliability ON esg_data_sources(reliability_score);
+
+      -- Insert default data sources
+      INSERT OR IGNORE INTO esg_data_sources (source_name, source_type, source_url, reliability_score, update_frequency) VALUES
+      ('Yahoo Finance ESG', 'API', 'https://query1.finance.yahoo.com/v1/finance/esgChart', 85.00, 'DAILY'),
+      ('Sustainalytics', 'SCRAPING', 'https://www.sustainalytics.com/', 95.00, 'WEEKLY'),
+      ('MSCI ESG', 'SCRAPING', 'https://www.msci.com/our-solutions/esg-investing', 90.00, 'WEEKLY'),
+      ('CDP Carbon Disclosure', 'SCRAPING', 'https://www.cdp.net/', 88.00, 'ANNUAL'),
+      ('Company Reports', 'REPORT', null, 92.00, 'ANNUAL'),
+      ('News Sentiment', 'API', null, 70.00, 'DAILY'),
+      ('Vegan Society Database', 'SCRAPING', 'https://www.vegansociety.com/', 85.00, 'MONTHLY'),
+      ('PETA Database', 'SCRAPING', 'https://www.peta.org/', 75.00, 'MONTHLY');
+    `,
+    down: `
+      -- Drop indexes first
+      DROP INDEX IF EXISTS idx_esg_sources_reliability;
+      DROP INDEX IF EXISTS idx_esg_sources_type;
+      DROP INDEX IF EXISTS idx_esg_sources_active;
+      DROP INDEX IF EXISTS idx_sustainability_reports_year;
+      DROP INDEX IF EXISTS idx_sustainability_reports_status;
+      DROP INDEX IF EXISTS idx_sustainability_reports_instrument_year;
+      DROP INDEX IF EXISTS idx_esg_history_impact;
+      DROP INDEX IF EXISTS idx_esg_history_type;
+      DROP INDEX IF EXISTS idx_esg_history_date;
+      DROP INDEX IF EXISTS idx_esg_history_instrument;
+      DROP INDEX IF EXISTS idx_vegan_evaluations_certification;
+      DROP INDEX IF EXISTS idx_vegan_evaluations_date;
+      DROP INDEX IF EXISTS idx_vegan_evaluations_score;
+      DROP INDEX IF EXISTS idx_vegan_evaluations_instrument_date;
+      DROP INDEX IF EXISTS idx_esg_evaluations_confidence;
+      DROP INDEX IF EXISTS idx_esg_evaluations_date;
+      DROP INDEX IF EXISTS idx_esg_evaluations_total_score;
+      DROP INDEX IF EXISTS idx_esg_evaluations_instrument_date;
+      
+      -- Drop tables
+      DROP TABLE IF EXISTS esg_data_sources;
+      DROP TABLE IF EXISTS sustainability_reports;
+      DROP TABLE IF EXISTS esg_criteria_history;
+      DROP TABLE IF EXISTS vegan_evaluations;
+      DROP TABLE IF EXISTS esg_evaluations;
+    `
   }
 ]
 

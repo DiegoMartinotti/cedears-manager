@@ -13,6 +13,7 @@ import { technicalIndicatorRoutes } from './technicalIndicatorRoutes.js'
 import opportunityRoutes from './opportunityRoutes.js'
 import sellAnalysisRoutes from './sellAnalysisRoutes.js'
 import contextualAnalysisRoutes from './contextualAnalysisRoutes.js'
+import esgVeganRoutes from './esgVeganRoutes.js'
 import SimpleDatabaseConnection from '../database/simple-connection.js'
 
 const router = Router()
@@ -53,6 +54,7 @@ router.get('/', (req, res) => {
       opportunities: '/api/v1/opportunities',
       sellAnalysis: '/api/v1/sell-analysis',
       contextualAnalysis: '/api/v1/contextual',
+      esgVegan: '/api/v1/esg-vegan',
       health: '/api/v1/health'
     },
     timestamp: new Date().toISOString()
@@ -74,5 +76,6 @@ router.use('/technical-indicators', technicalIndicatorRoutes)
 router.use('/opportunities', opportunityRoutes)
 router.use('/sell-analysis', sellAnalysisRoutes)
 router.use('/contextual', contextualAnalysisRoutes)
+router.use('/esg-vegan', esgVeganRoutes)
 
 export default router
