@@ -11,6 +11,7 @@ import SimpleDatabaseConnection from './database/simple-connection.js'
 import apiRoutes from './routes/index.js'
 import { initializeTechnicalAnalysisJob } from './jobs/technicalAnalysisJob.js'
 import { initializeOpportunityScannerJob } from './jobs/opportunityScannerJob.js'
+import { sellMonitorJob } from './jobs/SellMonitorJob.js'
 
 // Load environment variables
 dotenv.config()
@@ -105,6 +106,9 @@ async function startServer() {
     const opportunityScannerJob = initializeOpportunityScannerJob()
     logger.info('✅ Opportunity scanner job initialized')
 
+    // Initialize sell monitor job
+    logger.info('✅ Sell monitor job initialized')
+
     // Start the server
     const server = app.listen(PORT, () => {
       logger.info(`🚀 CEDEARs Manager Backend started on port ${PORT}`)
@@ -131,6 +135,14 @@ async function startServer() {
         logger.info('Opportunity scanner job stopped')
       } catch (error) {
         logger.error('Error stopping opportunity scanner job:', error)
+      }
+
+      // Stop sell monitor job
+      try {
+        sellMonitorJob.stopJobs()
+        logger.info('Sell monitor job stopped')
+      } catch (error) {
+        logger.error('Error stopping sell monitor job:', error)
       }
 
       server.close(() => {

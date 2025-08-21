@@ -7,7 +7,8 @@ import {
   TrendingUp,
   DollarSign,
   Calculator,
-  Zap
+  Zap,
+  TrendingDown
 } from 'lucide-react'
 import NavigationItem from './NavigationItem'
 
@@ -68,6 +69,12 @@ export default function Sidebar() {
             to="/commissions"
             icon={<Calculator />}
             label="Comisiones"
+          />
+          
+          <NavigationItem
+            to="/sell-analysis"
+            icon={<TrendingDown />}
+            label="Análisis de Venta"
           />
         </div>
 

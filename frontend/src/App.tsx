@@ -9,6 +9,7 @@ import Settings from './pages/Settings'
 import { Commissions } from './pages/Commissions'
 import { Trades } from './pages/Trades'
 import CustodyPage from './pages/Custody'
+import SellAnalysis from './pages/SellAnalysis'
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
           <Route path="/goals" element={<Goals />} />
           <Route path="/commissions" element={<Commissions />} />
           <Route path="/custody" element={<CustodyPage />} />
+          <Route path="/sell-analysis" element={<SellAnalysis />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </Layout>

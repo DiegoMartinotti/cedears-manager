@@ -11,6 +11,7 @@ import { custodyRoutes } from './custodyRoutes.js'
 import reportsRoutes from './reportsRoutes.js'
 import { technicalIndicatorRoutes } from './technicalIndicatorRoutes.js'
 import opportunityRoutes from './opportunityRoutes.js'
+import sellAnalysisRoutes from './sellAnalysisRoutes.js'
 import SimpleDatabaseConnection from '../database/simple-connection.js'
 
 const router = Router()
@@ -49,6 +50,7 @@ router.get('/', (req, res) => {
       reports: '/api/v1/reports',
       technicalIndicators: '/api/v1/technical-indicators',
       opportunities: '/api/v1/opportunities',
+      sellAnalysis: '/api/v1/sell-analysis',
       health: '/api/v1/health'
     },
     timestamp: new Date().toISOString()
@@ -68,5 +70,6 @@ router.use('/custody', custodyRoutes)
 router.use('/reports', reportsRoutes)
 router.use('/technical-indicators', technicalIndicatorRoutes)
 router.use('/opportunities', opportunityRoutes)
+router.use('/sell-analysis', sellAnalysisRoutes)
 
 export default router
