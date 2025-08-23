@@ -9,9 +9,11 @@ import {
   Calculator,
   Zap,
   TrendingDown,
-  Brain
+  Brain,
+  Bell
 } from 'lucide-react'
 import NavigationItem from './NavigationItem'
+import { NavigationNotificationBadge } from './notifications/NotificationBadge'
 
 export default function Sidebar() {
   return (
@@ -83,6 +85,17 @@ export default function Sidebar() {
             icon={<Brain />}
             label="Análisis Contextual"
           />
+          
+          <div className="relative">
+            <NavigationItem
+              to="/notifications"
+              icon={<Bell />}
+              label="Notificaciones"
+            />
+            <div className="absolute top-1 right-1">
+              <NavigationNotificationBadge />
+            </div>
+          </div>
         </div>
 
         {/* Separator */}
