@@ -15,6 +15,7 @@ import sellAnalysisRoutes from './sellAnalysisRoutes.js'
 import contextualAnalysisRoutes from './contextualAnalysisRoutes.js'
 import esgVeganRoutes from './esgVeganRoutes.js'
 import notificationRoutes from './notificationRoutes.js'
+import monthlyReviewRoutes from './monthlyReviewRoutes.js'
 import SimpleDatabaseConnection from '../database/simple-connection.js'
 
 const router = Router()
@@ -57,6 +58,7 @@ router.get('/', (req, res) => {
       contextualAnalysis: '/api/v1/contextual',
       esgVegan: '/api/v1/esg-vegan',
       notifications: '/api/v1/notifications',
+      monthlyReview: '/api/v1/monthly-review',
       health: '/api/v1/health'
     },
     timestamp: new Date().toISOString()
@@ -80,5 +82,6 @@ router.use('/sell-analysis', sellAnalysisRoutes)
 router.use('/contextual', contextualAnalysisRoutes)
 router.use('/esg-vegan', esgVeganRoutes)
 router.use('/notifications', notificationRoutes)
+router.use('/monthly-review', monthlyReviewRoutes)
 
 export default router

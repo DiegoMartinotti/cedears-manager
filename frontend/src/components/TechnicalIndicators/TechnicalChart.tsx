@@ -4,7 +4,7 @@ import { useIndicatorHistory, useExtremes } from '../../hooks/useTechnicalIndica
 import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
-import { BarChart3, TrendingUp, TrendingDown, Activity, Target } from 'lucide-react'
+import { BarChart3, TrendingUp, Activity, Target } from 'lucide-react'
 
 interface TechnicalChartProps {
   symbol: string
@@ -98,7 +98,7 @@ export function TechnicalChart({ symbol, height = 300, showControls = true }: Te
     return []
   }
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload
       return (

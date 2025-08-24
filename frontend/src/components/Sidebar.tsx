@@ -10,7 +10,8 @@ import {
   Zap,
   TrendingDown,
   Brain,
-  Bell
+  Bell,
+  Calendar
 } from 'lucide-react'
 import NavigationItem from './NavigationItem'
 import { NavigationNotificationBadge } from './notifications/NotificationBadge'
@@ -84,6 +85,12 @@ export default function Sidebar() {
             to="/contextual"
             icon={<Brain />}
             label="Análisis Contextual"
+          />
+          
+          <NavigationItem
+            to="/monthly-review"
+            icon={<Calendar />}
+            label="Revisión Mensual"
           />
           
           <div className="relative">

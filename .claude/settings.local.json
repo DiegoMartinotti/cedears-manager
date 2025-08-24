@@ -58,7 +58,8 @@
       "Bash(npx eslint:*)",
       "Bash(git reset:*)",
       "Bash(git fetch:*)",
-      "Bash(git rebase:*)"
+      "Bash(git rebase:*)",
+      "mcp__serena__think_about_task_adherence"
     ],
     "deny": [],
     "additionalDirectories": [

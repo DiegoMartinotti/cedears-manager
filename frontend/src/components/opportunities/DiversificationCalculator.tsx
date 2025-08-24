@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { 
   Calculator, 
-  TrendingUp, 
   AlertTriangle, 
   CheckCircle, 
   DollarSign,

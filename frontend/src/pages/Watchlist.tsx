@@ -7,7 +7,7 @@ import { InstrumentSearch } from '../components/InstrumentSearch'
 import { ESGVeganQuickFilters } from '../components/ESGVeganFilters'
 import { InstrumentLimitIndicator, useCanAddInstrument } from '../components/InstrumentLimitManager'
 import { Button } from '../components/ui/Button'
-import { Plus, Search, Filter, TrendingUp } from 'lucide-react'
+import { Plus, Search, TrendingUp } from 'lucide-react'
 
 type ViewMode = 'list' | 'detail' | 'form'
 

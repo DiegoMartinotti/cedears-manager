@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TrendingUp, TrendingDown, AlertTriangle, Info, Target, Calendar, Percent } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertTriangle, Info, Target } from 'lucide-react';
 import { PositionSellAnalysis } from '../../services/sellAnalysisService';
 
 interface PositionAnalysisListProps {
@@ -27,10 +27,11 @@ const PositionAnalysisList: React.FC<PositionAnalysisListProps> = ({
       case 'profit':
         comparison = a.adjusted.net_profit_pct - b.adjusted.net_profit_pct;
         break;
-      case 'risk':
+      case 'risk': {
         const riskOrder = { 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'CRITICAL': 4 };
         comparison = riskOrder[a.analysis.risk_level] - riskOrder[b.analysis.risk_level];
         break;
+      }
       case 'ticker':
         comparison = a.position.ticker.localeCompare(b.position.ticker);
         break;

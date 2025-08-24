@@ -13,6 +13,7 @@ import { initializeTechnicalAnalysisJob } from './jobs/technicalAnalysisJob.js'
 import { initializeOpportunityScannerJob } from './jobs/opportunityScannerJob.js'
 import { sellMonitorJob } from './jobs/SellMonitorJob.js'
 import { contextualAnalysisJob } from './jobs/ContextualAnalysisJob.js'
+import { monthlyReviewJob } from './jobs/monthlyReviewJob.js'
 
 // Load environment variables
 dotenv.config()
@@ -114,6 +115,10 @@ async function startServer() {
     contextualAnalysisJob.start()
     logger.info('✅ Contextual analysis job initialized')
 
+    // Initialize monthly review job
+    monthlyReviewJob.start()
+    logger.info('✅ Monthly review job initialized')
+
     // Start the server
     const server = app.listen(PORT, () => {
       logger.info(`🚀 CEDEARs Manager Backend started on port ${PORT}`)
@@ -156,6 +161,14 @@ async function startServer() {
         logger.info('Contextual analysis job stopped')
       } catch (error) {
         logger.error('Error stopping contextual analysis job:', error)
+      }
+
+      // Stop monthly review job
+      try {
+        monthlyReviewJob.stop()
+        logger.info('Monthly review job stopped')
+      } catch (error) {
+        logger.error('Error stopping monthly review job:', error)
       }
 
       server.close(() => {

@@ -65,7 +65,6 @@ export const QuoteChart: React.FC<QuoteChartProps> = ({
   symbol,
   height = 300,
   chartType = 'line',
-  showVolume = false,
   timeRange = '1M',
   onTimeRangeChange,
   loading = false,
@@ -117,7 +116,7 @@ export const QuoteChart: React.FC<QuoteChartProps> = ({
   }, [chartData])
 
   // Función para formatear tooltip
-  const formatTooltip = (value: any, name: string, props: any) => {
+  const formatTooltip = (value: any, name: string) => {
     if (name === 'price') {
       return [`$${value.toFixed(2)}`, 'Precio']
     }

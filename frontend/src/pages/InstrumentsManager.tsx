@@ -57,7 +57,7 @@ export const InstrumentsManager: React.FC = () => {
     setViewMode('form')
   }
 
-  const handleFormSuccess = (instrument: InstrumentUI) => {
+  const handleFormSuccess = () => {
     setViewMode('list')
     setEditingInstrument(null)
     // Could show success toast here

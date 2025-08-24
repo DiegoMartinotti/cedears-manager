@@ -421,6 +421,179 @@ export const migrations: Migration[] = [
       DROP TABLE IF EXISTS vegan_evaluations;
       DROP TABLE IF EXISTS esg_evaluations;
     `
+  },
+  {
+    id: '015_create_monthly_review_tables',
+    description: 'Create monthly review system tables for automated watchlist management',
+    up: `
+      -- Monthly Reviews Main Table
+      CREATE TABLE IF NOT EXISTS monthly_reviews (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        review_date DATE NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED')),
+        total_instruments_scanned INTEGER DEFAULT 0,
+        new_instruments_found INTEGER DEFAULT 0,
+        removed_instruments INTEGER DEFAULT 0,
+        updated_instruments INTEGER DEFAULT 0,
+        pending_approvals INTEGER DEFAULT 0,
+        auto_approved INTEGER DEFAULT 0,
+        user_rejected INTEGER DEFAULT 0,
+        scan_started_at DATETIME,
+        scan_completed_at DATETIME,
+        user_review_started_at DATETIME,
+        user_review_completed_at DATETIME,
+        summary TEXT, -- JSON string
+        errors TEXT, -- JSON string
+        claude_report TEXT, -- JSON string
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Watchlist Changes Table
+      CREATE TABLE IF NOT EXISTS watchlist_changes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        instrument_id INTEGER NOT NULL,
+        action VARCHAR(10) NOT NULL CHECK (action IN ('ADD', 'REMOVE', 'UPDATE')),
+        reason TEXT NOT NULL,
+        claude_confidence DECIMAL(5,2) NOT NULL,
+        user_approved INTEGER, -- null = pending, 1 = approved, 0 = rejected
+        change_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+        review_id INTEGER,
+        old_data TEXT, -- JSON string
+        new_data TEXT, -- JSON string
+        metadata TEXT, -- JSON string
+        FOREIGN KEY (instrument_id) REFERENCES instruments(id) ON DELETE CASCADE,
+        FOREIGN KEY (review_id) REFERENCES monthly_reviews(id) ON DELETE CASCADE
+      );
+
+      -- Instrument Candidates Table (for additions)
+      CREATE TABLE IF NOT EXISTS instrument_candidates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        symbol VARCHAR(20) NOT NULL,
+        name VARCHAR(255),
+        market VARCHAR(50),
+        sector VARCHAR(100),
+        market_cap DECIMAL(15,2),
+        avg_volume DECIMAL(15,0),
+        esg_score DECIMAL(5,2),
+        vegan_score DECIMAL(5,2),
+        claude_analysis TEXT, -- JSON string
+        recommendation VARCHAR(20) NOT NULL CHECK (recommendation IN ('STRONG_ADD', 'ADD', 'CONSIDER', 'REJECT')),
+        confidence_score DECIMAL(5,2) NOT NULL,
+        reasons TEXT, -- JSON string
+        discovered_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+        review_id INTEGER,
+        status VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'ADDED')),
+        user_decision_date DATETIME,
+        user_notes TEXT,
+        FOREIGN KEY (review_id) REFERENCES monthly_reviews(id) ON DELETE CASCADE
+      );
+
+      -- Removal Candidates Table (for removals)
+      CREATE TABLE IF NOT EXISTS removal_candidates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        instrument_id INTEGER NOT NULL,
+        reason TEXT NOT NULL,
+        severity VARCHAR(10) NOT NULL CHECK (severity IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
+        lost_criteria TEXT, -- JSON string
+        current_esg_score DECIMAL(5,2),
+        current_vegan_score DECIMAL(5,2),
+        previous_esg_score DECIMAL(5,2),
+        previous_vegan_score DECIMAL(5,2),
+        claude_analysis TEXT, -- JSON string
+        recommendation VARCHAR(20) NOT NULL CHECK (recommendation IN ('REMOVE_IMMEDIATELY', 'REMOVE', 'MONITOR', 'KEEP')),
+        confidence_score DECIMAL(5,2) NOT NULL,
+        discovered_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+        review_id INTEGER,
+        status VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'REMOVED')),
+        user_decision_date DATETIME,
+        user_notes TEXT,
+        FOREIGN KEY (instrument_id) REFERENCES instruments(id) ON DELETE CASCADE,
+        FOREIGN KEY (review_id) REFERENCES monthly_reviews(id) ON DELETE CASCADE
+      );
+
+      -- Review Settings Table (configuration)
+      CREATE TABLE IF NOT EXISTS review_settings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        setting_key VARCHAR(100) NOT NULL UNIQUE,
+        setting_value TEXT NOT NULL,
+        description TEXT,
+        data_type VARCHAR(20) DEFAULT 'string' CHECK (data_type IN ('string', 'number', 'boolean', 'json')),
+        is_editable BOOLEAN DEFAULT TRUE,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Indexes for performance
+      CREATE INDEX idx_monthly_reviews_date ON monthly_reviews(review_date);
+      CREATE INDEX idx_monthly_reviews_status ON monthly_reviews(status);
+      CREATE UNIQUE INDEX idx_monthly_reviews_date_unique ON monthly_reviews(review_date);
+      
+      CREATE INDEX idx_watchlist_changes_instrument ON watchlist_changes(instrument_id);
+      CREATE INDEX idx_watchlist_changes_review ON watchlist_changes(review_id);
+      CREATE INDEX idx_watchlist_changes_action ON watchlist_changes(action);
+      CREATE INDEX idx_watchlist_changes_date ON watchlist_changes(change_date);
+      CREATE INDEX idx_watchlist_changes_user_approved ON watchlist_changes(user_approved);
+      
+      CREATE INDEX idx_instrument_candidates_symbol ON instrument_candidates(symbol);
+      CREATE INDEX idx_instrument_candidates_review ON instrument_candidates(review_id);
+      CREATE INDEX idx_instrument_candidates_recommendation ON instrument_candidates(recommendation);
+      CREATE INDEX idx_instrument_candidates_status ON instrument_candidates(status);
+      CREATE INDEX idx_instrument_candidates_confidence ON instrument_candidates(confidence_score);
+      
+      CREATE INDEX idx_removal_candidates_instrument ON removal_candidates(instrument_id);
+      CREATE INDEX idx_removal_candidates_review ON removal_candidates(review_id);
+      CREATE INDEX idx_removal_candidates_recommendation ON removal_candidates(recommendation);
+      CREATE INDEX idx_removal_candidates_status ON removal_candidates(status);
+      CREATE INDEX idx_removal_candidates_severity ON removal_candidates(severity);
+      CREATE INDEX idx_removal_candidates_confidence ON removal_candidates(confidence_score);
+      
+      CREATE UNIQUE INDEX idx_review_settings_key ON review_settings(setting_key);
+
+      -- Insert default settings
+      INSERT OR IGNORE INTO review_settings (setting_key, setting_value, description, data_type) VALUES
+      ('max_instruments_limit', '100', 'Maximum number of instruments in watchlist', 'number'),
+      ('min_confidence_auto_approve', '90.0', 'Minimum confidence score for auto-approval', 'number'),
+      ('review_day_of_month', '1', 'Day of month to run review (1-28)', 'number'),
+      ('review_hour', '6', 'Hour of day to run review (0-23)', 'number'),
+      ('enable_auto_approval', 'true', 'Enable automatic approval of high-confidence changes', 'boolean'),
+      ('esg_min_score_threshold', '70.0', 'Minimum ESG score for inclusion', 'number'),
+      ('vegan_min_score_threshold', '80.0', 'Minimum Vegan score for inclusion', 'number'),
+      ('market_cap_min_threshold', '1000000000', 'Minimum market cap in USD', 'number'),
+      ('volume_min_threshold', '100000', 'Minimum average daily volume', 'number'),
+      ('remove_on_criteria_loss', 'true', 'Auto-remove instruments that lose ESG/Vegan criteria', 'boolean'),
+      ('notification_types', '["REVIEW_STARTED", "APPROVAL_NEEDED", "REVIEW_COMPLETED"]', 'Types of notifications to send', 'json'),
+      ('backup_before_changes', 'true', 'Create backup before applying changes', 'boolean');
+    `,
+    down: `
+      -- Drop indexes first
+      DROP INDEX IF EXISTS idx_review_settings_key;
+      DROP INDEX IF EXISTS idx_removal_candidates_confidence;
+      DROP INDEX IF EXISTS idx_removal_candidates_severity;
+      DROP INDEX IF EXISTS idx_removal_candidates_status;
+      DROP INDEX IF EXISTS idx_removal_candidates_recommendation;
+      DROP INDEX IF EXISTS idx_removal_candidates_review;
+      DROP INDEX IF EXISTS idx_removal_candidates_instrument;
+      DROP INDEX IF EXISTS idx_instrument_candidates_confidence;
+      DROP INDEX IF EXISTS idx_instrument_candidates_status;
+      DROP INDEX IF EXISTS idx_instrument_candidates_recommendation;
+      DROP INDEX IF EXISTS idx_instrument_candidates_review;
+      DROP INDEX IF EXISTS idx_instrument_candidates_symbol;
+      DROP INDEX IF EXISTS idx_watchlist_changes_user_approved;
+      DROP INDEX IF EXISTS idx_watchlist_changes_date;
+      DROP INDEX IF EXISTS idx_watchlist_changes_action;
+      DROP INDEX IF EXISTS idx_watchlist_changes_review;
+      DROP INDEX IF EXISTS idx_watchlist_changes_instrument;
+      DROP INDEX IF EXISTS idx_monthly_reviews_date_unique;
+      DROP INDEX IF EXISTS idx_monthly_reviews_status;
+      DROP INDEX IF EXISTS idx_monthly_reviews_date;
+      
+      -- Drop tables
+      DROP TABLE IF EXISTS review_settings;
+      DROP TABLE IF EXISTS removal_candidates;
+      DROP TABLE IF EXISTS instrument_candidates;
+      DROP TABLE IF EXISTS watchlist_changes;
+      DROP TABLE IF EXISTS monthly_reviews;
+    `
   }
 ]
 
