@@ -56,7 +56,9 @@
       "Bash(pnpm lint:complexity:*)",
       "mcp__serena__search_for_pattern",
       "Bash(npx eslint:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(git fetch:*)",
+      "Bash(git rebase:*)"
     ],
     "deny": [],
     "additionalDirectories": [
