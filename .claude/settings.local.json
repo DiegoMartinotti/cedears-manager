@@ -54,7 +54,9 @@
       "mcp__serena__think_about_collected_information",
       "mcp__serena__think_about_whether_you_are_done",
       "Bash(pnpm lint:complexity:*)",
-      "mcp__serena__search_for_pattern"
+      "mcp__serena__search_for_pattern",
+      "Bash(npx eslint:*)",
+      "Bash(git reset:*)"
     ],
     "deny": [],
     "additionalDirectories": [
