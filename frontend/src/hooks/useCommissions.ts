@@ -9,14 +9,7 @@ import {
   CalculateCommissionRequest,
   CompareBrokersRequest,
   CalculateMinimumInvestmentRequest,
-  CommissionAnalysisFilters,
-  CommissionConfigsResponse,
-  CommissionCalculationResponse,
-  BrokerComparisonResponse,
-  CommissionAnalysisResponse,
-  MinimumInvestmentResponse,
-  ActiveConfigResponse,
-  ApiResponse
+  CommissionAnalysisFilters
 } from '../types/commissions'
 
 const API_BASE_URL = 'http://localhost:3001/api/v1'
@@ -51,6 +44,7 @@ export const useCommissions = (): UseCommissionsReturn => {
   }, [])
 
   const handleApiError = useCallback((error: any, defaultMessage: string) => {
+    // eslint-disable-next-line no-console
     console.error('Commission API Error:', error)
     
     if (error.response?.data?.error) {

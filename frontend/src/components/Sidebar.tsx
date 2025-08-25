@@ -11,7 +11,8 @@ import {
   TrendingDown,
   Brain,
   Bell,
-  Calendar
+  Calendar,
+  PieChart
 } from 'lucide-react'
 import NavigationItem from './NavigationItem'
 import { NavigationNotificationBadge } from './notifications/NotificationBadge'
@@ -91,6 +92,12 @@ export default function Sidebar() {
             to="/monthly-review"
             icon={<Calendar />}
             label="Revisión Mensual"
+          />
+          
+          <NavigationItem
+            to="/sector-balance"
+            icon={<PieChart />}
+            label="Balance Sectorial"
           />
           
           <div className="relative">

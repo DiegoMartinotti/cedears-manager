@@ -14,6 +14,7 @@ import { initializeOpportunityScannerJob } from './jobs/opportunityScannerJob.js
 import { sellMonitorJob } from './jobs/SellMonitorJob.js'
 import { contextualAnalysisJob } from './jobs/ContextualAnalysisJob.js'
 import { monthlyReviewJob } from './jobs/monthlyReviewJob.js'
+import { sectorBalanceJob } from './jobs/sectorBalanceJob.js'
 
 // Load environment variables
 dotenv.config()
@@ -118,6 +119,10 @@ async function startServer() {
     // Initialize monthly review job
     monthlyReviewJob.start()
     logger.info('✅ Monthly review job initialized')
+
+    // Initialize sector balance job
+    sectorBalanceJob.init()
+    logger.info('✅ Sector balance job initialized')
 
     // Start the server
     const server = app.listen(PORT, () => {

@@ -594,6 +594,157 @@ export const migrations: Migration[] = [
       DROP TABLE IF EXISTS watchlist_changes;
       DROP TABLE IF EXISTS monthly_reviews;
     `
+  },
+  {
+    id: '016_create_sector_balance_tables',
+    description: 'Create tables for sector balance analysis and GICS classification',
+    up: `
+      -- Sector classifications table
+      CREATE TABLE IF NOT EXISTS sector_classifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        instrument_id INTEGER UNIQUE NOT NULL,
+        gics_sector VARCHAR(100) NOT NULL,
+        gics_industry_group VARCHAR(100),
+        gics_industry VARCHAR(100),
+        gics_sub_industry VARCHAR(100),
+        last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+        source VARCHAR(50) DEFAULT 'AUTO',
+        confidence_score DECIMAL(5,2) DEFAULT 0.00,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (instrument_id) REFERENCES instruments(id) ON DELETE CASCADE
+      );
+      
+      -- Sector balance targets configuration
+      CREATE TABLE IF NOT EXISTS sector_balance_targets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sector VARCHAR(100) UNIQUE NOT NULL,
+        target_percentage DECIMAL(5,2) NOT NULL DEFAULT 10.00,
+        min_percentage DECIMAL(5,2) NOT NULL DEFAULT 3.00,
+        max_percentage DECIMAL(5,2) NOT NULL DEFAULT 25.00,
+        priority INTEGER DEFAULT 3,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      
+      -- Historical sector balance analysis
+      CREATE TABLE IF NOT EXISTS sector_balance_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        analysis_date DATE NOT NULL,
+        sector VARCHAR(100) NOT NULL,
+        current_percentage DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+        target_percentage DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+        deviation DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+        recommendation TEXT,
+        action_required VARCHAR(50),
+        priority VARCHAR(20) DEFAULT 'LOW',
+        total_value DECIMAL(15,2) DEFAULT 0.00,
+        instrument_count INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      
+      -- Concentration alerts
+      CREATE TABLE IF NOT EXISTS concentration_alerts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sector VARCHAR(100) NOT NULL,
+        alert_type VARCHAR(50) NOT NULL,
+        severity VARCHAR(20) NOT NULL,
+        current_percentage DECIMAL(5,2) NOT NULL,
+        threshold_percentage DECIMAL(5,2) NOT NULL,
+        message TEXT NOT NULL,
+        action_required TEXT,
+        is_active BOOLEAN DEFAULT TRUE,
+        is_acknowledged BOOLEAN DEFAULT FALSE,
+        acknowledged_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      
+      -- Rebalancing suggestions
+      CREATE TABLE IF NOT EXISTS rebalancing_suggestions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        analysis_date DATE NOT NULL,
+        sector VARCHAR(100) NOT NULL,
+        action VARCHAR(50) NOT NULL, -- REDUCE, INCREASE, MAINTAIN
+        current_allocation DECIMAL(5,2) NOT NULL,
+        suggested_allocation DECIMAL(5,2) NOT NULL,
+        amount_to_adjust DECIMAL(15,2) NOT NULL,
+        suggested_instruments TEXT, -- JSON array of instrument symbols
+        reasoning TEXT,
+        priority INTEGER DEFAULT 3,
+        impact_score DECIMAL(5,2) DEFAULT 0.00,
+        is_implemented BOOLEAN DEFAULT FALSE,
+        implemented_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      
+      -- Create indexes for performance
+      CREATE INDEX idx_sector_classifications_instrument ON sector_classifications(instrument_id);
+      CREATE INDEX idx_sector_classifications_sector ON sector_classifications(gics_sector);
+      CREATE INDEX idx_sector_classifications_updated ON sector_classifications(last_updated);
+      
+      CREATE INDEX idx_sector_balance_targets_sector ON sector_balance_targets(sector);
+      CREATE INDEX idx_sector_balance_targets_active ON sector_balance_targets(is_active);
+      
+      CREATE INDEX idx_sector_balance_history_date ON sector_balance_history(analysis_date);
+      CREATE INDEX idx_sector_balance_history_sector ON sector_balance_history(sector);
+      CREATE INDEX idx_sector_balance_history_priority ON sector_balance_history(priority);
+      
+      CREATE INDEX idx_concentration_alerts_active ON concentration_alerts(is_active);
+      CREATE INDEX idx_concentration_alerts_severity ON concentration_alerts(severity);
+      CREATE INDEX idx_concentration_alerts_sector ON concentration_alerts(sector);
+      CREATE INDEX idx_concentration_alerts_created ON concentration_alerts(created_at);
+      
+      CREATE INDEX idx_rebalancing_suggestions_date ON rebalancing_suggestions(analysis_date);
+      CREATE INDEX idx_rebalancing_suggestions_sector ON rebalancing_suggestions(sector);
+      CREATE INDEX idx_rebalancing_suggestions_priority ON rebalancing_suggestions(priority);
+      CREATE INDEX idx_rebalancing_suggestions_implemented ON rebalancing_suggestions(is_implemented);
+      
+      -- Insert default sector balance targets (GICS Level 1 Sectors)
+      INSERT OR IGNORE INTO sector_balance_targets (sector, target_percentage, min_percentage, max_percentage, priority) VALUES
+        ('Energy', 8.00, 3.00, 15.00, 4),
+        ('Materials', 7.00, 3.00, 12.00, 4),
+        ('Industrials', 10.00, 5.00, 18.00, 3),
+        ('Consumer Discretionary', 12.00, 5.00, 20.00, 2),
+        ('Consumer Staples', 8.00, 4.00, 15.00, 3),
+        ('Health Care', 15.00, 8.00, 25.00, 1),
+        ('Financials', 12.00, 5.00, 20.00, 2),
+        ('Information Technology', 25.00, 10.00, 30.00, 1),
+        ('Communication Services', 8.00, 3.00, 15.00, 3),
+        ('Utilities', 4.00, 2.00, 8.00, 5),
+        ('Real Estate', 5.00, 2.00, 10.00, 4);
+    `,
+    down: `
+      -- Drop indexes
+      DROP INDEX IF EXISTS idx_rebalancing_suggestions_implemented;
+      DROP INDEX IF EXISTS idx_rebalancing_suggestions_priority;
+      DROP INDEX IF EXISTS idx_rebalancing_suggestions_sector;
+      DROP INDEX IF EXISTS idx_rebalancing_suggestions_date;
+      
+      DROP INDEX IF EXISTS idx_concentration_alerts_created;
+      DROP INDEX IF EXISTS idx_concentration_alerts_sector;
+      DROP INDEX IF EXISTS idx_concentration_alerts_severity;
+      DROP INDEX IF EXISTS idx_concentration_alerts_active;
+      
+      DROP INDEX IF EXISTS idx_sector_balance_history_priority;
+      DROP INDEX IF EXISTS idx_sector_balance_history_sector;
+      DROP INDEX IF EXISTS idx_sector_balance_history_date;
+      
+      DROP INDEX IF EXISTS idx_sector_balance_targets_active;
+      DROP INDEX IF EXISTS idx_sector_balance_targets_sector;
+      
+      DROP INDEX IF EXISTS idx_sector_classifications_updated;
+      DROP INDEX IF EXISTS idx_sector_classifications_sector;
+      DROP INDEX IF EXISTS idx_sector_classifications_instrument;
+      
+      -- Drop tables
+      DROP TABLE IF EXISTS rebalancing_suggestions;
+      DROP TABLE IF EXISTS concentration_alerts;
+      DROP TABLE IF EXISTS sector_balance_history;
+      DROP TABLE IF EXISTS sector_balance_targets;
+      DROP TABLE IF EXISTS sector_classifications;
+    `
   }
 ]
 
