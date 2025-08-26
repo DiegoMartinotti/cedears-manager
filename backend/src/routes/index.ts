@@ -19,6 +19,7 @@ import monthlyReviewRoutes from './monthlyReviewRoutes.js'
 import sectorBalanceRoutes from './sectorBalance.routes.js'
 import benchmarkRoutes from './benchmarkRoutes.js'
 import scenarioRoutes from './scenarioRoutes'
+import breakEvenRoutes from './breakEvenRoutes.js'
 import SimpleDatabaseConnection from '../database/simple-connection.js'
 
 const router = Router()
@@ -65,6 +66,7 @@ router.get('/', (req, res) => {
       sectorBalance: '/api/v1/sector-balance',
       benchmark: '/api/v1/benchmark',
       scenarios: '/api/v1/scenarios',
+      breakEven: '/api/v1/break-even',
       health: '/api/v1/health'
     },
     timestamp: new Date().toISOString()
@@ -92,5 +94,6 @@ router.use('/monthly-review', monthlyReviewRoutes)
 router.use('/sector-balance', sectorBalanceRoutes)
 router.use('/benchmark', benchmarkRoutes)
 router.use('/scenarios', scenarioRoutes)
+router.use('/break-even', breakEvenRoutes)
 
 export default router
