@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { technicalIndicatorService, type TechnicalIndicatorFilters, type ActiveSignalsFilters, type CalculateIndicatorsRequest } from '../services/technicalIndicatorService'
-import type { TechnicalIndicator } from '../../../shared/src/types'
 
 export const TECHNICAL_INDICATORS_KEYS = {
   all: ['technical-indicators'] as const,
@@ -210,7 +209,7 @@ export function useSignalsOverview() {
  * Hook para obtener indicadores de múltiples símbolos
  */
 export function useMultipleIndicators(symbols: string[]) {
-  const queries = symbols.map(symbol => ({
+  symbols.map(symbol => ({
     queryKey: TECHNICAL_INDICATORS_KEYS.detail(symbol),
     queryFn: () => technicalIndicatorService.getLatestIndicators(symbol),
     enabled: !!symbol,

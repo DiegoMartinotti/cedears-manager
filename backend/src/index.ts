@@ -15,6 +15,7 @@ import { sellMonitorJob } from './jobs/SellMonitorJob.js'
 import { contextualAnalysisJob } from './jobs/ContextualAnalysisJob.js'
 import { monthlyReviewJob } from './jobs/monthlyReviewJob.js'
 import { sectorBalanceJob } from './jobs/sectorBalanceJob.js'
+import { benchmarkUpdateJob } from './jobs/benchmarkUpdateJob.js'
 
 // Load environment variables
 dotenv.config()
@@ -123,6 +124,10 @@ async function startServer() {
     // Initialize sector balance job
     sectorBalanceJob.init()
     logger.info('✅ Sector balance job initialized')
+
+    // Initialize benchmark update job
+    await benchmarkUpdateJob.initialize()
+    logger.info('✅ Benchmark update job initialized')
 
     // Start the server
     const server = app.listen(PORT, () => {

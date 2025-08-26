@@ -20,7 +20,6 @@ export function ContextualAnalysis() {
 
   const {
     analyzeSymbol,
-    getMarketSentiment,
     isLoading,
     error,
     data: analysisData

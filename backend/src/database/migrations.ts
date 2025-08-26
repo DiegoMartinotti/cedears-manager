@@ -745,6 +745,418 @@ export const migrations: Migration[] = [
       DROP TABLE IF EXISTS sector_balance_targets;
       DROP TABLE IF EXISTS sector_classifications;
     `
+  },
+  {
+    id: '017_create_benchmark_tables',
+    description: 'Create benchmark tables for portfolio performance comparison',
+    up: `
+      -- Benchmark Indices Table
+      CREATE TABLE IF NOT EXISTS benchmark_indices (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        symbol VARCHAR(20) NOT NULL UNIQUE,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        country VARCHAR(10) DEFAULT 'US',
+        currency VARCHAR(3) DEFAULT 'USD',
+        category VARCHAR(50) NOT NULL, -- 'EQUITY', 'BOND', 'COMMODITY', 'CURRENCY'
+        subcategory VARCHAR(100), -- 'LARGE_CAP', 'SMALL_CAP', 'EMERGING_MARKETS', etc
+        data_source VARCHAR(50) NOT NULL DEFAULT 'yahoo',
+        is_active BOOLEAN DEFAULT TRUE,
+        update_frequency VARCHAR(20) DEFAULT 'DAILY', -- DAILY, WEEKLY, MONTHLY
+        last_update DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Benchmark Historical Data Table
+      CREATE TABLE IF NOT EXISTS benchmark_data (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        benchmark_id INTEGER NOT NULL,
+        date DATE NOT NULL,
+        open_price DECIMAL(12,4),
+        high_price DECIMAL(12,4),
+        low_price DECIMAL(12,4),
+        close_price DECIMAL(12,4) NOT NULL,
+        volume BIGINT DEFAULT 0,
+        adjusted_close DECIMAL(12,4),
+        dividend_amount DECIMAL(8,4) DEFAULT 0.00,
+        split_coefficient DECIMAL(8,4) DEFAULT 1.0000,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (benchmark_id) REFERENCES benchmark_indices(id) ON DELETE CASCADE
+      );
+
+      -- Portfolio Benchmark Comparisons Table
+      CREATE TABLE IF NOT EXISTS portfolio_benchmark_comparisons (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        comparison_date DATE NOT NULL,
+        benchmark_id INTEGER NOT NULL,
+        portfolio_return DECIMAL(8,4) NOT NULL, -- Daily/Period return %
+        benchmark_return DECIMAL(8,4) NOT NULL, -- Benchmark return %
+        outperformance DECIMAL(8,4) NOT NULL, -- Portfolio - Benchmark
+        portfolio_value DECIMAL(15,2) NOT NULL,
+        benchmark_normalized_value DECIMAL(15,2) NOT NULL,
+        period_type VARCHAR(20) DEFAULT 'DAILY', -- DAILY, WEEKLY, MONTHLY, QUARTERLY, YEARLY
+        volatility_portfolio DECIMAL(8,4),
+        volatility_benchmark DECIMAL(8,4),
+        correlation DECIMAL(6,4), -- Correlation coefficient
+        beta DECIMAL(8,4), -- Portfolio beta vs benchmark
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (benchmark_id) REFERENCES benchmark_indices(id) ON DELETE CASCADE
+      );
+
+      -- Performance Metrics Table
+      CREATE TABLE IF NOT EXISTS performance_metrics (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        calculation_date DATE NOT NULL,
+        benchmark_id INTEGER,
+        period_days INTEGER NOT NULL, -- 30, 90, 180, 365, etc
+        portfolio_return DECIMAL(8,4) NOT NULL,
+        benchmark_return DECIMAL(8,4),
+        excess_return DECIMAL(8,4), -- Portfolio - Benchmark
+        portfolio_volatility DECIMAL(8,4) NOT NULL,
+        benchmark_volatility DECIMAL(8,4),
+        sharpe_ratio DECIMAL(8,4),
+        information_ratio DECIMAL(8,4), -- Excess return / tracking error
+        tracking_error DECIMAL(8,4), -- Std dev of excess returns
+        max_drawdown DECIMAL(8,4), -- Maximum peak-to-trough decline
+        calmar_ratio DECIMAL(8,4), -- Annual return / max drawdown
+        sortino_ratio DECIMAL(8,4), -- Return / downside deviation
+        alpha DECIMAL(8,4), -- Jensen's alpha
+        beta DECIMAL(8,4), -- Systematic risk measure
+        r_squared DECIMAL(6,4), -- R² correlation
+        var_95 DECIMAL(8,4), -- Value at Risk 95%
+        var_99 DECIMAL(8,4), -- Value at Risk 99%
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (benchmark_id) REFERENCES benchmark_indices(id) ON DELETE SET NULL
+      );
+
+      -- Risk-Free Rate Table (for Sharpe ratio calculations)
+      CREATE TABLE IF NOT EXISTS risk_free_rates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date DATE NOT NULL UNIQUE,
+        country VARCHAR(10) NOT NULL DEFAULT 'AR',
+        rate_type VARCHAR(50) NOT NULL DEFAULT 'TREASURY_30D', -- TREASURY_30D, TREASURY_90D, LEBAC, etc
+        annual_rate DECIMAL(8,4) NOT NULL, -- Annual rate %
+        daily_rate DECIMAL(8,6) NOT NULL, -- Daily rate %
+        source VARCHAR(50) DEFAULT 'BCRA',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Benchmark Performance Summary Table (for quick lookups)
+      CREATE TABLE IF NOT EXISTS benchmark_performance_summary (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        benchmark_id INTEGER NOT NULL,
+        summary_date DATE NOT NULL,
+        period VARCHAR(20) NOT NULL, -- 1D, 1W, 1M, 3M, 6M, 1Y, YTD, ALL
+        start_date DATE NOT NULL,
+        end_date DATE NOT NULL,
+        start_value DECIMAL(12,4) NOT NULL,
+        end_value DECIMAL(12,4) NOT NULL,
+        total_return DECIMAL(8,4) NOT NULL, -- Total return %
+        annualized_return DECIMAL(8,4), -- Annualized return %
+        volatility DECIMAL(8,4), -- Annualized volatility %
+        max_drawdown DECIMAL(8,4),
+        best_day DECIMAL(8,4), -- Best daily return
+        worst_day DECIMAL(8,4), -- Worst daily return
+        positive_days INTEGER, -- Count of positive days
+        negative_days INTEGER, -- Count of negative days
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (benchmark_id) REFERENCES benchmark_indices(id) ON DELETE CASCADE
+      );
+
+      -- Create indexes for performance
+      CREATE INDEX idx_benchmark_indices_symbol ON benchmark_indices(symbol);
+      CREATE INDEX idx_benchmark_indices_category ON benchmark_indices(category);
+      CREATE INDEX idx_benchmark_indices_active ON benchmark_indices(is_active);
+      CREATE INDEX idx_benchmark_indices_country ON benchmark_indices(country);
+
+      CREATE UNIQUE INDEX idx_benchmark_data_unique ON benchmark_data(benchmark_id, date);
+      CREATE INDEX idx_benchmark_data_date ON benchmark_data(date);
+      CREATE INDEX idx_benchmark_data_close_price ON benchmark_data(close_price);
+
+      CREATE UNIQUE INDEX idx_portfolio_comparisons_unique ON portfolio_benchmark_comparisons(comparison_date, benchmark_id, period_type);
+      CREATE INDEX idx_portfolio_comparisons_date ON portfolio_benchmark_comparisons(comparison_date);
+      CREATE INDEX idx_portfolio_comparisons_benchmark ON portfolio_benchmark_comparisons(benchmark_id);
+      CREATE INDEX idx_portfolio_comparisons_period ON portfolio_benchmark_comparisons(period_type);
+
+      CREATE UNIQUE INDEX idx_performance_metrics_unique ON performance_metrics(calculation_date, benchmark_id, period_days);
+      CREATE INDEX idx_performance_metrics_date ON performance_metrics(calculation_date);
+      CREATE INDEX idx_performance_metrics_period ON performance_metrics(period_days);
+      CREATE INDEX idx_performance_metrics_sharpe ON performance_metrics(sharpe_ratio);
+
+      CREATE INDEX idx_risk_free_rates_date ON risk_free_rates(date);
+      CREATE INDEX idx_risk_free_rates_country ON risk_free_rates(country);
+      CREATE INDEX idx_risk_free_rates_type ON risk_free_rates(rate_type);
+
+      CREATE UNIQUE INDEX idx_benchmark_summary_unique ON benchmark_performance_summary(benchmark_id, summary_date, period);
+      CREATE INDEX idx_benchmark_summary_date ON benchmark_performance_summary(summary_date);
+      CREATE INDEX idx_benchmark_summary_period ON benchmark_performance_summary(period);
+      CREATE INDEX idx_benchmark_summary_return ON benchmark_performance_summary(total_return);
+
+      -- Insert default benchmark indices
+      INSERT OR IGNORE INTO benchmark_indices (symbol, name, description, country, currency, category, subcategory, data_source) VALUES
+        ('SPY', 'SPDR S&P 500 ETF', 'S&P 500 Index tracking ETF', 'US', 'USD', 'EQUITY', 'LARGE_CAP', 'yahoo'),
+        ('QQQ', 'Invesco QQQ Trust', 'NASDAQ-100 Index tracking ETF', 'US', 'USD', 'EQUITY', 'TECH_LARGE_CAP', 'yahoo'),
+        ('IWM', 'iShares Russell 2000 ETF', 'Russell 2000 Small Cap Index', 'US', 'USD', 'EQUITY', 'SMALL_CAP', 'yahoo'),
+        ('EFA', 'iShares MSCI EAFE ETF', 'MSCI EAFE International Index', 'INTL', 'USD', 'EQUITY', 'DEVELOPED_MARKETS', 'yahoo'),
+        ('EEM', 'iShares MSCI Emerging Markets', 'MSCI Emerging Markets Index', 'EM', 'USD', 'EQUITY', 'EMERGING_MARKETS', 'yahoo'),
+        ('AGG', 'iShares Core US Aggregate Bond', 'US Aggregate Bond Index', 'US', 'USD', 'BOND', 'AGGREGATE', 'yahoo'),
+        ('GLD', 'SPDR Gold Shares', 'Gold commodity tracking', 'GLOBAL', 'USD', 'COMMODITY', 'PRECIOUS_METALS', 'yahoo'),
+        ('VTI', 'Vanguard Total Stock Market', 'Total US Stock Market Index', 'US', 'USD', 'EQUITY', 'TOTAL_MARKET', 'yahoo'),
+        ('^MERV', 'MERVAL Index', 'Buenos Aires Stock Exchange Index', 'AR', 'ARS', 'EQUITY', 'ARGENTINA', 'yahoo'),
+        ('MELI', 'MercadoLibre Inc', 'Leading Latin American e-commerce', 'LATAM', 'USD', 'EQUITY', 'TECH_LARGE_CAP', 'yahoo');
+
+      -- Insert default risk-free rates (Argentina)
+      INSERT OR IGNORE INTO risk_free_rates (date, country, rate_type, annual_rate, daily_rate, source) 
+      VALUES (DATE('now'), 'AR', 'TREASURY_30D', 85.00, 0.2329, 'BCRA');
+    `,
+    down: `
+      -- Drop indexes
+      DROP INDEX IF EXISTS idx_benchmark_summary_return;
+      DROP INDEX IF EXISTS idx_benchmark_summary_period;
+      DROP INDEX IF EXISTS idx_benchmark_summary_date;
+      DROP INDEX IF EXISTS idx_benchmark_summary_unique;
+      DROP INDEX IF EXISTS idx_risk_free_rates_type;
+      DROP INDEX IF EXISTS idx_risk_free_rates_country;
+      DROP INDEX IF EXISTS idx_risk_free_rates_date;
+      DROP INDEX IF EXISTS idx_performance_metrics_sharpe;
+      DROP INDEX IF EXISTS idx_performance_metrics_period;
+      DROP INDEX IF EXISTS idx_performance_metrics_date;
+      DROP INDEX IF EXISTS idx_performance_metrics_unique;
+      DROP INDEX IF EXISTS idx_portfolio_comparisons_period;
+      DROP INDEX IF EXISTS idx_portfolio_comparisons_benchmark;
+      DROP INDEX IF EXISTS idx_portfolio_comparisons_date;
+      DROP INDEX IF EXISTS idx_portfolio_comparisons_unique;
+      DROP INDEX IF EXISTS idx_benchmark_data_close_price;
+      DROP INDEX IF EXISTS idx_benchmark_data_date;
+      DROP INDEX IF EXISTS idx_benchmark_data_unique;
+      DROP INDEX IF EXISTS idx_benchmark_indices_country;
+      DROP INDEX IF EXISTS idx_benchmark_indices_active;
+      DROP INDEX IF EXISTS idx_benchmark_indices_category;
+      DROP INDEX IF EXISTS idx_benchmark_indices_symbol;
+      
+      -- Drop tables
+      DROP TABLE IF EXISTS benchmark_performance_summary;
+      DROP TABLE IF EXISTS risk_free_rates;
+      DROP TABLE IF EXISTS performance_metrics;
+      DROP TABLE IF EXISTS portfolio_benchmark_comparisons;
+      DROP TABLE IF EXISTS benchmark_data;
+      DROP TABLE IF EXISTS benchmark_indices;
+    `
+  },
+  {
+    id: '018_create_scenario_simulation_tables',
+    description: 'Create scenario simulation tables for what-if analysis',
+    up: `
+      -- Scenario Definitions Table
+      CREATE TABLE IF NOT EXISTS scenario_definitions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        category VARCHAR(50) NOT NULL DEFAULT 'CUSTOM', -- MACRO, MARKET, SECTOR, CUSTOM
+        is_predefined BOOLEAN DEFAULT FALSE,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_by VARCHAR(50) DEFAULT 'USER',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Scenario Variables Table
+      CREATE TABLE IF NOT EXISTS scenario_variables (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        scenario_id INTEGER NOT NULL,
+        variable_type VARCHAR(50) NOT NULL, -- INFLATION, DOLLAR_RATE, INTEREST_RATE, MARKET_CRASH, SECTOR_GROWTH, etc
+        variable_name VARCHAR(100) NOT NULL,
+        current_value DECIMAL(12,4),
+        scenario_value DECIMAL(12,4) NOT NULL,
+        change_percentage DECIMAL(8,4),
+        impact_duration_months INTEGER DEFAULT 12,
+        ramp_up_months INTEGER DEFAULT 0, -- Gradual change over time
+        description TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (scenario_id) REFERENCES scenario_definitions(id) ON DELETE CASCADE
+      );
+
+      -- Scenario Results Table
+      CREATE TABLE IF NOT EXISTS scenario_results (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        scenario_id INTEGER NOT NULL,
+        simulation_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        portfolio_current_value DECIMAL(15,2) NOT NULL,
+        portfolio_scenario_value DECIMAL(15,2) NOT NULL,
+        portfolio_change_percentage DECIMAL(8,4) NOT NULL,
+        portfolio_change_amount DECIMAL(15,2) NOT NULL,
+        current_monthly_income DECIMAL(12,2) DEFAULT 0.00,
+        scenario_monthly_income DECIMAL(12,2) DEFAULT 0.00,
+        income_change_percentage DECIMAL(8,4) DEFAULT 0.00,
+        risk_metrics TEXT, -- JSON with VaR, volatility, etc
+        top_winners TEXT, -- JSON array of best performing instruments
+        top_losers TEXT, -- JSON array of worst performing instruments
+        sector_impacts TEXT, -- JSON with sector-by-sector analysis
+        recommendations TEXT, -- JSON with AI recommendations
+        confidence_level DECIMAL(5,2) DEFAULT 0.00,
+        simulation_duration_seconds INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (scenario_id) REFERENCES scenario_definitions(id) ON DELETE CASCADE
+      );
+
+      -- Scenario Instrument Impact Table (detailed per-instrument results)
+      CREATE TABLE IF NOT EXISTS scenario_instrument_impacts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        scenario_result_id INTEGER NOT NULL,
+        instrument_id INTEGER NOT NULL,
+        current_price DECIMAL(10,4) NOT NULL,
+        scenario_price DECIMAL(10,4) NOT NULL,
+        price_change_percentage DECIMAL(8,4) NOT NULL,
+        current_position_value DECIMAL(12,2),
+        scenario_position_value DECIMAL(12,2),
+        position_impact_amount DECIMAL(12,2),
+        impact_reasoning TEXT, -- Why this instrument was affected
+        sector VARCHAR(100),
+        correlation_factor DECIMAL(6,4), -- How correlated to the main scenario variable
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (scenario_result_id) REFERENCES scenario_results(id) ON DELETE CASCADE,
+        FOREIGN KEY (instrument_id) REFERENCES instruments(id) ON DELETE CASCADE
+      );
+
+      -- Scenario History Table (for tracking multiple runs of the same scenario)
+      CREATE TABLE IF NOT EXISTS scenario_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        scenario_id INTEGER NOT NULL,
+        version INTEGER NOT NULL DEFAULT 1,
+        variables_snapshot TEXT NOT NULL, -- JSON snapshot of variables at time of run
+        results_summary TEXT NOT NULL, -- JSON summary of key results
+        run_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        portfolio_snapshot TEXT, -- JSON of portfolio at time of simulation
+        market_conditions TEXT, -- JSON of market conditions when run
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (scenario_id) REFERENCES scenario_definitions(id) ON DELETE CASCADE
+      );
+
+      -- Macro Economic Indicators Table (for scenario modeling)
+      CREATE TABLE IF NOT EXISTS macro_indicators (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        indicator_name VARCHAR(100) NOT NULL, -- INFLATION_AR, USD_ARS, LEBAC_RATE, etc
+        date DATE NOT NULL,
+        value DECIMAL(12,4) NOT NULL,
+        unit VARCHAR(20) DEFAULT 'PERCENTAGE', -- PERCENTAGE, RATIO, INDEX, CURRENCY
+        source VARCHAR(50) DEFAULT 'BCRA',
+        is_estimate BOOLEAN DEFAULT FALSE,
+        confidence_level DECIMAL(5,2) DEFAULT 100.00,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Correlation Matrix Table (for advanced scenario modeling)
+      CREATE TABLE IF NOT EXISTS instrument_correlations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        instrument_a_id INTEGER NOT NULL,
+        instrument_b_id INTEGER NOT NULL,
+        correlation_coefficient DECIMAL(6,4) NOT NULL, -- -1.0 to 1.0
+        period_days INTEGER NOT NULL DEFAULT 252, -- Trading days used for calculation
+        calculation_date DATE NOT NULL,
+        significance_level DECIMAL(5,2) DEFAULT 95.00,
+        sample_size INTEGER,
+        is_significant BOOLEAN DEFAULT TRUE,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (instrument_a_id) REFERENCES instruments(id) ON DELETE CASCADE,
+        FOREIGN KEY (instrument_b_id) REFERENCES instruments(id) ON DELETE CASCADE
+      );
+
+      -- Create indexes for performance
+      CREATE INDEX idx_scenario_definitions_category ON scenario_definitions(category);
+      CREATE INDEX idx_scenario_definitions_active ON scenario_definitions(is_active);
+      CREATE INDEX idx_scenario_definitions_predefined ON scenario_definitions(is_predefined);
+
+      CREATE INDEX idx_scenario_variables_scenario ON scenario_variables(scenario_id);
+      CREATE INDEX idx_scenario_variables_type ON scenario_variables(variable_type);
+
+      CREATE INDEX idx_scenario_results_scenario ON scenario_results(scenario_id);
+      CREATE INDEX idx_scenario_results_date ON scenario_results(simulation_date);
+      CREATE INDEX idx_scenario_results_confidence ON scenario_results(confidence_level);
+
+      CREATE INDEX idx_scenario_instrument_impacts_result ON scenario_instrument_impacts(scenario_result_id);
+      CREATE INDEX idx_scenario_instrument_impacts_instrument ON scenario_instrument_impacts(instrument_id);
+      CREATE INDEX idx_scenario_instrument_impacts_sector ON scenario_instrument_impacts(sector);
+
+      CREATE INDEX idx_scenario_history_scenario ON scenario_history(scenario_id);
+      CREATE INDEX idx_scenario_history_date ON scenario_history(run_date);
+      CREATE INDEX idx_scenario_history_version ON scenario_history(version);
+
+      CREATE UNIQUE INDEX idx_macro_indicators_unique ON macro_indicators(indicator_name, date);
+      CREATE INDEX idx_macro_indicators_name ON macro_indicators(indicator_name);
+      CREATE INDEX idx_macro_indicators_date ON macro_indicators(date);
+
+      CREATE UNIQUE INDEX idx_correlations_unique ON instrument_correlations(instrument_a_id, instrument_b_id, period_days, calculation_date);
+      CREATE INDEX idx_correlations_instrument_a ON instrument_correlations(instrument_a_id);
+      CREATE INDEX idx_correlations_instrument_b ON instrument_correlations(instrument_b_id);
+      CREATE INDEX idx_correlations_date ON instrument_correlations(calculation_date);
+
+      -- Insert predefined scenarios
+      INSERT OR IGNORE INTO scenario_definitions (name, description, category, is_predefined, created_by) VALUES
+        ('Recesión Global', 'Escenario de recesión económica global con caída de mercados desarrollados', 'MACRO', TRUE, 'SYSTEM'),
+        ('Hiperinflación Argentina', 'Escenario de aceleración inflacionaria en Argentina (>100% anual)', 'MACRO', TRUE, 'SYSTEM'),
+        ('Boom Tecnológico', 'Escenario de crecimiento acelerado del sector tecnológico', 'SECTOR', TRUE, 'SYSTEM'),
+        ('Crisis Energética', 'Escenario de crisis en el sector energético con alzas de precios', 'SECTOR', TRUE, 'SYSTEM'),
+        ('Estabilización Cambiaria', 'Escenario de estabilización del tipo de cambio USD/ARS', 'MACRO', TRUE, 'SYSTEM'),
+        ('Normalización Monetaria', 'Escenario de normalización de tasas de interés en Argentina', 'MACRO', TRUE, 'SYSTEM');
+
+      -- Insert predefined variables for Recesión Global scenario
+      INSERT OR IGNORE INTO scenario_variables (scenario_id, variable_type, variable_name, current_value, scenario_value, change_percentage, impact_duration_months) VALUES
+        (1, 'MARKET_INDEX', 'S&P 500 Change', 0.00, -25.00, -25.00, 6),
+        (1, 'MARKET_INDEX', 'NASDAQ Change', 0.00, -30.00, -30.00, 6),
+        (1, 'VOLATILITY', 'VIX Level', 20.00, 45.00, 125.00, 12),
+        (1, 'INTEREST_RATE', 'Fed Funds Rate', 5.25, 2.00, -61.90, 12);
+
+      -- Insert predefined variables for Hiperinflación Argentina scenario  
+      INSERT OR IGNORE INTO scenario_variables (scenario_id, variable_type, variable_name, current_value, scenario_value, change_percentage, impact_duration_months) VALUES
+        (2, 'INFLATION', 'Inflación Anual AR', 85.00, 150.00, 76.47, 18),
+        (2, 'EXCHANGE_RATE', 'USD/ARS', 350.00, 600.00, 71.43, 18),
+        (2, 'INTEREST_RATE', 'LEBAC Rate', 85.00, 120.00, 41.18, 12);
+
+      -- Insert current macro indicators
+      INSERT OR IGNORE INTO macro_indicators (indicator_name, date, value, unit, source) VALUES
+        ('INFLATION_AR', DATE('now'), 85.00, 'PERCENTAGE', 'BCRA'),
+        ('USD_ARS', DATE('now'), 350.00, 'RATIO', 'BCRA'),
+        ('LEBAC_RATE', DATE('now'), 85.00, 'PERCENTAGE', 'BCRA'),
+        ('SP500_LEVEL', DATE('now'), 4500.00, 'INDEX', 'YAHOO'),
+        ('VIX_LEVEL', DATE('now'), 20.00, 'INDEX', 'YAHOO'),
+        ('FED_FUNDS_RATE', DATE('now'), 5.25, 'PERCENTAGE', 'FED');
+    `,
+    down: `
+      -- Drop indexes
+      DROP INDEX IF EXISTS idx_correlations_date;
+      DROP INDEX IF EXISTS idx_correlations_instrument_b;
+      DROP INDEX IF EXISTS idx_correlations_instrument_a;
+      DROP INDEX IF EXISTS idx_correlations_unique;
+      DROP INDEX IF EXISTS idx_macro_indicators_date;
+      DROP INDEX IF EXISTS idx_macro_indicators_name;
+      DROP INDEX IF EXISTS idx_macro_indicators_unique;
+      DROP INDEX IF EXISTS idx_scenario_history_version;
+      DROP INDEX IF EXISTS idx_scenario_history_date;
+      DROP INDEX IF EXISTS idx_scenario_history_scenario;
+      DROP INDEX IF EXISTS idx_scenario_instrument_impacts_sector;
+      DROP INDEX IF EXISTS idx_scenario_instrument_impacts_instrument;
+      DROP INDEX IF EXISTS idx_scenario_instrument_impacts_result;
+      DROP INDEX IF EXISTS idx_scenario_results_confidence;
+      DROP INDEX IF EXISTS idx_scenario_results_date;
+      DROP INDEX IF EXISTS idx_scenario_results_scenario;
+      DROP INDEX IF EXISTS idx_scenario_variables_type;
+      DROP INDEX IF EXISTS idx_scenario_variables_scenario;
+      DROP INDEX IF EXISTS idx_scenario_definitions_predefined;
+      DROP INDEX IF EXISTS idx_scenario_definitions_active;
+      DROP INDEX IF EXISTS idx_scenario_definitions_category;
+      
+      -- Drop tables
+      DROP TABLE IF EXISTS instrument_correlations;
+      DROP TABLE IF EXISTS macro_indicators;
+      DROP TABLE IF EXISTS scenario_history;
+      DROP TABLE IF EXISTS scenario_instrument_impacts;
+      DROP TABLE IF EXISTS scenario_results;
+      DROP TABLE IF EXISTS scenario_variables;
+      DROP TABLE IF EXISTS scenario_definitions;
+    `
   }
 ]
 

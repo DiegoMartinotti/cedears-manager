@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { quoteService, QuoteWithInstrument, QuoteHistoryFilters, QuoteUpdateResult } from '@/services/quoteService'
+import { quoteService, QuoteWithInstrument, QuoteHistoryFilters } from '@/services/quoteService'
 
 // Hook para obtener cotización individual
 export const useQuote = (symbol: string, forceRefresh: boolean = false) => {

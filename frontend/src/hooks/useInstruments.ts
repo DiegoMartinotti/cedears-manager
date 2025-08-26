@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, UseQueryResult, UseMutationResult } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { InstrumentService, instrumentQueryKeys } from '../services/instrumentService'
 import { InstrumentUI, InstrumentFilters } from '@cedears-manager/shared/types'
 import { useCallback, useMemo } from 'react'

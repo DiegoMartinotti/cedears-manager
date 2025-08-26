@@ -1,13 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { dashboardService } from '../services/dashboardService'
-import type { 
-  DashboardSummary,
-  PortfolioSummary,
-  CurrentPosition,
-  MarketSummary,
-  PerformanceMetrics,
-  DistributionData
-} from '../../../shared/src/types'
+// Types are imported where needed to avoid unused imports
 
 // Query keys
 export const DASHBOARD_QUERY_KEYS = {

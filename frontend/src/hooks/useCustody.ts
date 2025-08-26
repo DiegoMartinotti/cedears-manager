@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { custodyService } from '../services/custodyService'
 import type { 
-  CustodyStatus, 
   CustodyHistoryFilters, 
   CustodyProjectionParams,
   CustodyOptimizationParams,

@@ -2,13 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import reportsService from '../services/reportsService';
 import {
-  CostDashboard,
-  ImpactAnalysis,
-  CommissionVsGainComparison,
-  AnnualCostReport,
   ExportOptions,
-  ExportResult,
-  ExportHistory,
   DateRange,
   ReportType
 } from '../types/reports';
@@ -196,7 +190,6 @@ export function useExportWithPolling() {
   const [pollingExportId, setPollingExportId] = useState<string | null>(null);
   const [pollAttempts, setPollAttempts] = useState(0);
   const exportMutation = useExportReport();
-  const downloadMutation = useDownloadExport();
 
   // Poll export status
   const pollQuery = useQuery({

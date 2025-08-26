@@ -317,8 +317,6 @@ export function useOpportunityDetail(id: number) {
 
 // Hook para búsqueda con filtros
 export function useOpportunitySearch() {
-  const { isOnline } = useApi()
-  
   const searchMutation = useMutation({
     mutationFn: (filters: any) => opportunityService.searchOpportunities(filters),
     onError: (error) => {

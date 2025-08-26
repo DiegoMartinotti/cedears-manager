@@ -89,7 +89,7 @@ export function useCEDEARs() {
       })
       throw err
     }
-  }, [execute, fetchCEDEARs, addNotification])
+  }, [fetchCEDEARs, addNotification])
 
   const deleteCEDEAR = useCallback(async (id: string) => {
     try {
@@ -112,7 +112,7 @@ export function useCEDEARs() {
       })
       throw err
     }
-  }, [execute, fetchCEDEARs, addNotification])
+  }, [fetchCEDEARs, addNotification])
 
   return {
     cedears,
@@ -268,7 +268,7 @@ export function useGoals() {
       })
       throw err
     }
-  }, [execute, fetchGoals, addNotification])
+  }, [fetchGoals, addNotification])
 
   return {
     goals,

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
+import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Alert, AlertDescription } from '../components/ui/Alert'
 import { Badge } from '../components/ui/Badge'

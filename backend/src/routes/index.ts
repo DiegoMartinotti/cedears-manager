@@ -17,6 +17,7 @@ import esgVeganRoutes from './esgVeganRoutes.js'
 import notificationRoutes from './notificationRoutes.js'
 import monthlyReviewRoutes from './monthlyReviewRoutes.js'
 import sectorBalanceRoutes from './sectorBalance.routes.js'
+import benchmarkRoutes from './benchmarkRoutes.js'
 import SimpleDatabaseConnection from '../database/simple-connection.js'
 
 const router = Router()
@@ -61,6 +62,7 @@ router.get('/', (req, res) => {
       notifications: '/api/v1/notifications',
       monthlyReview: '/api/v1/monthly-review',
       sectorBalance: '/api/v1/sector-balance',
+      benchmark: '/api/v1/benchmark',
       health: '/api/v1/health'
     },
     timestamp: new Date().toISOString()
@@ -86,5 +88,6 @@ router.use('/esg-vegan', esgVeganRoutes)
 router.use('/notifications', notificationRoutes)
 router.use('/monthly-review', monthlyReviewRoutes)
 router.use('/sector-balance', sectorBalanceRoutes)
+router.use('/benchmark', benchmarkRoutes)
 
 export default router

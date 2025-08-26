@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -15,11 +15,96 @@ import {
   CommissionFormData
 } from '../types/commissions'
 
+// Helper component para las métricas de análisis
+const AnalysisMetrics: React.FC<{ analysisResult: CommissionAnalysis }> = ({ analysisResult }) => {
+  const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount)
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <Card className="p-4">
+        <h4 className="font-medium text-gray-700 mb-2">Total Comisiones</h4>
+        <p className="text-2xl font-bold text-red-600">
+          {formatCurrency(analysisResult.totalCommissions)}
+        </p>
+      </Card>
+
+      <Card className="p-4">
+        <h4 className="font-medium text-gray-700 mb-2">Total Impuestos</h4>
+        <p className="text-2xl font-bold text-red-600">
+          {formatCurrency(analysisResult.totalTaxesPaid)}
+        </p>
+      </Card>
+
+      <Card className="p-4">
+        <h4 className="font-medium text-gray-700 mb-2">Promedio por Operación</h4>
+        <p className="text-2xl font-bold text-green-600">
+          {formatCurrency(analysisResult.averageCommissionPerTrade)}
+        </p>
+      </Card>
+
+      <Card className="p-4">
+        <h4 className="font-medium text-gray-700 mb-2">Total Operaciones</h4>
+        <p className="text-2xl font-bold text-gray-600">
+          {analysisResult.commissionByType.buy.count + analysisResult.commissionByType.sell.count}
+        </p>
+      </Card>
+    </div>
+  )
+}
+
+// Helper component para la tabla de evolución mensual
+const MonthlyBreakdownTable: React.FC<{ analysisResult: CommissionAnalysis }> = ({ analysisResult }) => {
+  const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount)
+  }
+
+  if (!analysisResult.monthlyBreakdown.length) return null
+
+  return (
+    <Card className="p-6">
+      <h4 className="font-medium text-gray-700 mb-4">Evolución Mensual</h4>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b">
+              <th className="text-left p-2">Mes</th>
+              <th className="text-right p-2">Comisiones</th>
+              <th className="text-right p-2">Impuestos</th>
+              <th className="text-right p-2">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {analysisResult.monthlyBreakdown.map((month, index) => (
+              <tr key={index} className="border-b">
+                <td className="p-2">{month.month}</td>
+                <td className="text-right p-2">{formatCurrency(month.totalCommissions)}</td>
+                <td className="text-right p-2">{formatCurrency(month.totalTaxes)}</td>
+                <td className="text-right p-2 font-semibold">{formatCurrency(month.totalCommissions + month.totalTaxes)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  )
+}
+
 export const Commissions: React.FC = () => {
   const {
     configs,
     activeConfig,
-    loading,
     error,
     calculateCommission,
     compareBrokers,
@@ -100,7 +185,7 @@ export const Commissions: React.FC = () => {
     }
   }
 
-  const handleAnalysisLoad = async () => {
+  const handleAnalysisLoad = useCallback(async () => {
     setIsCalculating(true)
     clearError()
 
@@ -110,7 +195,7 @@ export const Commissions: React.FC = () => {
     } finally {
       setIsCalculating(false)
     }
-  }
+  }, [analyzeCommissions, clearError])
 
   const handleMinimumInvestmentCalculate = async () => {
     if (!minimumInvestmentForm.threshold) return
@@ -134,7 +219,7 @@ export const Commissions: React.FC = () => {
     if (activeTab === 'analysis' && !analysisResult) {
       handleAnalysisLoad()
     }
-  }, [activeTab])
+  }, [activeTab, analysisResult, handleAnalysisLoad])
 
   const formatCurrency = (amount: number) => {
     return `$${amount.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -491,67 +576,11 @@ export const Commissions: React.FC = () => {
           </div>
 
           {analysisResult && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className="p-4">
-                <h4 className="font-medium text-gray-700 mb-2">Total Comisiones</h4>
-                <p className="text-2xl font-bold text-blue-600">
-                  {formatCurrency(analysisResult.totalCommissionsPaid)}
-                </p>
-              </Card>
-
-              <Card className="p-4">
-                <h4 className="font-medium text-gray-700 mb-2">Total Impuestos</h4>
-                <p className="text-2xl font-bold text-red-600">
-                  {formatCurrency(analysisResult.totalTaxesPaid)}
-                </p>
-              </Card>
-
-              <Card className="p-4">
-                <h4 className="font-medium text-gray-700 mb-2">Promedio por Operación</h4>
-                <p className="text-2xl font-bold text-green-600">
-                  {formatCurrency(analysisResult.averageCommissionPerTrade)}
-                </p>
-              </Card>
-
-              <Card className="p-4">
-                <h4 className="font-medium text-gray-700 mb-2">Total Operaciones</h4>
-                <p className="text-2xl font-bold text-gray-600">
-                  {analysisResult.commissionByType.buy.count + analysisResult.commissionByType.sell.count}
-                </p>
-              </Card>
-            </div>
+            <AnalysisMetrics analysisResult={analysisResult} />
           )}
 
-          {analysisResult && analysisResult.monthlyBreakdown.length > 0 && (
-            <Card className="p-6">
-              <h4 className="font-medium text-gray-700 mb-4">Evolución Mensual</h4>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2">Mes</th>
-                      <th className="text-right py-2">Operaciones</th>
-                      <th className="text-right py-2">Comisiones</th>
-                      <th className="text-right py-2">Impuestos</th>
-                      <th className="text-right py-2">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {analysisResult.monthlyBreakdown.map((month) => (
-                      <tr key={month.month} className="border-b hover:bg-gray-50">
-                        <td className="py-2 font-medium">{month.month}</td>
-                        <td className="py-2 text-right">{month.trades}</td>
-                        <td className="py-2 text-right">{formatCurrency(month.commissions)}</td>
-                        <td className="py-2 text-right">{formatCurrency(month.taxes)}</td>
-                        <td className="py-2 text-right font-medium">
-                          {formatCurrency(month.commissions + month.taxes)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+          {analysisResult && (
+            <MonthlyBreakdownTable analysisResult={analysisResult} />
           )}
         </div>
       )}
