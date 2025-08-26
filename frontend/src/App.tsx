@@ -13,6 +13,7 @@ import SellAnalysis from './pages/SellAnalysis'
 import { ContextualAnalysis } from './pages/ContextualAnalysis'
 import MonthlyReview from './pages/MonthlyReview'
 import SectorBalance from './pages/SectorBalance'
+import Scenarios from './pages/Scenarios'
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
           <Route path="/contextual" element={<ContextualAnalysis />} />
           <Route path="/monthly-review" element={<MonthlyReview />} />
           <Route path="/sector-balance" element={<SectorBalance />} />
+          <Route path="/scenarios" element={<Scenarios />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </Layout>

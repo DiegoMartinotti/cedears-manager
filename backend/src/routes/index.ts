@@ -18,6 +18,7 @@ import notificationRoutes from './notificationRoutes.js'
 import monthlyReviewRoutes from './monthlyReviewRoutes.js'
 import sectorBalanceRoutes from './sectorBalance.routes.js'
 import benchmarkRoutes from './benchmarkRoutes.js'
+import scenarioRoutes from './scenarioRoutes'
 import SimpleDatabaseConnection from '../database/simple-connection.js'
 
 const router = Router()
@@ -63,6 +64,7 @@ router.get('/', (req, res) => {
       monthlyReview: '/api/v1/monthly-review',
       sectorBalance: '/api/v1/sector-balance',
       benchmark: '/api/v1/benchmark',
+      scenarios: '/api/v1/scenarios',
       health: '/api/v1/health'
     },
     timestamp: new Date().toISOString()
@@ -89,5 +91,6 @@ router.use('/notifications', notificationRoutes)
 router.use('/monthly-review', monthlyReviewRoutes)
 router.use('/sector-balance', sectorBalanceRoutes)
 router.use('/benchmark', benchmarkRoutes)
+router.use('/scenarios', scenarioRoutes)
 
 export default router

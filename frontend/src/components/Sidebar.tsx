@@ -12,7 +12,8 @@ import {
   Brain,
   Bell,
   Calendar,
-  PieChart
+  PieChart,
+  Shuffle
 } from 'lucide-react'
 import NavigationItem from './NavigationItem'
 import { NavigationNotificationBadge } from './notifications/NotificationBadge'
@@ -98,6 +99,12 @@ export default function Sidebar() {
             to="/sector-balance"
             icon={<PieChart />}
             label="Balance Sectorial"
+          />
+          
+          <NavigationItem
+            to="/scenarios"
+            icon={<Shuffle />}
+            label="Simulador de Escenarios"
           />
           
           <div className="relative">
