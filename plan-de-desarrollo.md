@@ -195,12 +195,12 @@
 - [x] 23.4. Métricas avanzadas (Sharpe, volatilidad) ✅
 - [x] 23.5. Reporte mensual de performance ✅
 
-### 24. Simulador de Escenarios ✅ (Infraestructura)
+### 24. Simulador de Escenarios ✅
 - [x] 24.1. Interfaz de configuración de escenarios ✅
 - [x] 24.2. Variables macro (dólar, inflación, tasas) ✅
 - [x] 24.3. Impacto en cartera actual ✅
-- [ ] 24.4. Análisis what-if con Claude
-- [ ] 24.5. Recomendaciones por escenario
+- [x] 24.4. Análisis what-if con Claude ✅
+- [x] 24.5. Recomendaciones por escenario ✅
 
 ### 25. Análisis de Break-Even
 - [ ] 25.1. Calculadora de punto de equilibrio
