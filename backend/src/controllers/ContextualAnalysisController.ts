@@ -349,7 +349,7 @@ export class ContextualAnalysisController {
         analyzeWithClaude: Boolean(analyzeWithClaude)
       })
 
-      const historicalEarnings = Boolean(includeHistorical) 
+      const historicalEarnings = includeHistorical 
         ? await earningsAnalysisService.getHistoricalEarnings(symbol, 8)
         : []
 

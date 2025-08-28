@@ -217,7 +217,7 @@ export default function BreakEvenMatrix({ instrumentId, purchasePrice, quantity,
           <div className="flex items-center gap-2">
             <div className="w-4 h-3 bg-red-100 rounded border"></div>
             <span className="text-gray-600">
-              <span className="font-medium text-red-700">Crítico:</span> >25% sobre compra
+              <span className="font-medium text-red-700">Crítico:</span> {'>'}25% sobre compra
             </span>
           </div>
         </div>

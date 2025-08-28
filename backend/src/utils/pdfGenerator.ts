@@ -132,7 +132,7 @@ export class PDFGenerator {
     // - PDFKit for server-side generation
     // - Puppeteer for HTML-to-PDF conversion
     
-    let content = `%PDF-1.4
+    const content = `%PDF-1.4
 1 0 obj
 <<
 /Type /Catalog

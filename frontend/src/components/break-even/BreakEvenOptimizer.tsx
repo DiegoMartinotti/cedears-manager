@@ -122,10 +122,10 @@ const OptimizationCard: React.FC<OptimizationCardProps> = ({ optimization, onImp
   )
 }
 
-export default function BreakEvenOptimizer({ optimizations, analysis, className = '' }: BreakEvenOptimizerProps) {
+export default function BreakEvenOptimizer({ optimizations, analysis: _analysis, className = '' }: BreakEvenOptimizerProps) {
   const handleImplementOptimization = (id: number) => {
-    console.log(`Implementing optimization ${id}`)
     // Aquí se implementaría la lógica para aplicar la optimización
+    console.log(`Implementing optimization ${id}`)
   }
 
   // Calcular estadísticas de optimizaciones

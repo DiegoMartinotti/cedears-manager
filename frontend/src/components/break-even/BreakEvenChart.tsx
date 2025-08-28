@@ -1,5 +1,5 @@
 import React from 'react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine, ResponsiveContainer, Area, AreaChart } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine, ResponsiveContainer } from 'recharts'
 import { TrendingUp, TrendingDown, Target } from 'lucide-react'
 
 interface BreakEvenChartProps {
@@ -50,7 +50,7 @@ const CustomTooltip: React.FC<TooltipProps> = ({ active, payload, label }) => {
   return null
 }
 
-export default function BreakEvenChart({ analysis, projections = [], priceHistory = [], className = '' }: BreakEvenChartProps) {
+export default function BreakEvenChart({ analysis, projections = [], priceHistory: _priceHistory = [], className = '' }: BreakEvenChartProps) {
   // Preparar datos para el gráfico
   const chartData = []
   
