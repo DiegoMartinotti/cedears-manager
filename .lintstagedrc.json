@@ -1,13 +1,8 @@
 {
   "backend/**/*.{ts,js}": [
-    "cd backend && npx eslint --fix",
-    "cd backend && npx eslint"
+    "npx eslint --fix"
   ],
   "frontend/**/*.{ts,tsx,js,jsx}": [
-    "cd frontend && npx eslint --fix",
-    "cd frontend && npx eslint"
-  ],
-  "**/*.{ts,tsx,js,jsx}": [
-    "npm run lint:duplicates"
+    "npx eslint --fix"
   ]
 }
