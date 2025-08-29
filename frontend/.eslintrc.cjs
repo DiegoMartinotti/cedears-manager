@@ -46,7 +46,7 @@ module.exports = {
     'max-depth': ['error', 4],
     'max-lines-per-function': ['error', 500], // Más permisivo para componentes React existentes
     'max-params': ['error', 4],
-    'no-console': 'warn',
+    'no-console': 'off', // Temporalmente deshabilitado para desarrollo
     'prefer-const': 'error',
     'no-var': 'error',
     
