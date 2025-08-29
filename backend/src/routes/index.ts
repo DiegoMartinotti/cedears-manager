@@ -22,6 +22,7 @@ import scenarioRoutes from './scenarioRoutes'
 import breakEvenRoutes from './breakEvenRoutes.js'
 import { goalTrackerRoutes } from './goalTrackerRoutes.js'
 import { createGoalProjectionRoutes } from './goalProjectionRoutes.js'
+import { goalOptimizerRoutes } from './goalOptimizerRoutes'
 import SimpleDatabaseConnection from '../database/simple-connection.js'
 
 const router = Router()
@@ -71,6 +72,7 @@ router.get('/', (req, res) => {
       breakEven: '/api/v1/break-even',
       goalTracker: '/api/v1/goals',
       goalProjections: '/api/v1/goal-projections',
+      goalOptimizer: '/api/v1/goal-optimizer',
       health: '/api/v1/health'
     },
     timestamp: new Date().toISOString()
@@ -101,5 +103,6 @@ router.use('/scenarios', scenarioRoutes)
 router.use('/break-even', breakEvenRoutes)
 router.use('/goals', goalTrackerRoutes)
 router.use('/goal-projections', createGoalProjectionRoutes(SimpleDatabaseConnection.getDatabase()))
+router.use('/goal-optimizer', goalOptimizerRoutes)
 
 export default router
