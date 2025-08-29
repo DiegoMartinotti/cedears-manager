@@ -76,7 +76,7 @@ const Scenarios: React.FC = () => {
   return <ScenariosPage />
 }
 
-/* eslint-disable max-lines-per-function, no-console */
+/* eslint-disable max-lines-per-function */
 const ScenariosPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'scenarios' | 'analysis' | 'recommendations' | 'templates'>('scenarios');
   const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);

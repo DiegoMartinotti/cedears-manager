@@ -68,7 +68,6 @@ export function useRunSectorAnalysis() {
       queryClient.invalidateQueries({ queryKey: sectorBalanceKeys.all })
     },
     onError: (error) => {
-      // eslint-disable-next-line no-console
       console.error('Error running sector analysis:', error)
     }
   })
@@ -103,7 +102,6 @@ export function useSimulateRebalance() {
       excludeInstruments?: number[]
     }) => sectorBalanceService.simulateRebalance(params),
     onError: (error) => {
-      // eslint-disable-next-line no-console
       console.error('Error simulating rebalance:', error)
     }
   })
@@ -140,7 +138,6 @@ export function useAcknowledgeAlert() {
       queryClient.invalidateQueries({ queryKey: sectorBalanceKeys.overview() })
     },
     onError: (error) => {
-      // eslint-disable-next-line no-console
       console.error('Error acknowledging alert:', error)
     }
   })
@@ -244,7 +241,6 @@ export function useClassifyInstruments() {
       queryClient.invalidateQueries({ queryKey: sectorBalanceKeys.overview() })
     },
     onError: (error) => {
-      // eslint-disable-next-line no-console
       console.error('Error classifying instruments:', error)
     }
   })
@@ -296,7 +292,6 @@ export function useUpdateSectorTarget() {
       queryClient.invalidateQueries({ queryKey: sectorBalanceKeys.recommendations() })
     },
     onError: (error) => {
-      // eslint-disable-next-line no-console
       console.error('Error updating sector target:', error)
     }
   })

@@ -112,7 +112,7 @@ export function useCEDEARs() {
       })
       throw err
     }
-  }, [fetchCEDEARs, addNotification])
+  }, [execute, fetchCEDEARs, addNotification])
 
   return {
     cedears,
@@ -213,7 +213,7 @@ export function useTrades() {
       })
       throw err
     }
-  }, [execute, addNotification])
+  }, [addNotification])
 
   return {
     trades,
