@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -12,6 +13,7 @@ import { useGoalTracker } from '../hooks/useGoalTracker';
 import { goalService } from '../services/goalService';
 
 export default function Goals() {
+  const navigate = useNavigate();
   const [selectedGoalId, setSelectedGoalId] = useState<number | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -130,6 +132,21 @@ export default function Goals() {
                 <div className="text-xs text-gray-500 mt-2">
                   Creado: {new Date(goal.created_date).toLocaleDateString('es-ES')}
                 </div>
+                
+                {/* Botón de optimizador */}
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <Button
+                    size="small"
+                    variant="outline"
+                    className="w-full text-xs"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/goals/${goal.id}/optimizer`);
+                    }}
+                  >
+                    🚀 Optimizador
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -192,7 +209,8 @@ export default function Goals() {
                 { id: 'dashboard', label: '📊 Dashboard', icon: '📊' },
                 { id: 'calculator', label: '⏱️ Calculadora', icon: '⏱️' },
                 { id: 'simulator', label: '🧮 Simulador', icon: '🧮' },
-                { id: 'alerts', label: '⚠️ Alertas', icon: '⚠️' }
+                { id: 'alerts', label: '⚠️ Alertas', icon: '⚠️' },
+                { id: 'optimizer', label: '🚀 Optimizador', icon: '🚀' }
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -251,6 +269,58 @@ export default function Goals() {
               }}
               loading={isLoading}
             />
+          )}
+
+          {activeTab === 'optimizer' && selectedGoalId && (
+            <Card className="p-6">
+              <div className="text-center space-y-4">
+                <div className="text-6xl">🚀</div>
+                <h3 className="text-xl font-semibold text-gray-900">
+                  Optimizador de Estrategia
+                </h3>
+                <p className="text-gray-600 max-w-lg mx-auto">
+                  Accede al optimizador avanzado para analizar gaps, generar estrategias de aceleración, 
+                  calcular aportes optimizados y vincular oportunidades de mercado con tu objetivo.
+                </p>
+                <Button
+                  onClick={() => navigate(`/goals/${selectedGoalId}/optimizer`)}
+                  className="bg-blue-600 hover:bg-blue-700 px-8 py-3"
+                >
+                  🚀 Abrir Optimizador Completo
+                </Button>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-8 pt-8 border-t">
+                  <div className="text-center">
+                    <div className="text-2xl mb-2">📊</div>
+                    <div className="font-medium text-gray-900 mb-1">Análisis de Gap</div>
+                    <div className="text-sm text-gray-600">
+                      Identifica la diferencia entre tu situación actual y tu objetivo
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl mb-2">💰</div>
+                    <div className="font-medium text-gray-900 mb-1">Optimizar Aportes</div>
+                    <div className="text-sm text-gray-600">
+                      Calcula los aportes mensuales óptimos para tu situación
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl mb-2">⚡</div>
+                    <div className="font-medium text-gray-900 mb-1">Acelerar Metas</div>
+                    <div className="text-sm text-gray-600">
+                      Estrategias avanzadas para alcanzar tu objetivo más rápido
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl mb-2">🎯</div>
+                    <div className="font-medium text-gray-900 mb-1">Oportunidades</div>
+                    <div className="text-sm text-gray-600">
+                      Vincula oportunidades de mercado específicas a tu objetivo
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
           )}
         </div>
       )}

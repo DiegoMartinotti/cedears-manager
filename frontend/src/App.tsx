@@ -15,6 +15,7 @@ import MonthlyReview from './pages/MonthlyReview'
 import SectorBalance from './pages/SectorBalance'
 import Scenarios from './pages/Scenarios'
 import BreakEven from './pages/BreakEven'
+import { GoalOptimizer } from './pages/GoalOptimizer'
 
 function App() {
   return (
@@ -35,6 +36,7 @@ function App() {
           <Route path="/sector-balance" element={<SectorBalance />} />
           <Route path="/scenarios" element={<Scenarios />} />
           <Route path="/break-even" element={<BreakEven />} />
+          <Route path="/goals/:goalId/optimizer" element={<GoalOptimizer />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </Layout>
