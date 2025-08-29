@@ -168,10 +168,7 @@ ${statusEmoji[buildResult] || '❓'} **Build**: ${buildResult}
 • **Tests**: Ejecución de pruebas unitarias
 • **Build**: Verificación de compilación
 
-${qualityResult === 'success' && testResult === 'success' && buildResult === 'success' 
-  ? '🎉 **¡Todos los checks pasaron correctamente!** El PR está listo para revisión.'
-  : '⚠️ **Algunos checks fallaron.** Por favor revisa los errores y corrige antes de hacer merge.'
-}
+${qualityResult === 'success' && testResult === 'success' && buildResult === 'success' ? '🎉 **¡Todos los checks pasaron correctamente!** El PR está listo para revisión.' : '⚠️ **Algunos checks fallaron.** Por favor revisa los errores y corrige antes de hacer merge.'}
 
 ---
 *Este comentario se genera automáticamente por GitHub Actions*`;
