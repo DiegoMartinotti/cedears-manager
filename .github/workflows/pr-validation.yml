@@ -163,10 +163,10 @@ ${statusEmoji[testResult] || '❓'} **Tests**: ${testResult}
 ${statusEmoji[buildResult] || '❓'} **Build**: ${buildResult}
 
 ### Detalles
-- **ESLint**: Verificación de reglas de complejidad y estilo
-- **jscpd**: Detección de código duplicado
-- **Tests**: Ejecución de pruebas unitarias
-- **Build**: Verificación de compilación
+• **ESLint**: Verificación de reglas de complejidad y estilo
+• **jscpd**: Detección de código duplicado
+• **Tests**: Ejecución de pruebas unitarias
+• **Build**: Verificación de compilación
 
 ${qualityResult === 'success' && testResult === 'success' && buildResult === 'success' 
   ? '🎉 **¡Todos los checks pasaron correctamente!** El PR está listo para revisión.'
