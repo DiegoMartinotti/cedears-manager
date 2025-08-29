@@ -1,8 +1,13 @@
 {
   "backend/**/*.{ts,js}": [
-    "echo 'ESLint backend checks completed'"
+    "cd backend && npx eslint --fix",
+    "cd backend && npx eslint"
   ],
   "frontend/**/*.{ts,tsx,js,jsx}": [
-    "echo 'ESLint frontend checks completed'"
+    "cd frontend && npx eslint --fix",
+    "cd frontend && npx eslint"
+  ],
+  "**/*.{ts,tsx,js,jsx}": [
+    "npm run lint:duplicates"
   ]
 }
