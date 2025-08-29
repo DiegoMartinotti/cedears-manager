@@ -27,7 +27,7 @@ export default function BreakEven() {
 
   // Queries
   const { data: portfolioSummary, isLoading: portfolioLoading } = usePortfolioBreakEvenSummary()
-  const { isLoading: summaryLoading } = useBreakEvenSummary()
+  const { isLoading: _summaryLoading } = useBreakEvenSummary()
   // TODO: Use summary data when implementing the UI
   // const { data: summary } = useBreakEvenSummary()
   const { data: health, isLoading: healthLoading } = useBreakEvenHealth()

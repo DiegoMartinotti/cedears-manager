@@ -44,7 +44,6 @@ export const useCommissions = (): UseCommissionsReturn => {
   }, [])
 
   const handleApiError = useCallback((error: any, defaultMessage: string) => {
-    // eslint-disable-next-line no-console
     console.error('Commission API Error:', error)
     
     if (error.response?.data?.error) {

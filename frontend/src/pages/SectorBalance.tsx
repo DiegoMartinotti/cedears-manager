@@ -60,7 +60,6 @@ const SectorBalance: React.FC = () => {
       await runAnalysis.mutateAsync()
       refetchAll()
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('Error running analysis:', error)
     }
   }
@@ -69,7 +68,6 @@ const SectorBalance: React.FC = () => {
     try {
       await acknowledgeAlert.mutateAsync(alertId)
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('Error acknowledging alert:', error)
     }
   }

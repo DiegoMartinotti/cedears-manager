@@ -26,7 +26,6 @@ class SectorBalanceService {
       const response = await apiClient.get<SectorBalanceResponse<SectorBalanceOverview>>(`${this.baseUrl}/overview`)
       return response.data.data
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('Error fetching sector balance overview:', error)
       throw this.handleError(error)
     }
@@ -40,7 +39,6 @@ class SectorBalanceService {
       const response = await apiClient.get<SectorBalanceResponse<SectorDistribution[]>>(`${this.baseUrl}/distribution`)
       return response.data.data
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('Error fetching sector distribution:', error)
       throw this.handleError(error)
     }
@@ -60,7 +58,6 @@ class SectorBalanceService {
       const response = await apiClient.post(`${this.baseUrl}/analyze`)
       return response.data.data
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('Error running sector analysis:', error)
       throw this.handleError(error)
     }
@@ -78,7 +75,6 @@ class SectorBalanceService {
       const response = await apiClient.get<SectorBalanceResponse<RebalanceRecommendation[]>>(`${this.baseUrl}/recommendations`)
       return response.data.data
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('Error fetching recommendations:', error)
       throw this.handleError(error)
     }
@@ -97,7 +93,6 @@ class SectorBalanceService {
       const response = await apiClient.post(`${this.baseUrl}/simulate`, params)
       return response.data.data
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('Error simulating rebalance:', error)
       throw this.handleError(error)
     }
@@ -116,7 +111,6 @@ class SectorBalanceService {
       const response = await apiClient.get<SectorBalanceResponse<ConcentrationAlert[]>>(`${this.baseUrl}/alerts`, { params })
       return response.data.data
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('Error fetching alerts:', error)
       throw this.handleError(error)
     }
@@ -130,7 +124,6 @@ class SectorBalanceService {
       const response = await apiClient.put<SectorBalanceResponse<ConcentrationAlert>>(`${this.baseUrl}/alerts/${alertId}/acknowledge`)
       return response.data.data
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('Error acknowledging alert:', error)
       throw this.handleError(error)
     }
@@ -148,7 +141,6 @@ class SectorBalanceService {
       const response = await apiClient.get<SectorBalanceResponse<BalanceHealthScore>>(`${this.baseUrl}/health-score`)
       return response.data.data
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('Error fetching health score:', error)
       throw this.handleError(error)
     }
@@ -162,7 +154,6 @@ class SectorBalanceService {
       const response = await apiClient.get<SectorBalanceResponse<SectorStats[]>>(`${this.baseUrl}/sector-stats`)
       return response.data.data
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('Error fetching sector stats:', error)
       throw this.handleError(error)
     }
@@ -176,7 +167,6 @@ class SectorBalanceService {
       const response = await apiClient.get<SectorBalanceResponse<RiskAnalysis>>(`${this.baseUrl}/risk-analysis`)
       return response.data.data
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('Error fetching risk analysis:', error)
       throw this.handleError(error)
     }
@@ -190,7 +180,6 @@ class SectorBalanceService {
       const response = await apiClient.get(`${this.baseUrl}/performance/${months}`)
       return response.data.data
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('Error fetching performance analysis:', error)
       throw this.handleError(error)
     }
@@ -214,7 +203,6 @@ class SectorBalanceService {
       const response = await apiClient.get<SectorBalanceResponse<SectorClassification[]>>(`${this.baseUrl}/classifications`, { params })
       return response.data.data
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('Error fetching classifications:', error)
       throw this.handleError(error)
     }
@@ -231,7 +219,6 @@ class SectorBalanceService {
       const response = await apiClient.post(`${this.baseUrl}/classify`, params)
       return response.data.data
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('Error classifying instruments:', error)
       throw this.handleError(error)
     }
@@ -245,7 +232,6 @@ class SectorBalanceService {
       const response = await apiClient.get(`${this.baseUrl}/classification-quality`)
       return response.data.data
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('Error fetching classification quality:', error)
       throw this.handleError(error)
     }
@@ -264,7 +250,6 @@ class SectorBalanceService {
       const response = await apiClient.get(`${this.baseUrl}/targets`, { params })
       return response.data.data
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('Error fetching targets:', error)
       throw this.handleError(error)
     }
@@ -278,7 +263,6 @@ class SectorBalanceService {
       const response = await apiClient.put(`${this.baseUrl}/targets/${targetId}`, data)
       return response.data.data
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('Error updating target:', error)
       throw this.handleError(error)
     }
@@ -296,7 +280,6 @@ class SectorBalanceService {
       const response = await apiClient.get(`${this.baseUrl}/health`)
       return response.data.success
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('Health check failed:', error)
       return false
     }
