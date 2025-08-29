@@ -10,9 +10,10 @@ import {
   Target
 } from 'lucide-react'
 import BreakEvenCalculator from '../components/break-even/BreakEvenCalculator'
-import BreakEvenChart from '../components/break-even/BreakEvenChart'
-import BreakEvenMatrix from '../components/break-even/BreakEvenMatrix'
-import BreakEvenOptimizer from '../components/break-even/BreakEvenOptimizer'
+// TODO: Implement these components when needed
+// import BreakEvenChart from '../components/break-even/BreakEvenChart'
+// import BreakEvenMatrix from '../components/break-even/BreakEvenMatrix'
+// import BreakEvenOptimizer from '../components/break-even/BreakEvenOptimizer'
 import { 
   usePortfolioBreakEvenSummary, 
   useBreakEvenSummary, 
@@ -26,7 +27,9 @@ export default function BreakEven() {
 
   // Queries
   const { data: portfolioSummary, isLoading: portfolioLoading } = usePortfolioBreakEvenSummary()
-  const { data: summary, isLoading: summaryLoading } = useBreakEvenSummary()
+  const { isLoading: summaryLoading } = useBreakEvenSummary()
+  // TODO: Use summary data when implementing the UI
+  // const { data: summary } = useBreakEvenSummary()
   const { data: health, isLoading: healthLoading } = useBreakEvenHealth()
 
   const tabs = [

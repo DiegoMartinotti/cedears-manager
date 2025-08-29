@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { Tabs } from '../components/ui/Tabs';
+// import { Tabs } from '../components/ui/Tabs'; // TODO: Use when implementing tabs UI
 import { CreateGoalForm } from '../components/goals/CreateGoalForm';
 import { GoalDashboard } from '../components/goals/GoalDashboard';
 import { GoalCalculator } from '../components/goals/GoalCalculator';
@@ -21,7 +21,7 @@ export default function Goals() {
     createGoal,
     dashboard,
     refreshDashboard,
-    updateProgress,
+    // updateProgress, // TODO: Implement update progress functionality
     calculation,
     calculate,
     simulations,
