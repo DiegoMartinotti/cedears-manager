@@ -1,6 +1,5 @@
 import React from 'react'
-// import { InstrumentUI } from '@cedears-manager/shared/types'
-import { useInstrumentsCount } from '../hooks/useInstruments'
+import { useInstrumentLimit } from '../hooks/useInstrumentLimit'
 import { Card, CardContent } from './ui/Card'
 import { Badge } from './ui/Badge'
 import { Button } from './ui/Button'
@@ -19,28 +18,6 @@ interface InstrumentLimitManagerProps {
   className?: string
 }
 
-const MAX_INSTRUMENTS = 100
-
-// Hook for limit management
-export const useInstrumentLimit = () => {
-  const { data: totalCount = 0, isLoading } = useInstrumentsCount({ isActive: true })
-  
-  const remaining = Math.max(0, MAX_INSTRUMENTS - totalCount)
-  const isAtLimit = totalCount >= MAX_INSTRUMENTS
-  const isNearLimit = totalCount >= MAX_INSTRUMENTS * 0.9 // 90% of limit
-  const progressPercentage = Math.min((totalCount / MAX_INSTRUMENTS) * 100, 100)
-  
-  return {
-    totalCount,
-    remaining,
-    isAtLimit,
-    isNearLimit,
-    progressPercentage,
-    maxInstruments: MAX_INSTRUMENTS,
-    isLoading,
-    canAddMore: !isAtLimit,
-  }
-}
 
 export const InstrumentLimitManager: React.FC<InstrumentLimitManagerProps> = ({
   onViewAll,
@@ -274,13 +251,5 @@ export const InstrumentLimitWarning: React.FC<{
   )
 }
 
-// Hook to check if can add instruments before showing form
-export const useCanAddInstrument = () => {
-  const limit = useInstrumentLimit()
-  return {
-    canAdd: limit.canAddMore,
-    ...limit,
-  }
-}
 
 export default InstrumentLimitManager
