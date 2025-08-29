@@ -155,23 +155,25 @@ jobs:
               'skipped': '⏭️'
             };
             
-            const summary = `## 🔍 Resultados de Validación PR
-
-### Checks de Calidad
-${statusEmoji[qualityResult] || '❓'} **Quality Check**: ${qualityResult}
-${statusEmoji[testResult] || '❓'} **Tests**: ${testResult}  
-${statusEmoji[buildResult] || '❓'} **Build**: ${buildResult}
-
-### Detalles
-• **ESLint**: Verificación de reglas de complejidad y estilo
-• **jscpd**: Detección de código duplicado
-• **Tests**: Ejecución de pruebas unitarias
-• **Build**: Verificación de compilación
-
-${qualityResult === 'success' && testResult === 'success' && buildResult === 'success' ? '🎉 **¡Todos los checks pasaron correctamente!** El PR está listo para revisión.' : '⚠️ **Algunos checks fallaron.** Por favor revisa los errores y corrige antes de hacer merge.'}
-
----
-*Este comentario se genera automáticamente por GitHub Actions*`;
+            let summary = '## 🔍 Resultados de Validación PR\n\n';
+            summary += '### Checks de Calidad\n';
+            summary += `${statusEmoji[qualityResult] || '❓'} **Quality Check**: ${qualityResult}\n`;
+            summary += `${statusEmoji[testResult] || '❓'} **Tests**: ${testResult}\n`;
+            summary += `${statusEmoji[buildResult] || '❓'} **Build**: ${buildResult}\n\n`;
+            summary += '### Detalles\n';
+            summary += '• **ESLint**: Verificación de reglas de complejidad y estilo\n';
+            summary += '• **jscpd**: Detección de código duplicado\n';
+            summary += '• **Tests**: Ejecución de pruebas unitarias\n';
+            summary += '• **Build**: Verificación de compilación\n\n';
+            
+            if (qualityResult === 'success' && testResult === 'success' && buildResult === 'success') {
+              summary += '🎉 **¡Todos los checks pasaron correctamente!** El PR está listo para revisión.\n';
+            } else {
+              summary += '⚠️ **Algunos checks fallaron.** Por favor revisa los errores y corrige antes de hacer merge.\n';
+            }
+            
+            summary += '\n---\n';
+            summary += '*Este comentario se genera automáticamente por GitHub Actions*';
 
             // Buscar comentario anterior del bot
             const { data: comments } = await github.rest.issues.listComments({
