@@ -5,6 +5,12 @@ on:
     branches: [ main, master, develop ]
     types: [ opened, synchronize, reopened ]
 
+# Permisos necesarios para que el workflow pueda acceder a la API de GitHub
+permissions:
+  contents: read          # Para leer el código del repositorio
+  pull-requests: read     # Para leer información de pull requests
+  issues: write          # Para crear y actualizar comentarios en PRs
+
 # Cancelar workflows anteriores si se hace un nuevo push
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
