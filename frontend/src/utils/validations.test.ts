@@ -2,8 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { 
   cedearSchema, 
   tradeSchema, 
-  financialGoalSchema, 
-  settingsSchema,
+  financialGoalSchema,
   commissionConfigSchema,
   searchSchema 
 } from './validations'
@@ -103,7 +102,7 @@ describe('tradeSchema', () => {
   })
 
   it('acepta notas opcionales', () => {
-    const { notes, ...tradeWithoutNotes } = validTrade
+    const { notes: _notes, ...tradeWithoutNotes } = validTrade
     const result = tradeSchema.safeParse(tradeWithoutNotes)
     expect(result.success).toBe(true)
   })
@@ -142,7 +141,7 @@ describe('financialGoalSchema', () => {
   })
 
   it('acepta monto actual por defecto', () => {
-    const { currentAmount, ...goalWithoutCurrent } = validGoal
+    const { currentAmount: _currentAmount, ...goalWithoutCurrent } = validGoal
     const result = financialGoalSchema.safeParse(goalWithoutCurrent)
     expect(result.success).toBe(true)
     if (result.success) {
@@ -186,7 +185,7 @@ describe('commissionConfigSchema', () => {
   })
 
   it('acepta configuración sin montos opcionales', () => {
-    const { minAmount, maxAmount, ...configWithoutAmounts } = validConfig
+    const { minAmount: _minAmount, maxAmount: _maxAmount, ...configWithoutAmounts } = validConfig
     const result = commissionConfigSchema.safeParse(configWithoutAmounts)
     expect(result.success).toBe(true)
   })
@@ -210,7 +209,7 @@ describe('searchSchema', () => {
   })
 
   it('acepta búsqueda sin filtros', () => {
-    const { filters, ...searchWithoutFilters } = validSearch
+    const { filters: _filters, ...searchWithoutFilters } = validSearch
     const result = searchSchema.safeParse(searchWithoutFilters)
     expect(result.success).toBe(true)
   })
