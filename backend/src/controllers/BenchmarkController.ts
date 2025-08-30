@@ -6,13 +6,6 @@ import { performanceAnalysisService } from '../services/PerformanceAnalysisServi
 import logger from '../utils/logger.js'
 
 // Validation schemas
-const getBenchmarkDataSchema = z.object({
-  benchmarkId: z.number().int().positive(),
-  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  period: z.enum(['1D', '1W', '1M', '3M', '6M', '1Y', 'YTD', 'ALL']).optional()
-})
-
 const comparePerformanceSchema = z.object({
   benchmarkId: z.number().int().positive(),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

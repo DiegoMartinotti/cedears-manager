@@ -903,6 +903,26 @@ export const getSectorMappingByTicker = (ticker: string): SectorMapping | undefi
   )
 }
 
+/**
+ * Busca keywords en una industria específica
+ */
+const searchKeywordsInIndustry = (searchText: string, industry: any): boolean => {
+  return industry.subIndustries.some((subIndustry: any) =>
+    subIndustry.keywords.some((keyword: string) =>
+      searchText.includes(keyword.toLowerCase())
+    )
+  )
+}
+
+/**
+ * Busca keywords en un grupo de industrias específico
+ */
+const searchKeywordsInGroup = (searchText: string, group: any): boolean => {
+  return group.industries.some((industry: any) =>
+    searchKeywordsInIndustry(searchText, industry)
+  )
+}
+
 export const findSectorByKeywords = (companyName: string, ticker: string): GICSSector | undefined => {
   const searchText = `${companyName} ${ticker}`.toLowerCase()
   
@@ -913,21 +933,11 @@ export const findSectorByKeywords = (companyName: string, ticker: string): GICSS
   }
   
   // Then try keyword matching
-  for (const sector of GICS_SECTORS) {
-    for (const group of sector.industryGroups) {
-      for (const industry of group.industries) {
-        for (const subIndustry of industry.subIndustries) {
-          for (const keyword of subIndustry.keywords) {
-            if (searchText.includes(keyword.toLowerCase())) {
-              return sector
-            }
-          }
-        }
-      }
-    }
-  }
-  
-  return undefined
+  return GICS_SECTORS.find(sector =>
+    sector.industryGroups.some(group =>
+      searchKeywordsInGroup(searchText, group)
+    )
+  )
 }
 
 // Sector balance configuration

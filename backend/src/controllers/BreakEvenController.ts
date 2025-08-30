@@ -1,6 +1,7 @@
 import { Request, Response } from 'express'
 import { z } from 'zod'
 import { BreakEvenService } from '../services/BreakEvenService.js'
+import { calculateCommissions, calculateBreakEvenMetrics } from '../utils/calculationHelpers.js'
 import { createLogger } from '../utils/logger.js'
 
 const logger = createLogger('BreakEvenController')
@@ -33,12 +34,6 @@ const CompareStrategiesSchema = z.object({
   }))
 })
 
-const OptimizationFilterSchema = z.object({
-  tradeId: z.number().positive().optional(),
-  suggestionType: z.string().optional(),
-  priority: z.number().min(1).max(5).optional(),
-  implementationDifficulty: z.enum(['LOW', 'MEDIUM', 'HIGH']).optional()
-})
 
 export class BreakEvenController {
   private breakEvenService: BreakEvenService
@@ -348,12 +343,11 @@ export class BreakEvenController {
         purchasePrice,
         quantity,
         currentPrice,
-        commissionRate,
-        inflationRate,
-        custodyMonths
+        commissionRate = 0.005,
+        inflationRate = 0.12,
+        custodyMonths = 0
       } = req.body
 
-      // Validación básica
       if (!purchasePrice || !quantity || !currentPrice) {
         return res.status(400).json({
           error: 'Invalid parameters',
@@ -361,47 +355,32 @@ export class BreakEvenController {
         })
       }
 
-      // Cálculo simulado (simplificado)
-      const totalInvestment = purchasePrice * quantity
-      const buyCommission = Math.max(totalInvestment * (commissionRate || 0.005), 150) * 1.21
-      const sellCommission = Math.max(currentPrice * quantity * (commissionRate || 0.005), 150) * 1.21
+      const { buyCommission, sellCommission, totalInvestment } = calculateCommissions(
+        purchasePrice, quantity, currentPrice, commissionRate
+      )
       
-      const custodyFee = (custodyMonths || 0) * 500 * 1.21 // Estimación
-      const inflationImpact = totalInvestment * ((inflationRate || 0.12) * (custodyMonths || 0) / 12)
-      
+      const custodyFee = custodyMonths * 500 * 1.21
+      const inflationImpact = totalInvestment * (inflationRate * custodyMonths / 12)
       const totalCosts = buyCommission + sellCommission + custodyFee + inflationImpact
-      const breakEvenPrice = (totalInvestment + totalCosts) / quantity
       
-      const profit = (currentPrice * quantity) - totalInvestment - totalCosts
-      const profitPercentage = (profit / totalInvestment) * 100
+      const metrics = calculateBreakEvenMetrics(
+        totalInvestment, quantity, currentPrice, totalCosts
+      )
 
       res.json({
         success: true,
         data: {
           simulation: {
             inputs: {
-              purchasePrice,
-              quantity,
-              currentPrice,
-              commissionRate: commissionRate || 0.005,
-              inflationRate: inflationRate || 0.12,
-              custodyMonths: custodyMonths || 0
+              purchasePrice, quantity, currentPrice,
+              commissionRate, inflationRate, custodyMonths
             },
             results: {
               totalInvestment,
-              breakEvenPrice,
-              currentPrice,
-              profit,
-              profitPercentage,
+              ...metrics,
               costsBreakdown: {
-                buyCommission,
-                sellCommission,
-                custodyFee,
-                inflationImpact,
-                totalCosts
-              },
-              distanceToBreakEven: currentPrice - breakEvenPrice,
-              distancePercentage: ((currentPrice - breakEvenPrice) / breakEvenPrice) * 100
+                buyCommission, sellCommission, custodyFee, inflationImpact, totalCosts
+              }
             }
           }
         },
