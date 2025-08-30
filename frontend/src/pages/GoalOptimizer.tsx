@@ -40,7 +40,7 @@ interface GoalOpportunityMatch {
   action_taken: boolean;
 }
 
-const OpportunityMatcher: React.FC<{ opportunities: GoalOpportunityMatch[] }> = ({ 
+const OpportunityMatcher: React.FC<{ opportunities: GoalOpportunityMatch[] }> = ({
   opportunities 
 }) => {
   const formatCurrency = (amount: number) => {

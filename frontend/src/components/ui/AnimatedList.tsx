@@ -33,7 +33,7 @@ export const AnimatedList: React.FC<AnimatedListProps> = ({
   className,
   staggerDelay = 0.1,
   layout = true,
-  variant = 'slide'
+  variant: _variant = 'slide'
 }) => {
   const containerVariants = {
     ...listVariants[variant],

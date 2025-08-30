@@ -52,7 +52,7 @@ export const ContributionOptimizer: React.FC<ContributionOptimizerProps> = ({
 
   useEffect(() => {
     loadContributionPlans();
-  }, [loadContributionPlans]);
+  }, [goalId, loadContributionPlans]);
 
   const loadContributionPlans = useCallback(async () => {
     setIsLoading(true);

@@ -46,6 +46,9 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
 
+  useEffect(() => {
+    loadMilestones();
+  }, [goalId, loadMilestones]);
   const loadMilestones = useCallback(async () => {
     setIsLoading(true);
     
@@ -162,10 +165,6 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
     }
   }, [goalId, currentCapital, targetCapital]);
 
-  useEffect(() => {
-    loadMilestones();
-  }, [loadMilestones]);
-
   const generateNewMilestones = async () => {
     setIsGenerating(true);
     
@@ -180,6 +179,31 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
     }
   };
 
+  const _updateMilestoneProgress = async (milestone: Milestone, progress: number) => {
+    try {
+      // En implementación real: llamada a API
+      // await fetch(`/api/goal-optimizer/milestones/${milestone.id}/progress`, {
+      //   method: 'PUT',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({ current_progress: progress })
+      // });
+      
+      const updatedMilestone = {
+        ...milestone,
+        current_progress: progress,
+        progress_percentage: Math.min(100, (progress / (milestone.target_amount || 100)) * 100),
+        is_achieved: progress >= (milestone.target_amount || 100)
+      };
+      
+      setMilestones(prev => prev.map(m => m.id === milestone.id ? updatedMilestone : m));
+      
+      if (onMilestoneUpdate) {
+        onMilestoneUpdate(updatedMilestone);
+      }
+    } catch (error) {
+      console.error('Error updating milestone:', error);
+    }
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-AR', {
