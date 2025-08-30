@@ -57,16 +57,27 @@ export const useKeyboardShortcuts = () => {
     { key: 'escape', description: 'Cerrar modal', category: 'UI', action: closeModal },
   ]
 
-  // Registrar shortcuts
-  shortcuts.forEach(({ key, action }) => {
-    useHotkeys(key, (e) => {
-      e.preventDefault()
-      action()
-    }, {
-      enableOnContentEditable: false,
-      enableOnFormTags: false,
-    })
-  })
+  // Registrar shortcuts individuales
+  const options = {
+    enableOnContentEditable: false,
+    enableOnFormTags: false,
+  }
+
+  // Navegación
+  useHotkeys('ctrl+1', (e) => { e.preventDefault(); goToDashboard() }, options)
+  useHotkeys('ctrl+2', (e) => { e.preventDefault(); goToWatchlist() }, options)
+  useHotkeys('ctrl+3', (e) => { e.preventDefault(); goToOpportunities() }, options)
+  useHotkeys('ctrl+4', (e) => { e.preventDefault(); goToPortfolio() }, options)
+  useHotkeys('ctrl+5', (e) => { e.preventDefault(); goToTrades() }, options)
+  useHotkeys('ctrl+6', (e) => { e.preventDefault(); goToGoals() }, options)
+  useHotkeys('ctrl+,', (e) => { e.preventDefault(); goToSettings() }, options)
+
+  // UI Controls
+  useHotkeys('ctrl+k', (e) => { e.preventDefault(); showCommandPalette() }, options)
+  useHotkeys('ctrl+/', (e) => { e.preventDefault(); showShortcutsHelp() }, options)
+  useHotkeys('ctrl+b', (e) => { e.preventDefault(); toggleSidebar() }, options)
+  useHotkeys('alt+t', (e) => { e.preventDefault(); toggleTheme() }, options)
+  useHotkeys('escape', (e) => { e.preventDefault(); closeModal() }, options)
 
   return {
     shortcuts,
