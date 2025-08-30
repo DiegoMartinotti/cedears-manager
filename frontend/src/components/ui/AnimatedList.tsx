@@ -35,19 +35,23 @@ export const AnimatedList: React.FC<AnimatedListProps> = ({
   layout = true,
   variant = 'slide'
 }) => {
+  const containerVariants = {
+    ...listVariants[variant],
+    visible: {
+      ...listVariants[variant].visible,
+      transition: {
+        staggerChildren: staggerDelay
+      }
+    }
+  }
+
   const content = layout ? (
     <LayoutGroup>
       <motion.div
         className={className}
         initial="hidden"
         animate="visible"
-        variants={{
-          visible: {
-            transition: {
-              staggerChildren: staggerDelay
-            }
-          }
-        }}
+        variants={containerVariants}
       >
         {children}
       </motion.div>
@@ -57,13 +61,7 @@ export const AnimatedList: React.FC<AnimatedListProps> = ({
       className={className}
       initial="hidden"
       animate="visible"
-      variants={{
-        visible: {
-          transition: {
-            staggerChildren: staggerDelay
-          }
-        }
-      }}
+      variants={containerVariants}
     >
       {children}
     </motion.div>
@@ -187,7 +185,7 @@ export const ReorderableList: React.FC<{
   onReorder: (items: any[]) => void
   renderItem: (item: any, index: number) => React.ReactNode
   className?: string
-}> = ({ items, onReorder, renderItem, className }) => {
+}> = ({ items, onReorder: _onReorder, renderItem, className }) => {
   return (
     <motion.div className={className}>
       {items.map((item, index) => (
