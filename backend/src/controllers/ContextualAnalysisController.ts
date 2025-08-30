@@ -4,6 +4,8 @@ import { newsAnalysisService } from '../services/NewsAnalysisService.js'
 import { marketSentimentService } from '../services/MarketSentimentService.js'
 import { earningsAnalysisService } from '../services/EarningsAnalysisService.js'
 import { trendPredictionService } from '../services/TrendPredictionService.js'
+import { validateSymbolParam, handleValidationError } from '../utils/validationHelpers.js'
+import { buildEarningsSummary, calculateNewsStats } from '../utils/responseBuilders.js'
 import { createLogger } from '../utils/logger.js'
 import { z } from 'zod'
 
@@ -53,42 +55,25 @@ export class ContextualAnalysisController {
   static async analyzeSymbol(req: Request, res: Response): Promise<void> {
     try {
       const validation = SymbolAnalysisSchema.safeParse(req.body)
-      if (!validation.success) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid request data',
-          details: validation.error.issues
-        })
-        return
-      }
+      if (!handleValidationError(validation, res)) return
 
       const { symbol, analysisType, timeframe, options } = validation.data
 
       logger.info('Symbol contextual analysis request', {
-        symbol,
-        analysisType,
-        timeframe,
-        includeOptions: Object.keys(options || {})
+        symbol, analysisType, timeframe, includeOptions: Object.keys(options || {})
       })
 
       const result = await claudeContextualService.analyzeSymbol({
-        symbol,
-        analysisType,
-        timeframe,
-        options
+        symbol, analysisType, timeframe, options
       })
 
       logger.info('Symbol contextual analysis completed', {
         symbol,
         recommendation: result.overallAssessment.recommendation,
-        confidence: result.overallAssessment.confidence,
-        componentsCount: Object.keys(result.components).length
+        confidence: result.overallAssessment.confidence
       })
 
-      res.json({
-        success: true,
-        data: result
-      })
+      res.json({ success: true, data: result })
 
     } catch (error) {
       logger.error('Symbol contextual analysis failed', { 
@@ -223,13 +208,7 @@ export class ContextualAnalysisController {
         useCache = true 
       } = req.query
 
-      if (!symbol || symbol.length > 10) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid symbol parameter'
-        })
-        return
-      }
+      if (!validateSymbolParam(symbol, res)) return
 
       logger.info('News analysis request', { symbol, days, pageSize })
 
@@ -246,15 +225,7 @@ export class ContextualAnalysisController {
 
       res.json({
         success: true,
-        data: {
-          newsAnalysis,
-          sentiment: newsSentiment,
-          summary: {
-            articlesCount: newsAnalysis.length,
-            avgRelevance: newsAnalysis.reduce((sum, n) => sum + n.relevance, 0) / newsAnalysis.length || 0,
-            sentimentScore: newsSentiment.sentimentScore
-          }
-        }
+        data: calculateNewsStats(newsAnalysis, newsSentiment)
       })
 
     } catch (error) {
@@ -332,13 +303,7 @@ export class ContextualAnalysisController {
         useCache = true 
       } = req.query
 
-      if (!symbol || symbol.length > 10) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid symbol parameter'
-        })
-        return
-      }
+      if (!validateSymbolParam(symbol, res)) return
 
       logger.info('Earnings analysis request', { symbol, includeHistorical, analyzeWithClaude })
 
@@ -355,15 +320,7 @@ export class ContextualAnalysisController {
 
       res.json({
         success: true,
-        data: {
-          current: earningsAnalysis,
-          historical: historicalEarnings,
-          summary: {
-            assessment: earningsAnalysis.analysis.overallAssessment,
-            surprise: earningsAnalysis.earningsData.surprisePercentage,
-            priceImpact: earningsAnalysis.analysis.priceImpact.expectedDirection
-          }
-        }
+        data: buildEarningsSummary(earningsAnalysis, historicalEarnings)
       })
 
     } catch (error) {

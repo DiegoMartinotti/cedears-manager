@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
 import { claudeAnalysisService } from '../services/claudeAnalysisService.js'
+import { validatePrompt } from '../utils/validationHelpers.js'
 import { createLogger } from '../utils/logger.js'
 
 const logger = createLogger('claude-controller')
@@ -40,39 +41,15 @@ export class ClaudeController {
     try {
       const { prompt, instrumentCode, context, options } = req.body
 
-      // Validaciones básicas
-      if (!prompt || typeof prompt !== 'string') {
-        res.status(400).json({
-          success: false,
-          error: 'Prompt is required and must be a string'
-        })
-        return
-      }
-
-      if (prompt.length > 10000) {
-        res.status(400).json({
-          success: false,
-          error: 'Prompt too long (max 10000 characters)'
-        })
-        return
-      }
+      if (!validatePrompt(prompt, res)) return
 
       logger.info('Analysis request received', {
-        instrumentCode,
-        promptLength: prompt.length,
-        hasContext: !!context
+        instrumentCode, promptLength: prompt.length, hasContext: !!context
       })
 
-      // Ejecutar análisis
-      const result = await claudeAnalysisService.analyze(
-        {
-          prompt,
-          instrumentCode,
-          context,
-          marketData: req.body.marketData
-        },
-        options || {}
-      )
+      const result = await claudeAnalysisService.analyze({
+        prompt, instrumentCode, context, marketData: req.body.marketData
+      }, options || {})
 
       logger.info('Analysis completed', {
         instrumentCode,
@@ -81,10 +58,7 @@ export class ClaudeController {
         executionTime: result.executionTime
       })
 
-      res.json({
-        success: true,
-        data: result
-      })
+      res.json({ success: true, data: result })
 
     } catch (error) {
       logger.error('Analysis failed', { error, instrumentCode: req.body?.instrumentCode })

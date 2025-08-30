@@ -1,11 +1,25 @@
 import { Request, Response } from 'express'
 import { CommissionService, CommissionConfig } from '../services/CommissionService.js'
+import { validateOperationParams } from '../utils/validationHelpers.js'
+import { buildCommissionResponse } from '../utils/responseBuilders.js'
 import { createLogger } from '../utils/logger.js'
 
 const logger = createLogger('CommissionController')
 
 export class CommissionController {
   private commissionService = new CommissionService()
+
+  /**
+   * Obtiene la configuración de comisiones para un broker
+   */
+  private getCommissionConfig(broker?: string): CommissionConfig {
+    if (!broker) {
+      return this.commissionService.getDefaultConfiguration()
+    }
+    
+    const brokerConfig = this.commissionService.getConfigurationByBroker(broker)
+    return brokerConfig || this.commissionService.getDefaultConfiguration()
+  }
 
   /**
    * GET /api/v1/commissions/configs
@@ -110,62 +124,23 @@ export class CommissionController {
 
       logger.info('Calculating commission:', { type, amount, portfolioValue, broker })
 
-      // Validación de entrada
-      if (!type || !amount) {
-        res.status(400).json({
-          success: false,
-          error: 'Operation type and amount are required'
-        })
-        return
-      }
+      if (!validateOperationParams(type, amount, res)) return
 
-      if (!['BUY', 'SELL'].includes(type.toUpperCase())) {
-        res.status(400).json({
-          success: false,
-          error: 'Operation type must be BUY or SELL'
-        })
-        return
-      }
+      const config = this.getCommissionConfig(broker)
+      const operationType = type.toUpperCase() as 'BUY' | 'SELL'
 
-      if (amount <= 0) {
-        res.status(400).json({
-          success: false,
-          error: 'Amount must be greater than 0'
-        })
-        return
-      }
-
-      // Obtener configuración
-      let config = this.commissionService.getDefaultConfiguration()
-      
-      if (broker) {
-        const brokerConfig = this.commissionService.getConfigurationByBroker(broker)
-        if (brokerConfig) {
-          config = brokerConfig
-        }
-      }
-
-      // Calcular comisiones
       const operationCommission = this.commissionService.calculateOperationCommission(
-        type.toUpperCase() as 'BUY' | 'SELL',
-        amount,
-        config
+        operationType, amount, config
       )
 
-      let result: any = {
-        operation: operationCommission
+      let projection = null
+      if (portfolioValue !== undefined && portfolioValue >= 0) {
+        projection = this.commissionService.calculateCommissionProjection(
+          operationType, amount, portfolioValue, config
+        )
       }
 
-      // Si se proporciona el valor de cartera, calcular proyección completa
-      if (portfolioValue !== undefined && portfolioValue >= 0) {
-        const projection = this.commissionService.calculateCommissionProjection(
-          type.toUpperCase() as 'BUY' | 'SELL',
-          amount,
-          portfolioValue,
-          config
-        )
-        result = projection
-      }
+      const result = buildCommissionResponse(operationCommission, projection)
 
       res.status(200).json({
         success: true,
