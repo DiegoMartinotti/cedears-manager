@@ -140,7 +140,7 @@ export const useGoalOptimizer = (
   goalId: number,
   options: UseGoalOptimizerOptions = {}
 ): UseGoalOptimizerReturn => {
-  const { autoRefresh = false, refreshInterval = 300000, enableRealTimeUpdates = false } = options;
+  const { autoRefresh = false, refreshInterval = 300000, _enableRealTimeUpdates = false } = options;
 
   // Estado inicial
   const [state, setState] = useState<GoalOptimizerState>({
