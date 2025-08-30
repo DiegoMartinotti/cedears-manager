@@ -16,11 +16,20 @@ import SectorBalance from './pages/SectorBalance'
 import Scenarios from './pages/Scenarios'
 import BreakEven from './pages/BreakEven'
 import { GoalOptimizer } from './pages/GoalOptimizer'
+import Notifications from './pages/Notifications'
+import { PageTransition } from './components/ui/PageTransition'
+import { CommandPalette } from './components/ui/CommandPalette'
+import { KeyboardShortcuts } from './components/ui/KeyboardShortcuts'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import { useAppStore } from './store'
 
-function App() {
+function AppContent() {
+  const { ui, setActiveModal } = useAppStore()
+  useKeyboardShortcuts() // Initialize keyboard shortcuts
+
   return (
-    <Router>
-      <Layout>
+    <Layout>
+      <PageTransition>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/watchlist" element={<Watchlist />} />
@@ -37,9 +46,28 @@ function App() {
           <Route path="/scenarios" element={<Scenarios />} />
           <Route path="/break-even" element={<BreakEven />} />
           <Route path="/goals/:goalId/optimizer" element={<GoalOptimizer />} />
+          <Route path="/notifications" element={<Notifications />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
-      </Layout>
+      </PageTransition>
+
+      {/* Global UI Components */}
+      <CommandPalette
+        isOpen={ui.activeModal === 'command-palette'}
+        onClose={() => setActiveModal(null)}
+      />
+      <KeyboardShortcuts
+        isOpen={ui.activeModal === 'keyboard-shortcuts'}
+        onClose={() => setActiveModal(null)}
+      />
+    </Layout>
+  )
+}
+
+function App() {
+  return (
+    <Router>
+      <AppContent />
     </Router>
   )
 }
