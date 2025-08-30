@@ -10,9 +10,7 @@ import { GoalOpportunityIntegrationService } from '../services/GoalOpportunityIn
 import {
   CreateGapAnalysisDto,
   CreateOptimizationStrategyDto,
-  CreateContributionPlanDto,
-  CreateMilestoneDto,
-  CreateAccelerationStrategyDto
+  CreateContributionPlanDto
 } from '../models/GoalOptimizer';
 import { OpportunityMatchCriteria } from '../services/GoalOpportunityIntegrationService';
 
@@ -29,6 +27,121 @@ export class GoalOptimizerController {
     this.optimizerService = optimizerService;
     this.accelerationService = accelerationService;
     this.opportunityIntegrationService = opportunityIntegrationService;
+  }
+
+  private validateGoalId(id: string): number | null {
+    const goalId = parseInt(id);
+    return isNaN(goalId) ? null : goalId;
+  }
+
+  private sendSuccessResponse(res: Response, data: any, message: string) {
+    res.json({
+      success: true,
+      data,
+      message
+    });
+  }
+
+  private sendErrorResponse(res: Response, error: any, status: number = 500) {
+    res.status(status).json({
+      success: false,
+      error: typeof error === 'string' ? error : error.message
+    });
+  }
+
+  private generateMockRecommendations() {
+    return [
+      {
+        priority: 'HIGH' as const,
+        category: 'CONTRIBUTION' as const,
+        title: 'Aumentar Aporte Mensual',
+        description: 'Incrementar tu aporte mensual en $500 para acelerar tu objetivo en 8 meses',
+        impact_estimate: '8 meses de aceleración',
+        effort_required: 'MEDIUM' as const,
+        time_frame: '1-2 semanas para implementar',
+        success_probability: 85,
+        action_items: [
+          'Revisar presupuesto mensual',
+          'Identificar gastos reducibles',
+          'Configurar transferencia automática'
+        ]
+      },
+      {
+        priority: 'MEDIUM' as const,
+        category: 'OPPORTUNITY' as const,
+        title: 'Oportunidad en GGAL',
+        description: 'GGAL presenta una oportunidad técnica con 78% de match con tu objetivo',
+        impact_estimate: '$2,400 de ganancia potencial',
+        effort_required: 'LOW' as const,
+        time_frame: '48 horas de vigencia',
+        success_probability: 72,
+        action_items: [
+          'Revisar análisis técnico',
+          'Evaluar asignación de capital',
+          'Ejecutar operación si procede'
+        ]
+      }
+    ];
+  }
+
+  private validateContributionPlanData(planData: CreateContributionPlanDto) {
+    if (!planData.plan_name || !planData.optimized_monthly_contribution) {
+      return 'Faltan campos requeridos: plan_name, optimized_monthly_contribution';
+    }
+    
+    if (planData.optimized_monthly_contribution <= 0) {
+      return 'La contribución mensual debe ser mayor a 0';
+    }
+    
+    return null;
+  }
+
+  private buildMockContributionPlan(planData: CreateContributionPlanDto) {
+    return {
+      ...planData,
+      id: Date.now(),
+      base_monthly_contribution: 1000,
+      contribution_increase: planData.optimized_monthly_contribution - 1000,
+      extra_annual_contributions: 0,
+      dynamic_adjustments: true,
+      seasonal_adjustments: null,
+      affordability_score: 80,
+      stress_test_scenarios: null,
+      projected_completion_date: null,
+      time_savings_months: null,
+      total_savings_amount: null,
+      success_probability: 85,
+      monitoring_frequency_days: 30,
+      is_active: false,
+      activated_date: null,
+      performance_tracking: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+  }
+
+  private validateOptimizationStrategyData(strategyData: CreateOptimizationStrategyDto) {
+    if (!strategyData.strategy_name || !strategyData.strategy_type || !strategyData.description) {
+      return 'Faltan campos requeridos: strategy_name, strategy_type, description';
+    }
+    return null;
+  }
+
+  private buildMockOptimizationStrategy(strategyData: CreateOptimizationStrategyDto) {
+    return {
+      ...strategyData,
+      id: Date.now(),
+      impact_score: 75,
+      effort_level: 'MEDIUM' as const,
+      time_to_implement_days: 14,
+      estimated_time_savings_months: 2,
+      estimated_cost_savings: 0,
+      is_applied: false,
+      applied_date: null,
+      results_tracking: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
   }
 
   // 28.1: Análisis de gap entre actual y objetivo
@@ -370,53 +483,24 @@ export class GoalOptimizerController {
   createOptimizationStrategy = async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const goalId = parseInt(id);
+      const goalId = this.validateGoalId(id);
 
-      if (isNaN(goalId)) {
-        return res.status(400).json({
-          success: false,
-          error: 'ID de objetivo inválido'
-        });
+      if (goalId === null) {
+        return this.sendErrorResponse(res, 'ID de objetivo inválido', 400);
       }
 
       const strategyData: CreateOptimizationStrategyDto = req.body;
+      const validationError = this.validateOptimizationStrategyData(strategyData);
 
-      // Validaciones básicas
-      if (!strategyData.strategy_name || !strategyData.strategy_type || !strategyData.description) {
-        return res.status(400).json({
-          success: false,
-          error: 'Faltan campos requeridos: strategy_name, strategy_type, description'
-        });
+      if (validationError) {
+        return this.sendErrorResponse(res, validationError, 400);
       }
 
       strategyData.goal_id = goalId;
-
-      // Crear la estrategia (se implementaría el método en el servicio)
-      const newStrategy = {
-        ...strategyData,
-        id: Date.now(), // Mock ID
-        impact_score: 75,
-        effort_level: 'MEDIUM' as const,
-        time_to_implement_days: 14,
-        estimated_time_savings_months: 2,
-        estimated_cost_savings: 0,
-        is_applied: false,
-        applied_date: null,
-        results_tracking: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
-      res.json({
-        success: true,
-        data: newStrategy,
-        message: 'Estrategia de optimización creada exitosamente'
-      });
+      const newStrategy = this.buildMockOptimizationStrategy(strategyData);
+      this.sendSuccessResponse(res, newStrategy, 'Estrategia de optimización creada exitosamente');
     } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        error: error.message
-      });
+      this.sendErrorResponse(res, error);
     }
   };
 
@@ -424,67 +508,24 @@ export class GoalOptimizerController {
   createContributionPlan = async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const goalId = parseInt(id);
+      const goalId = this.validateGoalId(id);
 
-      if (isNaN(goalId)) {
-        return res.status(400).json({
-          success: false,
-          error: 'ID de objetivo inválido'
-        });
+      if (goalId === null) {
+        return this.sendErrorResponse(res, 'ID de objetivo inválido', 400);
       }
 
       const planData: CreateContributionPlanDto = req.body;
+      const validationError = this.validateContributionPlanData(planData);
 
-      // Validaciones básicas
-      if (!planData.plan_name || !planData.optimized_monthly_contribution) {
-        return res.status(400).json({
-          success: false,
-          error: 'Faltan campos requeridos: plan_name, optimized_monthly_contribution'
-        });
-      }
-
-      if (planData.optimized_monthly_contribution <= 0) {
-        return res.status(400).json({
-          success: false,
-          error: 'La contribución mensual debe ser mayor a 0'
-        });
+      if (validationError) {
+        return this.sendErrorResponse(res, validationError, 400);
       }
 
       planData.goal_id = goalId;
-
-      // Crear el plan (se implementaría el método en el servicio)
-      const newPlan = {
-        ...planData,
-        id: Date.now(), // Mock ID
-        base_monthly_contribution: 1000, // Mock value
-        contribution_increase: planData.optimized_monthly_contribution - 1000,
-        extra_annual_contributions: 0,
-        dynamic_adjustments: true,
-        seasonal_adjustments: null,
-        affordability_score: 80,
-        stress_test_scenarios: null,
-        projected_completion_date: null,
-        time_savings_months: null,
-        total_savings_amount: null,
-        success_probability: 85,
-        monitoring_frequency_days: 30,
-        is_active: false,
-        activated_date: null,
-        performance_tracking: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
-      res.json({
-        success: true,
-        data: newPlan,
-        message: 'Plan de contribución creado exitosamente'
-      });
+      const newPlan = this.buildMockContributionPlan(planData);
+      this.sendSuccessResponse(res, newPlan, 'Plan de contribución creado exitosamente');
     } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        error: error.message
-      });
+      this.sendErrorResponse(res, error);
     }
   };
 
@@ -571,59 +612,16 @@ export class GoalOptimizerController {
   getPersonalizedRecommendations = async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const goalId = parseInt(id);
+      const goalId = this.validateGoalId(id);
 
-      if (isNaN(goalId)) {
-        return res.status(400).json({
-          success: false,
-          error: 'ID de objetivo inválido'
-        });
+      if (goalId === null) {
+        return this.sendErrorResponse(res, 'ID de objetivo inválido', 400);
       }
 
-      // Mock recommendations
-      const recommendations = [
-        {
-          priority: 'HIGH' as const,
-          category: 'CONTRIBUTION' as const,
-          title: 'Aumentar Aporte Mensual',
-          description: 'Incrementar tu aporte mensual en $500 para acelerar tu objetivo en 8 meses',
-          impact_estimate: '8 meses de aceleración',
-          effort_required: 'MEDIUM' as const,
-          time_frame: '1-2 semanas para implementar',
-          success_probability: 85,
-          action_items: [
-            'Revisar presupuesto mensual',
-            'Identificar gastos reducibles',
-            'Configurar transferencia automática'
-          ]
-        },
-        {
-          priority: 'MEDIUM' as const,
-          category: 'OPPORTUNITY' as const,
-          title: 'Oportunidad en GGAL',
-          description: 'GGAL presenta una oportunidad técnica con 78% de match con tu objetivo',
-          impact_estimate: '$2,400 de ganancia potencial',
-          effort_required: 'LOW' as const,
-          time_frame: '48 horas de vigencia',
-          success_probability: 72,
-          action_items: [
-            'Revisar análisis técnico',
-            'Evaluar asignación de capital',
-            'Ejecutar operación si procede'
-          ]
-        }
-      ];
-
-      res.json({
-        success: true,
-        data: recommendations,
-        message: 'Recomendaciones personalizadas generadas exitosamente'
-      });
+      const recommendations = this.generateMockRecommendations();
+      this.sendSuccessResponse(res, recommendations, 'Recomendaciones personalizadas generadas exitosamente');
     } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        error: error.message
-      });
+      this.sendErrorResponse(res, error);
     }
   };
 }
