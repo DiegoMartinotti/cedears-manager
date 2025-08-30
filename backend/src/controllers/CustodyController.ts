@@ -5,6 +5,21 @@ import { CustodyFeeJob } from '../jobs/custodyFeeJob.js'
 import { CommissionService } from '../services/CommissionService.js'
 import { DashboardService } from '../services/DashboardService.js'
 import { createLogger } from '../utils/logger.js'
+import {
+  validateNumericId,
+  validateDateString,
+  buildUpdateResponse,
+  buildProjectionResponse,
+  buildOptimizationResponse,
+  buildImpactAnalysisResponse,
+  handleControllerError,
+  sendSuccessResponse,
+  sendValidationError,
+  sendNotFoundError,
+  logOperation,
+  getCustodyServicesAndConfig,
+  calculateOptimizationWithServices
+} from '../utils/custodyHelpers.js'
 
 const logger = createLogger('CustodyController')
 
@@ -162,28 +177,16 @@ export class CustodyController {
       const validationResult = projectionSchema.safeParse(req.query)
       
       if (!validationResult.success) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid query parameters',
-          details: validationResult.error.issues
-        })
-        return
+        return sendValidationError(res, 'Invalid query parameters', validationResult.error.issues)
       }
 
       const { portfolioValue, months, monthlyGrowthRate, broker } = validationResult.data
+      logOperation('Calculating custody projections', { portfolioValue, months, monthlyGrowthRate, broker })
 
-      logger.info('Calculating custody projections:', {
-        portfolioValue,
-        months,
-        monthlyGrowthRate,
-        broker
-      })
-
-      // Obtener configuración del broker
-      const config = this.commissionService.getConfigurationByBroker(broker)
+      // Obtener servicios y configuración
+      const { config, custodyService } = getCustodyServicesAndConfig(this.commissionService, broker)
       
-      // Calcular proyecciones usando el servicio extendido
-      const custodyService = this.commissionService.getCustodyService()
+      // Calcular proyecciones
       const projections = custodyService.projectFutureCustody(
         portfolioValue,
         months,
@@ -191,39 +194,19 @@ export class CustodyController {
         config
       )
 
-      // Calcular resumen de proyección
-      const totalProjectedCustody = projections.reduce((sum, p) => sum + p.custodyCalculation.totalMonthlyCost, 0)
-      const thresholdCrossings = projections.filter(p => p.isThresholdCrossed)
-
-      const response = {
+      // Construir respuesta
+      const responseData = buildProjectionResponse(
         projections,
-        summary: {
-          totalMonths: months,
-          totalProjectedCustody,
-          averageMonthly: totalProjectedCustody / months,
-          thresholdCrossings: thresholdCrossings.length,
-          finalPortfolioValue: projections[projections.length - 1]?.portfolioValue || portfolioValue
-        },
-        parameters: {
-          portfolioValue,
-          months,
-          monthlyGrowthRate,
-          broker
-        }
-      }
+        months,
+        portfolioValue,
+        monthlyGrowthRate,
+        broker
+      )
 
-      res.json({
-        success: true,
-        data: response
-      })
+      sendSuccessResponse(res, responseData)
 
     } catch (error) {
-      logger.error('Error calculating custody projections:', error)
-      res.status(500).json({
-        success: false,
-        error: 'Failed to calculate projections',
-        message: error instanceof Error ? error.message : String(error)
-      })
+      handleControllerError(res, error, 'calculate custody projections')
     }
   }
 
@@ -288,60 +271,36 @@ export class CustodyController {
       const validationResult = optimizationSchema.safeParse(req.query)
       
       if (!validationResult.success) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid query parameters',
-          details: validationResult.error.issues
-        })
-        return
+        return sendValidationError(res, 'Invalid query parameters', validationResult.error.issues)
       }
 
       const { portfolioValue, targetAnnualReturn, broker } = validationResult.data
+      logOperation('Calculating custody optimization', { portfolioValue, targetAnnualReturn, broker })
 
-      logger.info('Calculating custody optimization:', {
+      // Obtener servicios y configuración
+      const { config, custodyService } = getCustodyServicesAndConfig(this.commissionService, broker)
+
+      // Calcular optimización e impacto
+      const { optimization, impactAnalysis } = await calculateOptimizationWithServices(
+        custodyService,
+        portfolioValue,
+        targetAnnualReturn,
+        config
+      )
+
+      // Construir respuesta
+      const responseData = buildOptimizationResponse(
+        optimization,
+        impactAnalysis,
         portfolioValue,
         targetAnnualReturn,
         broker
-      })
-
-      // Obtener configuración del broker
-      const config = this.commissionService.getConfigurationByBroker(broker)
-      const custodyService = this.commissionService.getCustodyService()
-
-      // Calcular optimización
-      const optimization = custodyService.optimizePortfolioSize(
-        portfolioValue,
-        targetAnnualReturn,
-        config
       )
 
-      // Análisis de impacto en rentabilidad
-      const impactAnalysis = custodyService.analyzeImpactOnReturns(
-        portfolioValue,
-        targetAnnualReturn,
-        config
-      )
-
-      res.json({
-        success: true,
-        data: {
-          optimization,
-          impactAnalysis,
-          parameters: {
-            portfolioValue,
-            targetAnnualReturn,
-            broker
-          }
-        }
-      })
+      sendSuccessResponse(res, responseData)
 
     } catch (error) {
-      logger.error('Error calculating custody optimization:', error)
-      res.status(500).json({
-        success: false,
-        error: 'Failed to calculate optimization',
-        message: error instanceof Error ? error.message : String(error)
-      })
+      handleControllerError(res, error, 'calculate custody optimization')
     }
   }
 
@@ -354,59 +313,34 @@ export class CustodyController {
       const validationResult = impactAnalysisSchema.safeParse(req.body)
       
       if (!validationResult.success) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid request body',
-          details: validationResult.error.issues
-        })
-        return
+        return sendValidationError(res, 'Invalid request body', validationResult.error.issues)
       }
 
       const { portfolioValue, expectedAnnualReturn, broker } = validationResult.data
+      logOperation('Analyzing custody impact on returns', { portfolioValue, expectedAnnualReturn, broker })
 
-      logger.info('Analyzing custody impact on returns:', {
+      // Obtener servicios y configuración
+      const { config, custodyService } = getCustodyServicesAndConfig(this.commissionService, broker)
+
+      // Realizar análisis de impacto
+      const analysis = custodyService.analyzeImpactOnReturns(portfolioValue, expectedAnnualReturn, config)
+
+      // Comparar con otros brokers
+      const brokerComparisons = await this.compareBrokerCustodyImpact(portfolioValue, expectedAnnualReturn)
+
+      // Construir respuesta
+      const responseData = buildImpactAnalysisResponse(
+        analysis,
+        brokerComparisons,
         portfolioValue,
         expectedAnnualReturn,
         broker
-      })
-
-      // Obtener configuración del broker
-      const config = this.commissionService.getConfigurationByBroker(broker)
-      const custodyService = this.commissionService.getCustodyService()
-
-      // Realizar análisis de impacto
-      const analysis = custodyService.analyzeImpactOnReturns(
-        portfolioValue,
-        expectedAnnualReturn,
-        config
       )
 
-      // Comparar con otros brokers
-      const brokerComparisons = await this.compareBrokerCustodyImpact(
-        portfolioValue,
-        expectedAnnualReturn
-      )
-
-      res.json({
-        success: true,
-        data: {
-          analysis,
-          brokerComparisons,
-          parameters: {
-            portfolioValue,
-            expectedAnnualReturn,
-            broker
-          }
-        }
-      })
+      sendSuccessResponse(res, responseData)
 
     } catch (error) {
-      logger.error('Error analyzing custody impact:', error)
-      res.status(500).json({
-        success: false,
-        error: 'Failed to analyze impact',
-        message: error instanceof Error ? error.message : String(error)
-      })
+      handleControllerError(res, error, 'analyze custody impact')
     }
   }
 
@@ -480,54 +414,36 @@ export class CustodyController {
    */
   updatePaymentDate = async (req: Request, res: Response): Promise<void> => {
     try {
-      const custodyFeeId = parseInt(req.params.id)
       const { paymentDate } = req.body
 
-      if (isNaN(custodyFeeId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid custody fee ID'
-        })
-        return
+      // Validar ID
+      const idValidation = validateNumericId(req.params.id)
+      if (!idValidation.isValid) {
+        return sendValidationError(res, idValidation.error!)
       }
 
-      if (!paymentDate || !this.isValidDateString(paymentDate)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid payment date format. Expected YYYY-MM-DD'
-        })
-        return
+      // Validar fecha
+      const dateValidation = validateDateString(paymentDate)
+      if (!dateValidation.isValid) {
+        return sendValidationError(res, dateValidation.error!)
       }
 
-      logger.info('Updating custody fee payment date:', { custodyFeeId, paymentDate })
+      const custodyFeeId = idValidation.numericId!
+      logOperation('Updating custody fee payment date', { custodyFeeId, paymentDate })
 
+      // Actualizar fecha de pago
       const updated = await this.custodyFeeModel.updatePaymentDate(custodyFeeId, paymentDate)
-
       if (!updated) {
-        res.status(404).json({
-          success: false,
-          error: 'Custody fee record not found'
-        })
-        return
+        return sendNotFoundError(res, 'Custody fee record not found')
       }
 
+      // Obtener registro actualizado y enviar respuesta
       const updatedRecord = await this.custodyFeeModel.findById(custodyFeeId)
-
-      res.json({
-        success: true,
-        data: {
-          custodyFee: updatedRecord,
-          message: 'Payment date updated successfully'
-        }
-      })
+      const responseData = buildUpdateResponse(updatedRecord, 'Payment date updated successfully')
+      sendSuccessResponse(res, responseData)
 
     } catch (error) {
-      logger.error('Error updating payment date:', error)
-      res.status(500).json({
-        success: false,
-        error: 'Failed to update payment date',
-        message: error instanceof Error ? error.message : String(error)
-      })
+      handleControllerError(res, error, 'update payment date')
     }
   }
 
@@ -594,11 +510,4 @@ export class CustodyController {
     }
   }
 
-  private isValidDateString(dateString: string): boolean {
-    const regex = /^\d{4}-\d{2}-\d{2}$/
-    if (!regex.test(dateString)) return false
-    
-    const date = new Date(dateString)
-    return date instanceof Date && !isNaN(date.getTime())
-  }
 }
