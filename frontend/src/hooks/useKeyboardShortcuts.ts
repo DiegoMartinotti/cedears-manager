@@ -58,15 +58,18 @@ export const useKeyboardShortcuts = () => {
   ]
 
   // Registrar shortcuts
-  shortcuts.forEach(({ key, action }) => {
-    useHotkeys(key, (e) => {
-      e.preventDefault()
-      action()
-    }, {
-      enableOnContentEditable: false,
-      enableOnFormTags: false,
-    })
-  })
+  useHotkeys('ctrl+1', (e) => { e.preventDefault(); goToDashboard(); }, { enableOnContentEditable: false, enableOnFormTags: false })
+  useHotkeys('ctrl+2', (e) => { e.preventDefault(); goToWatchlist(); }, { enableOnContentEditable: false, enableOnFormTags: false })
+  useHotkeys('ctrl+3', (e) => { e.preventDefault(); goToOpportunities(); }, { enableOnContentEditable: false, enableOnFormTags: false })
+  useHotkeys('ctrl+4', (e) => { e.preventDefault(); goToPortfolio(); }, { enableOnContentEditable: false, enableOnFormTags: false })
+  useHotkeys('ctrl+5', (e) => { e.preventDefault(); goToTrades(); }, { enableOnContentEditable: false, enableOnFormTags: false })
+  useHotkeys('ctrl+6', (e) => { e.preventDefault(); goToGoals(); }, { enableOnContentEditable: false, enableOnFormTags: false })
+  useHotkeys('ctrl+,', (e) => { e.preventDefault(); goToSettings(); }, { enableOnContentEditable: false, enableOnFormTags: false })
+  useHotkeys('ctrl+k', (e) => { e.preventDefault(); showCommandPalette(); }, { enableOnContentEditable: false, enableOnFormTags: false })
+  useHotkeys('ctrl+/', (e) => { e.preventDefault(); showShortcutsHelp(); }, { enableOnContentEditable: false, enableOnFormTags: false })
+  useHotkeys('ctrl+b', (e) => { e.preventDefault(); toggleSidebar(); }, { enableOnContentEditable: false, enableOnFormTags: false })
+  useHotkeys('alt+t', (e) => { e.preventDefault(); toggleTheme(); }, { enableOnContentEditable: false, enableOnFormTags: false })
+  useHotkeys('escape', (e) => { e.preventDefault(); closeModal(); }, { enableOnContentEditable: false, enableOnFormTags: false })
 
   return {
     shortcuts,

@@ -41,7 +41,7 @@ interface GoalOpportunityMatch {
 }
 
 const OpportunityMatcher: React.FC<{ goalId: number; opportunities: GoalOpportunityMatch[] }> = ({ 
-  goalId, 
+  goalId: _goalId, 
   opportunities 
 }) => {
   const formatCurrency = (amount: number) => {

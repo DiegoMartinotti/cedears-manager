@@ -3,7 +3,7 @@
  * Paso 28.3: Identificación de hitos intermedios
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Badge } from '../../ui/Badge';
@@ -48,9 +48,9 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
 
   useEffect(() => {
     loadMilestones();
-  }, [goalId]);
+  }, [goalId, loadMilestones]);
 
-  const loadMilestones = async () => {
+  const loadMilestones = useCallback(async () => {
     setIsLoading(true);
     
     try {
@@ -164,7 +164,7 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [goalId, currentCapital, targetCapital]);
 
   const generateNewMilestones = async () => {
     setIsGenerating(true);
@@ -180,7 +180,7 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
     }
   };
 
-  const updateMilestoneProgress = async (milestone: Milestone, progress: number) => {
+  const _updateMilestoneProgress = async (milestone: Milestone, progress: number) => {
     try {
       // En implementación real: llamada a API
       // await fetch(`/api/goal-optimizer/milestones/${milestone.id}/progress`, {

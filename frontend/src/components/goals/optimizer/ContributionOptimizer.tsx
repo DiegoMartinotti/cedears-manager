@@ -3,13 +3,12 @@
  * Paso 28.2: Sugerencias de aumento de aportes
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Badge } from '../../ui/Badge';
 import { LoadingSpinner } from '../../ui/LoadingSpinner';
 import { Input } from '../../ui/Input';
-import { Select } from '../../ui/Select';
 
 interface ContributionPlan {
   id: number;
@@ -53,9 +52,9 @@ export const ContributionOptimizer: React.FC<ContributionOptimizerProps> = ({
 
   useEffect(() => {
     loadContributionPlans();
-  }, [goalId]);
+  }, [goalId, loadContributionPlans]);
 
-  const loadContributionPlans = async () => {
+  const loadContributionPlans = useCallback(async () => {
     setIsLoading(true);
     
     try {
@@ -121,7 +120,7 @@ export const ContributionOptimizer: React.FC<ContributionOptimizerProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [goalId, currentContribution, requiredContribution]);
 
   const calculateCustomPlan = async () => {
     if (customAmount <= currentContribution) {

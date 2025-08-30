@@ -33,7 +33,7 @@ export const AnimatedList: React.FC<AnimatedListProps> = ({
   className,
   staggerDelay = 0.1,
   layout = true,
-  variant = 'slide'
+  variant: _variant = 'slide'
 }) => {
   const content = layout ? (
     <LayoutGroup>
@@ -187,7 +187,7 @@ export const ReorderableList: React.FC<{
   onReorder: (items: any[]) => void
   renderItem: (item: any, index: number) => React.ReactNode
   className?: string
-}> = ({ items, onReorder, renderItem, className }) => {
+}> = ({ items, onReorder: _onReorder, renderItem, className }) => {
   return (
     <motion.div className={className}>
       {items.map((item, index) => (

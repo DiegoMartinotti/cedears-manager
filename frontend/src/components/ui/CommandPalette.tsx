@@ -14,16 +14,11 @@ import {
   Sun,
   Monitor,
   Calculator,
-  BarChart3,
   Bell,
-  FileText,
-  Users,
-  Calendar,
   PieChart
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../../hooks/useTheme'
-import { useAppStore } from '../../store'
 import { cn } from '../../utils/cn'
 
 interface CommandPaletteProps {
@@ -47,7 +42,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 }) => {
   const [search, setSearch] = useState('')
   const navigate = useNavigate()
-  const { setTheme, theme } = useTheme()
+  const { setTheme } = useTheme()
 
   const commands: CommandItem[] = [
     // Navegación
