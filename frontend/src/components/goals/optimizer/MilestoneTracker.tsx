@@ -179,7 +179,6 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
     }
   };
 
-<<<<<<< HEAD
   const _updateMilestoneProgress = async (milestone: Milestone, progress: number) => {
     try {
       // En implementación real: llamada a API
