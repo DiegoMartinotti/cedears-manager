@@ -3,7 +3,7 @@
  * Paso 28.1: Análisis de gap entre actual y objetivo
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Badge } from '../../ui/Badge';
@@ -51,9 +51,9 @@ export const GapAnalysisPanel: React.FC<GapAnalysisPanelProps> = ({
   // Cargar análisis existente al montar el componente
   useEffect(() => {
     loadExistingAnalysis();
-  }, [goalId]);
+  }, [loadExistingAnalysis]);
 
-  const loadExistingAnalysis = async () => {
+  const loadExistingAnalysis = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     
@@ -95,7 +95,7 @@ export const GapAnalysisPanel: React.FC<GapAnalysisPanelProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [goalId]);
 
   const performNewAnalysis = async () => {
     setIsAnalyzing(true);

@@ -3,7 +3,7 @@
  * Paso 28.3: Identificación de hitos intermedios
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Badge } from '../../ui/Badge';
@@ -48,9 +48,9 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
 
   useEffect(() => {
     loadMilestones();
-  }, [goalId]);
+  }, [loadMilestones]);
 
-  const loadMilestones = async () => {
+  const loadMilestones = useCallback(async () => {
     setIsLoading(true);
     
     try {
@@ -164,7 +164,7 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [goalId]);
 
   const generateNewMilestones = async () => {
     setIsGenerating(true);
