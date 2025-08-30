@@ -40,8 +40,7 @@ interface GoalOpportunityMatch {
   action_taken: boolean;
 }
 
-const OpportunityMatcher: React.FC<{ goalId: number; opportunities: GoalOpportunityMatch[] }> = ({ 
-  goalId: _goalId, 
+const OpportunityMatcher: React.FC<{ opportunities: GoalOpportunityMatch[] }> = ({
   opportunities 
 }) => {
   const formatCurrency = (amount: number) => {
@@ -495,7 +494,6 @@ export const GoalOptimizer: React.FC = () => {
 
         <Tabs.Content value="opportunities">
           <OpportunityMatcher 
-            goalId={Number(goalId)}
             opportunities={summary?.opportunity_matches || []}
           />
         </Tabs.Content>

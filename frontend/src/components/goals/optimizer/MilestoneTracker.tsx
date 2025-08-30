@@ -49,7 +49,6 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
   useEffect(() => {
     loadMilestones();
   }, [goalId, loadMilestones]);
-
   const loadMilestones = useCallback(async () => {
     setIsLoading(true);
     
@@ -180,6 +179,7 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
     }
   };
 
+<<<<<<< HEAD
   const _updateMilestoneProgress = async (milestone: Milestone, progress: number) => {
     try {
       // En implementación real: llamada a API

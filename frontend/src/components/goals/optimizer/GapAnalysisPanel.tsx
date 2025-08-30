@@ -52,7 +52,6 @@ export const GapAnalysisPanel: React.FC<GapAnalysisPanelProps> = ({
   useEffect(() => {
     loadExistingAnalysis();
   }, [goalId, loadExistingAnalysis]);
-
   const loadExistingAnalysis = useCallback(async () => {
     setIsLoading(true);
     setError(null);

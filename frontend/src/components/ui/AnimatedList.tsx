@@ -35,19 +35,23 @@ export const AnimatedList: React.FC<AnimatedListProps> = ({
   layout = true,
   variant: _variant = 'slide'
 }) => {
+  const containerVariants = {
+    ...listVariants[variant],
+    visible: {
+      ...listVariants[variant].visible,
+      transition: {
+        staggerChildren: staggerDelay
+      }
+    }
+  }
+
   const content = layout ? (
     <LayoutGroup>
       <motion.div
         className={className}
         initial="hidden"
         animate="visible"
-        variants={{
-          visible: {
-            transition: {
-              staggerChildren: staggerDelay
-            }
-          }
-        }}
+        variants={containerVariants}
       >
         {children}
       </motion.div>
@@ -57,13 +61,7 @@ export const AnimatedList: React.FC<AnimatedListProps> = ({
       className={className}
       initial="hidden"
       animate="visible"
-      variants={{
-        visible: {
-          transition: {
-            staggerChildren: staggerDelay
-          }
-        }
-      }}
+      variants={containerVariants}
     >
       {children}
     </motion.div>
