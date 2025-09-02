@@ -1,5 +1,5 @@
 [phases.setup]
-nixpkgsPackages = ["nodejs_20", "python3"]
+nixPkgs = ["nodejs_20", "python3"]
 
 [start]
 cmd = "cd backend && npm run start"
