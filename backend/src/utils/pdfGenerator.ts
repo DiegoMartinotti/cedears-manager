@@ -119,9 +119,10 @@ export class PDFGenerator {
       
       return Buffer.from(pdfContent);
 
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error generating PDF', { error });
-      throw new Error(`Failed to generate PDF: ${error.message}`);
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to generate PDF: ${message}`);
     }
   }
 

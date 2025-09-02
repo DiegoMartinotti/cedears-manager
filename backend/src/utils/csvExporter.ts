@@ -82,17 +82,18 @@ export class CSVExporter {
     // Default formatting
     if (typeof value === 'number') {
       // Check if it's a currency-like number (more than 2 decimal places suggests it's not currency)
-      if (value % 1 !== 0 && value.toString().split('.')[1]?.length <= 2) {
-        return value.toLocaleString('es-AR', { 
-          minimumFractionDigits: 2, 
-          maximumFractionDigits: 2 
+      const decimalLength = value.toString().split('.')[1]?.length ?? 0;
+      if (value % 1 !== 0 && decimalLength <= 2) {
+        return value.toLocaleString('es-AR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
         });
       }
       return value.toLocaleString('es-AR');
     }
 
     if (value instanceof Date) {
-      return value.toISOString().split('T')[0]; // YYYY-MM-DD format
+      return value.toISOString().split('T')[0] ?? ''; // YYYY-MM-DD format
     }
 
     if (typeof value === 'boolean') {
@@ -150,9 +151,10 @@ export class CSVExporter {
 
       return csv;
 
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error generating CSV', { error });
-      throw new Error(`Failed to generate CSV: ${error.message}`);
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to generate CSV: ${message}`);
     }
   }
 
@@ -357,5 +359,3 @@ export function exportToCSVBuffer(data: any[], columns?: CSVColumn[], options?: 
   exporter.setData(data);
   return exporter.generateBuffer();
 }
-
-export { CSVExporter };
