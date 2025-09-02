@@ -1,6 +1,15 @@
 import { logger } from '../../utils/logger.js'
 import type { CommissionConfig, CustodyCalculation } from '../../types/commission.js'
 
+export interface CustodyFeeRecord {
+  month: string
+  portfolioValue: number
+  feePercentage: number
+  feeAmount: number
+  ivaAmount: number
+  totalCharged: number
+}
+
 /**
  * Servicio especializado en cálculos de comisiones de custodia
  */
@@ -44,6 +53,14 @@ export class CustodyCommissionService {
       logger.error('Error calculating custody fee:', error)
       throw new Error(`Failed to calculate custody fee: ${error instanceof Error ? error.message : String(error)}`)
     }
+  }
+
+  /**
+   * Obtiene registros históricos de custodia
+   */
+  async getHistoricalFees(_opts: { startDate: string; endDate: string }): Promise<CustodyFeeRecord[]> {
+    logger.warn('getHistoricalFees not implemented, returning empty array')
+    return []
   }
 
   /**
