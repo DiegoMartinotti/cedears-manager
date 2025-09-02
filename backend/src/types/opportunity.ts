@@ -1,3 +1,6 @@
+import type { OpportunityData, OpportunityCreateInput, OpportunityFilters } from '../models/Opportunity.js'
+
+/* eslint-disable no-unused-vars */
 export interface OpportunitySignal {
   signal: 'BUY' | 'SELL' | 'HOLD'
   strength: number // 0-100
@@ -211,4 +214,4 @@ export interface OpportunityFilterRequest {
 }
 
 // Re-export del modelo principal
-export type { OpportunityData, OpportunityCreateInput, OpportunityFilters } from '../models/Opportunity.js'
+export type { OpportunityData, OpportunityCreateInput, OpportunityFilters }
