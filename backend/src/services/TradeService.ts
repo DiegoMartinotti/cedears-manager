@@ -1,9 +1,10 @@
+/* eslint-disable max-lines-per-function */
 import { Trade, TradeData, TradeWithInstrument } from '../models/Trade.js'
 import { Instrument } from '../models/Instrument.js'
 import { UVA } from '../models/UVA.js'
 import { CommissionService, CommissionConfig } from './CommissionService.js'
 import { createLogger } from '../utils/logger.js'
-import { calculateAccumulatedInflation } from '../utils/uvaHelpers.js'
+import { calculateInflationAdjustment } from '../utils/uvaHelpers.js'
 
 const logger = createLogger('TradeService')
 
@@ -155,10 +156,6 @@ export class TradeService {
         ? calculateInflationAdjustment(trade.net_amount, uvaAtTrade.value, currentUva.value)
         : trade.net_amount
 
-      // Calcular precio de break-even
-      const totalCostPerShare = trade.net_amount / trade.quantity
-      const inflationAdjustedCostPerShare = inflationAdjustedCost / trade.quantity
-
       // Estimar comisión de venta
       const estimatedSellPrice = currentPrice || trade.price * 1.1 // Estimación si no se proporciona precio
       const estimatedSellAmount = estimatedSellPrice * trade.quantity
@@ -187,7 +184,7 @@ export class TradeService {
         breakEvenPrice,
         realGainPercentage,
         inflationAdjustedCost,
-        totalCommissions: trade.commission + (sellCommissions?.commission || 0),
+        totalCommissions: (trade.commission ?? 0) + sellCommissions.commission,
         netProfit,
         annualizedReturn: annualizedReturn * 100,
         daysHeld: currentPrice ? Math.floor((today.getTime() - tradeDate.getTime()) / (1000 * 60 * 60 * 24)) : undefined
@@ -261,9 +258,7 @@ export class TradeService {
 
       // Validar límites de diversificación
       const MAX_SINGLE_POSITION = 0.15 // 15% máximo por posición
-      const MAX_SECTOR_CONCENTRATION = 0.40 // 40% máximo por sector (simplificado)
-
-      for (const [instrumentId, position] of positions.entries()) {
+      for (const [, position] of positions.entries()) {
         if (position.netAmount <= 0) continue
 
         const allocation = position.netAmount / totalPortfolioValue
@@ -365,8 +360,9 @@ export class TradeService {
       const topAllocation = diversificationValidation.currentAllocations
         .sort((a, b) => b.allocation - a.allocation)[0]
 
-      const concentrationRisk = topAllocation?.allocation > 20 ? 'HIGH' 
-        : topAllocation?.allocation > 10 ? 'MEDIUM' 
+      const allocation = topAllocation?.allocation ?? 0
+      const concentrationRisk = allocation > 20 ? 'HIGH'
+        : allocation > 10 ? 'MEDIUM'
         : 'LOW'
 
       return {
@@ -419,7 +415,7 @@ export class TradeService {
       holdingDays: number
     }> = []
 
-    for (const [instrumentId, instrumentTrades] of tradesByInstrument.entries()) {
+    for (const [, instrumentTrades] of tradesByInstrument.entries()) {
       const buys = instrumentTrades.filter(t => t.type === 'BUY').sort((a, b) => 
         new Date(a.trade_date).getTime() - new Date(b.trade_date).getTime()
       )
@@ -432,8 +428,8 @@ export class TradeService {
       let sellIndex = 0
 
       while (buyIndex < buys.length && sellIndex < sells.length) {
-        const buy = buys[buyIndex]
-        const sell = sells[sellIndex]
+        const buy = buys[buyIndex]!
+        const sell = sells[sellIndex]!
 
         const buyDate = new Date(buy.trade_date)
         const sellDate = new Date(sell.trade_date)
