@@ -26,6 +26,9 @@
     "typescript": "^5.3.3",
     "tsx": "^4.6.2"
   },
+  "engines": {
+    "node": "20.x"
+  },
   "build": {
     "appId": "com.cedears-manager.app",
     "productName": "CEDEARs Manager",
