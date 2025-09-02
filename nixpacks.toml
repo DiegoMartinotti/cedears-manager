@@ -2,4 +2,4 @@
 nixpkgsPackages = ["nodejs_20", "python3"]
 
 [start]
-cmd = "npm run start"
+cmd = "cd backend && npm run start"
