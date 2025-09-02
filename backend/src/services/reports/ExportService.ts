@@ -1,3 +1,4 @@
+/* eslint-disable max-lines-per-function */
 import { CostReport } from '../../models/CostReport';
 import { CostReportService } from './CostReportService';
 import { TaxReportService } from './TaxReportService';
@@ -45,9 +46,11 @@ export class ExportService {
       const reportData = await this.generateReportData(reportType, options);
       
       // Create export record
+      const reportDate = new Date().toISOString().substring(0, 10);
+
       const exportRecord = await this.costReportModel.create({
         reportType,
-        reportDate: new Date().toISOString().split('T')[0],
+        reportDate,
         dateRange: `${options.dateRange.startDate}_${options.dateRange.endDate}`,
         reportData: JSON.stringify(reportData),
         parameters: JSON.stringify(options),
@@ -56,7 +59,7 @@ export class ExportService {
 
       try {
         // Generate the file based on format
-        const fileResult = await this.generateFile(reportData, options, reportType, exportRecord.id!);
+        const fileResult = await this.generateFile(reportData, options, reportType);
         
         // Update export record with file information
         await this.costReportModel.update(exportRecord.id!, {
@@ -80,13 +83,15 @@ export class ExportService {
 
       } catch (error) {
         // Update record with error status
-        await this.costReportModel.updateStatus(exportRecord.id!, 'error', error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        await this.costReportModel.updateStatus(exportRecord.id!, 'error', message);
         throw error;
       }
 
     } catch (error) {
       logger.error('Error exporting report', { error, options, reportType });
-      throw new Error(`Failed to export report: ${error.message}`);
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to export report: ${message}`);
     }
   }
 
@@ -94,27 +99,27 @@ export class ExportService {
     switch (reportType) {
       case 'dashboard':
         return await this.costReportService.generateCostDashboard(options.dateRange);
-      
+
       case 'impact_analysis':
         return await this.costReportService.generateImpactAnalysis(options.dateRange);
-      
+
       case 'commission_comparison':
         return await this.costReportService.generateCommissionVsGainComparison(options.dateRange);
-      
-      case 'annual_report':
+
+      case 'annual_report': {
         const year = new Date(options.dateRange.startDate).getFullYear();
         return await this.taxReportService.generateAnnualReport(year);
-      
+      }
+
       default:
         throw new Error(`Unsupported report type: ${reportType}`);
     }
   }
 
   private async generateFile(
-    reportData: any, 
-    options: ExportOptions, 
-    reportType: ReportType, 
-    exportId: number
+    reportData: any,
+    options: ExportOptions,
+    reportType: ReportType
   ): Promise<{ filename: string; fileSize: number; recordCount: number }> {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
     const filename = `${reportType}_${timestamp}.${options.format}`;
@@ -124,11 +129,12 @@ export class ExportService {
     let recordCount = 0;
 
     switch (options.format) {
-      case 'csv':
+      case 'csv': {
         const result = this.generateCSV(reportData, reportType, options);
         fileContent = result.content;
         recordCount = result.recordCount;
         break;
+      }
       
       case 'json':
         fileContent = JSON.stringify(reportData, null, 2);
@@ -392,18 +398,18 @@ export class ExportService {
     const exports = await this.costReportModel.getRecentReports(30);
     const storage = await this.costReportModel.getStorageUsage();
 
-    const exportResults: ExportResult[] = exports.slice(0, limit).map(exp => ({
-      exportId: exp.id!.toString(),
-      format: this.extractFormatFromParameters(exp.parameters),
-      filename: this.extractFilenameFromData(exp.reportData),
-      fileSize: exp.fileSize || 0,
-      recordCount: exp.recordCount || 0,
-      generatedAt: exp.generatedAt,
-      expiresAt: exp.expiresAt || '',
-      downloadUrl: `/api/v1/reports/export/${exp.id}/download`,
-      status: exp.status,
-      error: exp.error
-    }));
+      const exportResults: ExportResult[] = exports.slice(0, limit).map(exp => ({
+        exportId: exp.id!.toString(),
+        format: this.extractFormatFromParameters(exp.parameters),
+        filename: this.extractFilenameFromData(),
+        fileSize: exp.fileSize || 0,
+        recordCount: exp.recordCount || 0,
+        generatedAt: exp.generatedAt,
+        expiresAt: exp.expiresAt || '',
+        downloadUrl: `/api/v1/reports/export/${exp.id}/download`,
+        status: exp.status,
+        error: exp.error
+      }));
 
     return {
       exports: exportResults,
@@ -423,7 +429,7 @@ export class ExportService {
     }
   }
 
-  private extractFilenameFromData(dataJson: string): string {
+  private extractFilenameFromData(): string {
     // This would need to be enhanced to store actual filename
     return 'report_export.csv';
   }
