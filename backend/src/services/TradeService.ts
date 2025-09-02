@@ -4,7 +4,6 @@ import { Instrument } from '../models/Instrument.js'
 import { UVA } from '../models/UVA.js'
 import { CommissionService, CommissionConfig } from './CommissionService.js'
 import { createLogger } from '../utils/logger.js'
-import { calculateInflationAdjustment } from '../utils/uvaHelpers.js'
 
 const logger = createLogger('TradeService')
 
@@ -145,16 +144,17 @@ export class TradeService {
       const today = new Date()
       
       const uvaAtTrade = await this.uvaModel.findByDate(trade.trade_date)
-      const currentUva = await this.uvaModel.getLatest()
+      const currentUva = await this.uvaModel.findLatest()
 
       if (!uvaAtTrade || !currentUva) {
         logger.warn('UVA data not available, using nominal values')
       }
 
       // Calcular costo ajustado por inflación
-      const inflationAdjustedCost = uvaAtTrade && currentUva
-        ? calculateInflationAdjustment(trade.net_amount, uvaAtTrade.value, currentUva.value)
-        : trade.net_amount
+      let inflationAdjustedCost = trade.net_amount
+      if (uvaAtTrade && currentUva) {
+        inflationAdjustedCost = trade.net_amount * (currentUva.value / uvaAtTrade.value)
+      }
 
       // Estimar comisión de venta
       const estimatedSellPrice = currentPrice || trade.price * 1.1 // Estimación si no se proporciona precio
