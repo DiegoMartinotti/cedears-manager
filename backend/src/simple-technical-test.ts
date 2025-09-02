@@ -5,6 +5,8 @@
 import { technicalAnalysisService } from './services/TechnicalAnalysisService'
 import { technicalIndicatorModel } from './models/TechnicalIndicator'
 
+/* eslint-disable max-lines-per-function */
+
 async function testTechnicalAnalysisBasic() {
   console.log('🧪 Testing Technical Analysis System - Basic Test\n')
 
@@ -39,8 +41,9 @@ async function testTechnicalAnalysisBasic() {
       const deleteResult = technicalIndicatorModel.deleteOldIndicators(0)
       console.log(`   Cleaned up test data: ${deleteResult} records deleted`)
       
-    } catch (error) {
-      console.log('❌ Technical indicators table has issues:', error.message)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.log('❌ Technical indicators table has issues:', message)
     }
 
     // Test 4: Verificar señales activas
