@@ -46,12 +46,40 @@ const markAsReadSchema = z.object({
   }).optional()
 })
 
-  export class NotificationController {
-    private readonly notificationService: NotificationService
+export class NotificationController {
+  private readonly notificationService: NotificationService
 
-    constructor(notificationService: NotificationService) {
-      this.notificationService = notificationService
+  constructor(notificationService: NotificationService) {
+    this.notificationService = notificationService
+  }
+
+  private handleError(res: Response, error: unknown, code: string, status = 500) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : typeof error === 'string'
+          ? error
+          : 'Unknown error'
+    return res.status(status).json({ success: false, error: message, code })
+  }
+
+  private handleValidationError(res: Response, error: z.ZodError) {
+    return res.status(400).json({
+      success: false,
+      error: 'Validation error',
+      details: error.errors,
+      code: 'VALIDATION_ERROR'
+    })
+  }
+
+  private parseId(req: Request, res: Response): number | null {
+    const id = parseInt(req.params.id, 10)
+    if (isNaN(id)) {
+      this.handleError(res, 'Invalid notification ID', 'INVALID_ID', 400)
+      return null
     }
+    return id
+  }
 
   /**
    * GET /api/v1/notifications
@@ -105,12 +133,7 @@ const markAsReadSchema = z.object({
           }
         })
     } catch (error) {
-      
-        return res.status(500).json({
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          code: 'FETCH_NOTIFICATIONS_ERROR'
-        })
+      return this.handleError(res, error, 'FETCH_NOTIFICATIONS_ERROR')
     }
   }
 
@@ -126,12 +149,7 @@ const markAsReadSchema = z.object({
           data: summary
         })
     } catch (error) {
-      
-        return res.status(500).json({
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          code: 'SUMMARY_ERROR'
-        })
+      return this.handleError(res, error, 'SUMMARY_ERROR')
     }
   }
 
@@ -147,12 +165,7 @@ const markAsReadSchema = z.object({
           data: stats
         })
     } catch (error) {
-      
-        return res.status(500).json({
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          code: 'STATS_ERROR'
-        })
+      return this.handleError(res, error, 'STATS_ERROR')
     }
   }
 
@@ -168,12 +181,7 @@ const markAsReadSchema = z.object({
           data: { count }
         })
     } catch (error) {
-      
-        return res.status(500).json({
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          code: 'UNREAD_COUNT_ERROR'
-        })
+      return this.handleError(res, error, 'UNREAD_COUNT_ERROR')
     }
   }
 
@@ -183,35 +191,20 @@ const markAsReadSchema = z.object({
    */
   async getNotificationById(req: Request, res: Response) {
     try {
-      const id = parseInt(req.params.id, 10)
-      if (isNaN(id)) {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid notification ID',
-          code: 'INVALID_ID'
-        })
-      }
+      const id = this.parseId(req, res)
+      if (id === null) return
 
       const notification = await this.notificationService.getNotificationById(id)
       if (!notification) {
-        return res.status(404).json({
-          success: false,
-          error: 'Notification not found',
-          code: 'NOT_FOUND'
-        })
+        return this.handleError(res, 'Notification not found', 'NOT_FOUND', 404)
       }
 
-        return res.json({
-          success: true,
-          data: notification
-        })
+      return res.json({
+        success: true,
+        data: notification
+      })
     } catch (error) {
-      
-        return res.status(500).json({
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          code: 'FETCH_NOTIFICATION_ERROR'
-        })
+      return this.handleError(res, error, 'FETCH_NOTIFICATION_ERROR')
     }
   }
 
@@ -229,20 +222,10 @@ const markAsReadSchema = z.object({
           data: notification
         })
     } catch (error) {
-      
       if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          error: 'Validation error',
-          details: error.errors,
-          code: 'VALIDATION_ERROR'
-        })
+        return this.handleValidationError(res, error)
       }
-        return res.status(500).json({
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          code: 'CREATE_NOTIFICATION_ERROR'
-        })
+      return this.handleError(res, error, 'CREATE_NOTIFICATION_ERROR')
     }
   }
 
@@ -264,20 +247,10 @@ const markAsReadSchema = z.object({
           data: { created: count }
         })
     } catch (error) {
-      
       if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          error: 'Validation error',
-          details: error.errors,
-          code: 'VALIDATION_ERROR'
-        })
+        return this.handleValidationError(res, error)
       }
-        return res.status(500).json({
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          code: 'BULK_CREATE_ERROR'
-        })
+      return this.handleError(res, error, 'BULK_CREATE_ERROR')
     }
   }
 
@@ -287,35 +260,20 @@ const markAsReadSchema = z.object({
    */
   async markAsRead(req: Request, res: Response) {
     try {
-      const id = parseInt(req.params.id, 10)
-      if (isNaN(id)) {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid notification ID',
-          code: 'INVALID_ID'
-        })
+      const id = this.parseId(req, res)
+      if (id === null) return
+
+      const success = await this.notificationService.markAsRead(id)
+      if (!success) {
+        return this.handleError(res, 'Notification not found', 'NOT_FOUND', 404)
       }
 
-        const success = await this.notificationService.markAsRead(id)
-        if (!success) {
-          return res.status(404).json({
-            success: false,
-            error: 'Notification not found',
-            code: 'NOT_FOUND'
-          })
-        }
-
-        return res.json({
-          success: true,
-          data: { updated: success }
-        })
+      return res.json({
+        success: true,
+        data: { updated: success }
+      })
     } catch (error) {
-      
-        return res.status(500).json({
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          code: 'MARK_READ_ERROR'
-        })
+      return this.handleError(res, error, 'MARK_READ_ERROR')
     }
   }
 
@@ -342,20 +300,10 @@ const markAsReadSchema = z.object({
           data: { updated }
         })
     } catch (error) {
-      
       if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          error: 'Validation error',
-          details: error.errors,
-          code: 'VALIDATION_ERROR'
-        })
+        return this.handleValidationError(res, error)
       }
-        return res.status(500).json({
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          code: 'MARK_READ_ERROR'
-        })
+      return this.handleError(res, error, 'MARK_READ_ERROR')
     }
   }
 
@@ -365,35 +313,20 @@ const markAsReadSchema = z.object({
    */
   async archiveNotification(req: Request, res: Response) {
     try {
-      const id = parseInt(req.params.id, 10)
-      if (isNaN(id)) {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid notification ID',
-          code: 'INVALID_ID'
-        })
+      const id = this.parseId(req, res)
+      if (id === null) return
+
+      const success = await this.notificationService.archiveNotification(id)
+      if (!success) {
+        return this.handleError(res, 'Notification not found', 'NOT_FOUND', 404)
       }
 
-        const success = await this.notificationService.archiveNotification(id)
-        if (!success) {
-          return res.status(404).json({
-            success: false,
-            error: 'Notification not found',
-            code: 'NOT_FOUND'
-          })
-        }
-
-        return res.json({
-          success: true,
-          data: { archived: success }
-        })
+      return res.json({
+        success: true,
+        data: { archived: success }
+      })
     } catch (error) {
-      
-        return res.status(500).json({
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          code: 'ARCHIVE_ERROR'
-        })
+      return this.handleError(res, error, 'ARCHIVE_ERROR')
     }
   }
 
@@ -403,35 +336,20 @@ const markAsReadSchema = z.object({
    */
   async deleteNotification(req: Request, res: Response) {
     try {
-      const id = parseInt(req.params.id, 10)
-      if (isNaN(id)) {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid notification ID',
-          code: 'INVALID_ID'
-        })
+      const id = this.parseId(req, res)
+      if (id === null) return
+
+      const success = await this.notificationService.deleteNotification(id)
+      if (!success) {
+        return this.handleError(res, 'Notification not found', 'NOT_FOUND', 404)
       }
 
-        const success = await this.notificationService.deleteNotification(id)
-        if (!success) {
-          return res.status(404).json({
-            success: false,
-            error: 'Notification not found',
-            code: 'NOT_FOUND'
-          })
-        }
-
-        return res.json({
-          success: true,
-          data: { deleted: success }
-        })
+      return res.json({
+        success: true,
+        data: { deleted: success }
+      })
     } catch (error) {
-      
-        return res.status(500).json({
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          code: 'DELETE_ERROR'
-        })
+      return this.handleError(res, error, 'DELETE_ERROR')
     }
   }
 
@@ -458,20 +376,10 @@ const markAsReadSchema = z.object({
         }
       })
     } catch (error) {
-      
       if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          error: 'Validation error',
-          details: error.errors,
-          code: 'VALIDATION_ERROR'
-        })
+        return this.handleValidationError(res, error)
       }
-      return res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        code: 'SEARCH_ERROR'
-      })
+      return this.handleError(res, error, 'SEARCH_ERROR')
     }
   }
 
@@ -498,20 +406,10 @@ const markAsReadSchema = z.object({
         data: notification
       })
     } catch (error) {
-      
       if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          error: 'Validation error',
-          details: error.errors,
-          code: 'VALIDATION_ERROR'
-        })
+        return this.handleValidationError(res, error)
       }
-      return res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        code: 'CREATE_OPPORTUNITY_ERROR'
-      })
+      return this.handleError(res, error, 'CREATE_OPPORTUNITY_ERROR')
     }
   }
 
@@ -539,20 +437,10 @@ const markAsReadSchema = z.object({
         data: notification
       })
     } catch (error) {
-      
       if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          error: 'Validation error',
-          details: error.errors,
-          code: 'VALIDATION_ERROR'
-        })
+        return this.handleValidationError(res, error)
       }
-      return res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        code: 'CREATE_SELL_ALERT_ERROR'
-      })
+      return this.handleError(res, error, 'CREATE_SELL_ALERT_ERROR')
     }
   }
 
@@ -568,12 +456,7 @@ const markAsReadSchema = z.object({
           data: health
         })
     } catch (error) {
-      
-        return res.status(500).json({
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          code: 'HEALTH_CHECK_ERROR'
-        })
+      return this.handleError(res, error, 'HEALTH_CHECK_ERROR')
     }
   }
 }
