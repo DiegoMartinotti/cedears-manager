@@ -104,7 +104,8 @@ export class SensitivityAnalysisService {
     
     return {
       goal_id: goal.id,
-      analysis_date: new Date().toISOString().split('T')[0],
+      // Split puede retornar undefined si no se encuentra 'T'; usamos ! para asegurar string
+      analysis_date: new Date().toISOString().split('T')[0]!,
       base_scenario: baseResult,
       parameters_analyzed: parametersToAnalyze.map(p => p.name),
       results: allResults,
@@ -169,11 +170,12 @@ export class SensitivityAnalysisService {
   /**
    * Análisis Monte Carlo avanzado
    */
-  async performMonteCarloAnalysis(
-    goal: FinancialGoal,
-    currentCapital: number,
-    simulations: number = 10000
-  ): Promise<MonteCarloResult> {
+    // eslint-disable-next-line max-lines-per-function
+    async performMonteCarloAnalysis(
+      goal: FinancialGoal,
+      currentCapital: number,
+      simulations: number = 10000
+    ): Promise<MonteCarloResult> {
     const baseParams = this.buildBaseParameters(goal, currentCapital);
     const results: number[] = [];
     const targetAmount = goal.target_amount || 100000;
@@ -230,12 +232,8 @@ export class SensitivityAnalysisService {
   /**
    * Análisis de correlación entre parámetros
    */
-  async analyzeParameterCorrelations(
-    goal: FinancialGoal,
-    currentCapital: number
-  ): Promise<{ [key: string]: { [key: string]: number } }> {
-    const baseParams = this.buildBaseParameters(goal, currentCapital);
-    const parameters = ['annualReturnRate', 'inflationRate', 'monthlyContribution'];
+    async analyzeParameterCorrelations(): Promise<{ [key: string]: { [key: string]: number } }> {
+      const parameters = ['annualReturnRate', 'inflationRate', 'monthlyContribution'];
     const correlationMatrix: { [key: string]: { [key: string]: number } } = {};
     
     for (const param1 of parameters) {
@@ -415,7 +413,9 @@ export class SensitivityAnalysisService {
 
   private calculatePercentile(values: number[], percentile: number): number {
     const index = Math.ceil((percentile / 100) * values.length) - 1;
-    return values[Math.max(0, index)];
+    // El índice calculado siempre estará dentro del array tras Math.max, pero
+    // con noUncheckedIndexedAccess es necesario afirmar que el valor existe
+    return values[Math.max(0, index)]!;
   }
 
   private assessRiskLevel(impactPercentage: number): 'LOW' | 'MEDIUM' | 'HIGH' {
