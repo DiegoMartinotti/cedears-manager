@@ -1,5 +1,8 @@
 import { UVAService } from './UVAService';
 import Database from 'better-sqlite3';
+import { createLogger } from '../utils/logger.js'
+
+const logger = createLogger('CompoundInterestEngine')
 
 /**
  * Motor de cálculo de interés compuesto avanzado para proyecciones financieras
@@ -57,6 +60,7 @@ export class CompoundInterestEngine {
    * Calcula el valor futuro con interés compuesto
    * FV = PV × (1 + r)^n + PMT × [((1 + r)^n - 1) / r]
    */
+  // eslint-disable-next-line max-lines-per-function
   async calculateFutureValue(params: ProjectionParameters): Promise<ProjectionResult> {
     const monthlyReturn = params.annualReturnRate / 100 / 12;
     const monthlyInflation = (params.inflationRate || 0) / 100 / 12;
@@ -136,6 +140,7 @@ export class CompoundInterestEngine {
   /**
    * Calcula el aporte mensual necesario para alcanzar un objetivo
    */
+  // eslint-disable-next-line max-params
   async calculateRequiredContribution(
     presentValue: number,
     futureValue: number,
@@ -145,7 +150,7 @@ export class CompoundInterestEngine {
   ): Promise<number> {
     const monthlyReturn = annualReturnRate / 100 / 12;
     let targetValue = futureValue;
-    
+
     if (inflationAdjusted) {
       const inflationRate = await this.getEstimatedInflationRate();
       const monthlyInflation = inflationRate / 100 / 12;
@@ -167,6 +172,7 @@ export class CompoundInterestEngine {
   /**
    * Calcula el tiempo necesario para alcanzar un objetivo
    */
+  // eslint-disable-next-line max-params
   async calculateTimeToGoal(
     presentValue: number,
     futureValue: number,
@@ -175,7 +181,7 @@ export class CompoundInterestEngine {
     inflationAdjusted: boolean = true
   ): Promise<number> {
     const monthlyReturn = annualReturnRate / 100 / 12;
-    let targetValue = futureValue;
+    const targetValue = futureValue;
     
     if (inflationAdjusted) {
       const inflationRate = await this.getEstimatedInflationRate();
@@ -367,7 +373,7 @@ export class CompoundInterestEngine {
         return Math.max(0, Math.min(300, inflationRate)); // Limitar entre 0% y 300%
       }
     } catch (error) {
-      console.warn('No se pudo obtener inflación real, usando estimación', error);
+      logger.warn('No se pudo obtener inflación real, usando estimación', error)
     }
     
     // Fallback: estimación conservadora para Argentina

@@ -78,7 +78,6 @@ export class GoalProjectionController {
       });
 
     } catch (error) {
-      console.error('Error calculando proyecciones:', error);
       res.status(500).json({
         error: 'Error interno del servidor',
         details: error instanceof Error ? error.message : 'Unknown error'
@@ -116,7 +115,6 @@ export class GoalProjectionController {
       });
 
     } catch (error) {
-      console.error('Error obteniendo proyecciones:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
@@ -176,7 +174,6 @@ export class GoalProjectionController {
       });
 
     } catch (error) {
-      console.error('Error ajustando proyecciones:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
@@ -217,7 +214,6 @@ export class GoalProjectionController {
       });
 
     } catch (error) {
-      console.error('Error en análisis de sensibilidad:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
@@ -268,7 +264,6 @@ export class GoalProjectionController {
       });
 
     } catch (error) {
-      console.error('Error en simulación Monte Carlo:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
@@ -313,7 +308,6 @@ export class GoalProjectionController {
       });
 
     } catch (error) {
-      console.error('Error obteniendo escenarios:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
@@ -353,7 +347,6 @@ export class GoalProjectionController {
       });
 
     } catch (error) {
-      console.error('Error generando recomendaciones:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
@@ -391,7 +384,6 @@ export class GoalProjectionController {
       });
 
     } catch (error) {
-      console.error('Error obteniendo recomendaciones:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
@@ -430,7 +422,6 @@ export class GoalProjectionController {
       });
 
     } catch (error) {
-      console.error('Error aplicando recomendación:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
@@ -450,7 +441,6 @@ export class GoalProjectionController {
       });
 
     } catch (error) {
-      console.error('Error recalculando proyecciones:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   }

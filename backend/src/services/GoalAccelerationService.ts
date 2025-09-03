@@ -9,16 +9,16 @@ import {
   CreateAccelerationStrategyDto,
   MonitoringRequirement,
   ExitCondition,
-  SuccessMetric,
-  HistoricalPerformanceData,
-  PortfolioImpactAnalysis,
-  AccelerationPerformanceTracking
+  SuccessMetric
 } from '../models/GoalOptimizer';
 import { GoalTrackerService } from './GoalTrackerService';
 import { PortfolioService } from './PortfolioService';
 import { OpportunityService } from './OpportunityService';
 import { TechnicalAnalysisService } from './TechnicalAnalysisService';
 import { FinancialGoal } from '../models/FinancialGoal';
+import { createLogger } from '../utils/logger.js'
+
+const logger = createLogger('GoalAccelerationService')
 
 export class GoalAccelerationService {
   private db: Database.Database;
@@ -286,6 +286,7 @@ export class GoalAccelerationService {
     return updatedStrategy;
   }
 
+  // eslint-disable-next-line max-lines-per-function
   private createMonitoringRequirements(strategy: GoalAccelerationStrategy): MonitoringRequirement[] {
     const requirements: MonitoringRequirement[] = [];
 
@@ -437,26 +438,29 @@ export class GoalAccelerationService {
   private async validateMarketConditions(strategy: GoalAccelerationStrategy): Promise<void> {
     // Validaciones específicas según el tipo de estrategia
     switch (strategy.acceleration_type) {
-      case 'MARKET_TIMING':
+      case 'MARKET_TIMING': {
         const vix = await this.getCurrentVIX(); // Simular obtención de VIX
         if (vix > 40) {
           throw new Error('Condiciones de mercado demasiado volátiles para timing táctico');
         }
         break;
+      }
 
-      case 'DIVIDEND_CAPTURE':
+      case 'DIVIDEND_CAPTURE': {
         const dividendSeason = this.isDividendSeason();
         if (!dividendSeason) {
-          console.warn('Fuera de temporada de dividendos principal, considerar esperar');
+          logger.warn('Fuera de temporada de dividendos principal, considerar esperar')
         }
         break;
+      }
 
-      case 'SECTOR_ROTATION':
+      case 'SECTOR_ROTATION': {
         const sectorTrends = await this.getSectorTrends(); // Simular análisis sectorial
         if (sectorTrends.uncertainty > 0.7) {
           throw new Error('Incertidumbre sectorial demasiado alta para rotación');
         }
         break;
+      }
     }
   }
 
@@ -519,7 +523,8 @@ export class GoalAccelerationService {
     try {
       const summary = await this.portfolioService.getPortfolioSummary();
       return summary.totalValue || 25000;
-    } catch {
+    } catch (error) {
+      logger.warn('No se pudo obtener el valor del portafolio, usando 25000 por defecto', error)
       return 25000;
     }
   }

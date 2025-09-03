@@ -117,9 +117,9 @@ La base de datos JSON incluye las siguientes entidades:
    ```
 
 4. **Verificar endpoints**:
-   - Health: http://localhost:3001/health
-   - API Info: http://localhost:3001/api/v1
-   - Instruments: http://localhost:3001/api/v1/instruments
+   - Health: <http://localhost:3001/health>
+   - API Info: <http://localhost:3001/api/v1>
+   - Instruments: <http://localhost:3001/api/v1/instruments>
 
 ### 🎯 Próximos Pasos
 
