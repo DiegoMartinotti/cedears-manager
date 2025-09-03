@@ -1,9 +1,10 @@
+/* eslint-disable max-lines-per-function */
 import { Request, Response } from 'express';
 import { sellAnalysisService } from '../services/SellAnalysisService.js';
-import { winston } from '../utils/logger.js';
+import { createLogger } from '../utils/logger.js';
 import { z } from 'zod';
 
-const logger = winston.child({ module: 'SellAnalysisController' });
+const logger = createLogger('SellAnalysisController');
 
 // Validation schemas
 const PositionIdSchema = z.object({

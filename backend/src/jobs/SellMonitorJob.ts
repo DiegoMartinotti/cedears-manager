@@ -1,8 +1,9 @@
+/* eslint-disable max-lines-per-function */
 import cron from 'node-cron';
 import { sellAnalysisService } from '../services/SellAnalysisService.js';
-import { winston } from '../utils/logger.js';
+import { createLogger } from '../utils/logger.js';
 
-const logger = winston.child({ module: 'SellMonitorJob' });
+const logger = createLogger('SellMonitorJob');
 
 export class SellMonitorJob {
   private isRunning: boolean = false;
