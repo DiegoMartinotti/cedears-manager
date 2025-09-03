@@ -1,7 +1,7 @@
 import DatabaseConnection from '../database/connection.js'
 import { WatchlistChangeModel, WatchlistChangeData, CreateWatchlistChangeData } from '../models/WatchlistChange.js'
-import { MonthlyReviewModel } from '../models/MonthlyReview.js'
-import { InstrumentModel } from '../models/Instrument.js'
+import { MonthlyReviewModel, RemovalCandidateData } from '../models/MonthlyReview.js'
+import { instrumentModel } from '../models/Instrument.js'
 import { NotificationService } from './NotificationService.js'
 import { NotificationPriority } from '../models/Notification.js'
 import { createLogger } from '../utils/logger.js'
@@ -32,22 +32,21 @@ export class WatchlistManagementService {
   private db = DatabaseConnection.getInstance()
   private watchlistChangeModel: WatchlistChangeModel
   private monthlyReviewModel: MonthlyReviewModel
-  private instrumentModel: InstrumentModel
+  private readonly instrumentModel = instrumentModel
   private notificationService: NotificationService
   private readonly MAX_INSTRUMENTS = 100
 
   constructor() {
     this.watchlistChangeModel = new WatchlistChangeModel(this.db)
     this.monthlyReviewModel = new MonthlyReviewModel(this.db)
-    this.instrumentModel = new InstrumentModel(this.db)
     this.notificationService = new NotificationService(this.db)
   }
 
   /**
    * Apply approved changes from a monthly review
    */
-  // eslint-disable-next-line max-lines-per-function
-  async applyApprovedChanges(reviewId: number, dryRun = false): Promise<ApplyChangesResult> {
+    // eslint-disable-next-line max-lines-per-function, complexity
+    async applyApprovedChanges(reviewId: number, dryRun = false): Promise<ApplyChangesResult> {
     logger.info(`${dryRun ? 'Simulating' : 'Applying'} approved changes for review ${reviewId}`)
 
     const result: ApplyChangesResult = {
@@ -61,79 +60,70 @@ export class WatchlistManagementService {
       }
     }
 
-    // eslint-disable-next-line max-lines-per-function, complexity
-    const transaction = this.db.transaction(() => {
+    // Get approved addition candidates
+    const additionCandidates = this.monthlyReviewModel.getInstrumentCandidates(reviewId)
+      .filter(c => c.status === 'APPROVED')
+
+    // Get approved removal candidates (including instrument ticker when available)
+    const removalCandidates = this.monthlyReviewModel
+      .getRemovalCandidates(reviewId)
+      .filter(c => c.status === 'APPROVED') as Array<RemovalCandidateData & { ticker?: string }>
+
+    // Check if we have enough space for additions
+    const currentCount = this.getCurrentInstrumentCount()
+    const slotsNeeded = additionCandidates.length - removalCandidates.length
+    const availableSlots = this.MAX_INSTRUMENTS - currentCount
+
+    if (slotsNeeded > availableSlots) {
+      throw new Error(`Not enough slots: need ${slotsNeeded}, available ${availableSlots}`)
+    }
+
+    // Apply removals first
+    for (const candidate of removalCandidates) {
       try {
-        // Get approved addition candidates
-        const additionCandidates = this.monthlyReviewModel.getInstrumentCandidates(reviewId)
-          .filter(c => c.status === 'APPROVED')
-
-        // Get approved removal candidates
-        const removalCandidates = this.monthlyReviewModel.getRemovalCandidates(reviewId)
-          .filter(c => c.status === 'APPROVED')
-
-        // Check if we have enough space for additions
-        const currentCount = this.getCurrentInstrumentCount()
-        const slotsNeeded = additionCandidates.length - removalCandidates.length
-        const availableSlots = this.MAX_INSTRUMENTS - currentCount
-
-        if (slotsNeeded > availableSlots) {
-          throw new Error(`Not enough slots: need ${slotsNeeded}, available ${availableSlots}`)
-        }
-
-        // Apply removals first
-        for (const candidate of removalCandidates) {
-          try {
-            if (!dryRun) {
-              await this.removeInstrument(candidate.instrumentId, candidate.reason, reviewId)
-            }
-            result.applied++
-            result.summary.removed.push(candidate.ticker || `ID:${candidate.instrumentId}`)
-          } catch (error) {
-            result.failed++
-            result.errors.push({
-              candidateId: candidate.id!,
-              error: error instanceof Error ? error.message : 'Unknown error'
-            })
-          }
-        }
-
-        // Apply additions
-        for (const candidate of additionCandidates) {
-          try {
-            if (!dryRun) {
-              await this.addInstrument(candidate, reviewId)
-            }
-            result.applied++
-            result.summary.added.push(candidate.symbol)
-          } catch (error) {
-            result.failed++
-            result.errors.push({
-              candidateId: candidate.id!,
-              error: error instanceof Error ? error.message : 'Unknown error'
-            })
-          }
-        }
-
-        // Update candidate statuses
         if (!dryRun) {
-          for (const candidate of [...additionCandidates, ...removalCandidates]) {
-            const table = additionCandidates.includes(candidate as any) ? 'instrument_candidates' : 'removal_candidates'
-            const newStatus = result.errors.some(e => e.candidateId === candidate.id) ? 'REJECTED' : 'ADDED'
-            
-            const stmt = this.db.prepare(`UPDATE ${table} SET status = ? WHERE id = ?`)
-            stmt.run(newStatus, candidate.id)
-          }
+          await this.removeInstrument(candidate.instrumentId, candidate.reason, reviewId)
         }
-
-        return result
+        result.applied++
+        result.summary.removed.push(candidate.ticker || `ID:${candidate.instrumentId}`)
       } catch (error) {
-        logger.error('Failed to apply changes:', error)
-        throw error
+        result.failed++
+        result.errors.push({
+          candidateId: candidate.id!,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        })
       }
-    })
+    }
 
-    const finalResult = transaction()
+    // Apply additions
+    for (const candidate of additionCandidates) {
+      try {
+        if (!dryRun) {
+          await this.addInstrument(candidate, reviewId)
+        }
+        result.applied++
+        result.summary.added.push(candidate.symbol)
+      } catch (error) {
+        result.failed++
+        result.errors.push({
+          candidateId: candidate.id!,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        })
+      }
+    }
+
+    // Update candidate statuses
+    if (!dryRun) {
+      for (const candidate of [...additionCandidates, ...removalCandidates]) {
+        const table = additionCandidates.includes(candidate as any) ? 'instrument_candidates' : 'removal_candidates'
+        const newStatus = result.errors.some(e => e.candidateId === candidate.id) ? 'REJECTED' : 'ADDED'
+
+        const stmt = this.db.prepare(`UPDATE ${table} SET status = ? WHERE id = ?`)
+        stmt.run(newStatus, candidate.id)
+      }
+    }
+
+    const finalResult = result
 
     if (!dryRun && finalResult.applied > 0) {
       // Send notification about applied changes
