@@ -145,7 +145,7 @@ export class CompoundInterestEngine {
   ): Promise<number> {
     const monthlyReturn = annualReturnRate / 100 / 12;
     let targetValue = futureValue;
-    
+
     if (inflationAdjusted) {
       const inflationRate = await this.getEstimatedInflationRate();
       const monthlyInflation = inflationRate / 100 / 12;
@@ -175,7 +175,7 @@ export class CompoundInterestEngine {
     inflationAdjusted: boolean = true
   ): Promise<number> {
     const monthlyReturn = annualReturnRate / 100 / 12;
-    let targetValue = futureValue;
+    const targetValue = futureValue;
     
     if (inflationAdjusted) {
       const inflationRate = await this.getEstimatedInflationRate();
@@ -367,7 +367,7 @@ export class CompoundInterestEngine {
         return Math.max(0, Math.min(300, inflationRate)); // Limitar entre 0% y 300%
       }
     } catch (error) {
-      console.warn('No se pudo obtener inflación real, usando estimación', error);
+      
     }
     
     // Fallback: estimación conservadora para Argentina

@@ -403,7 +403,7 @@ Responde en formato JSON estructurado.
 
       return recommendations;
     } catch (error) {
-      console.error('Error parsing Claude recommendations:', error);
+      
       return [];
     }
   }
@@ -424,7 +424,7 @@ Responde en formato JSON estructurado.
         success_metrics: parsed.metrics || {}
       };
     } catch (error) {
-      console.error('Error parsing personalized strategy:', error);
+      
       throw new Error('Failed to parse strategy from Claude response');
     }
   }

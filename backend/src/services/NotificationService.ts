@@ -371,10 +371,10 @@ export class NotificationService {
       const archivedCount = this.model.cleanupOldArchived()
       
       if (expiredCount > 0 || archivedCount > 0) {
-        console.log(`Notification cleanup: ${expiredCount} expired, ${archivedCount} old archived`)
+        
       }
     } catch (error) {
-      console.error('Notification cleanup failed:', error)
+      
     }
   }
 

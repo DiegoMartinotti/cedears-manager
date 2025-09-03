@@ -447,7 +447,7 @@ export class GoalAccelerationService {
       case 'DIVIDEND_CAPTURE':
         const dividendSeason = this.isDividendSeason();
         if (!dividendSeason) {
-          console.warn('Fuera de temporada de dividendos principal, considerar esperar');
+          
         }
         break;
 

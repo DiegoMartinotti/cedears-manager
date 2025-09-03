@@ -53,18 +53,11 @@ describe('Claude CLI Connection Test', () => {
     })
 
     // Log del resultado para información
-    console.log('🔍 Claude CLI Test Result:', {
-      available: result.available,
-      output: result.output
-    })
-
+    
     if (result.available) {
-      console.log('✅ Claude CLI is available and working!')
       expect(result.success).toBe(true)
       expect(result.output).toBeTruthy()
     } else {
-      console.log('❌ Claude CLI not available. This is expected in CI/development environments.')
-      console.log('   Output:', result.output)
       
       // No fallar el test si Claude CLI no está disponible
       // En su lugar, verificar que manejamos gracefully la falta de CLI
@@ -93,8 +86,6 @@ describe('Claude CLI Connection Test', () => {
       expect(typeof errorMsg).toBe('string')
       expect(errorMsg.length).toBeGreaterThan(0)
     })
-
-    console.log('✅ Integration can handle common CLI missing scenarios')
   })
 
   it('should verify our fallback handling works', () => {
@@ -114,7 +105,5 @@ describe('Claude CLI Connection Test', () => {
     expect(fallbackResponse.confidence).toBe(50)
     expect(fallbackResponse.recommendation).toBe('HOLD')
     expect(typeof fallbackResponse.reasoning).toBe('string')
-
-    console.log('✅ Fallback response structure is valid')
   })
 })

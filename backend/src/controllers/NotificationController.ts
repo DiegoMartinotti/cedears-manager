@@ -100,7 +100,7 @@ export class NotificationController {
         }
       })
     } catch (error) {
-      console.error('Error getting notifications:', error)
+      
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -121,7 +121,7 @@ export class NotificationController {
         data: summary
       })
     } catch (error) {
-      console.error('Error getting notification summary:', error)
+      
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -142,7 +142,7 @@ export class NotificationController {
         data: stats
       })
     } catch (error) {
-      console.error('Error getting notification stats:', error)
+      
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -163,7 +163,7 @@ export class NotificationController {
         data: { count }
       })
     } catch (error) {
-      console.error('Error getting unread count:', error)
+      
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -201,7 +201,7 @@ export class NotificationController {
         data: notification
       })
     } catch (error) {
-      console.error('Error getting notification:', error)
+      
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -224,7 +224,7 @@ export class NotificationController {
         data: notification
       })
     } catch (error) {
-      console.error('Error creating notification:', error)
+      
       if (error instanceof z.ZodError) {
         return res.status(400).json({
           success: false,
@@ -259,7 +259,7 @@ export class NotificationController {
         data: { created: count }
       })
     } catch (error) {
-      console.error('Error creating bulk notifications:', error)
+      
       if (error instanceof z.ZodError) {
         return res.status(400).json({
           success: false,
@@ -305,7 +305,7 @@ export class NotificationController {
         data: { updated: success }
       })
     } catch (error) {
-      console.error('Error marking notification as read:', error)
+      
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -337,7 +337,7 @@ export class NotificationController {
         data: { updated }
       })
     } catch (error) {
-      console.error('Error marking notifications as read:', error)
+      
       if (error instanceof z.ZodError) {
         return res.status(400).json({
           success: false,
@@ -383,7 +383,7 @@ export class NotificationController {
         data: { archived: success }
       })
     } catch (error) {
-      console.error('Error archiving notification:', error)
+      
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -421,7 +421,7 @@ export class NotificationController {
         data: { deleted: success }
       })
     } catch (error) {
-      console.error('Error deleting notification:', error)
+      
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -453,7 +453,7 @@ export class NotificationController {
         }
       })
     } catch (error) {
-      console.error('Error searching notifications:', error)
+      
       if (error instanceof z.ZodError) {
         return res.status(400).json({
           success: false,
@@ -493,7 +493,7 @@ export class NotificationController {
         data: notification
       })
     } catch (error) {
-      console.error('Error creating opportunity notification:', error)
+      
       if (error instanceof z.ZodError) {
         return res.status(400).json({
           success: false,
@@ -534,7 +534,7 @@ export class NotificationController {
         data: notification
       })
     } catch (error) {
-      console.error('Error creating sell alert notification:', error)
+      
       if (error instanceof z.ZodError) {
         return res.status(400).json({
           success: false,
@@ -563,7 +563,7 @@ export class NotificationController {
         data: health
       })
     } catch (error) {
-      console.error('Error in notification health check:', error)
+      
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
