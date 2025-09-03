@@ -1,7 +1,8 @@
-import { 
-  SellAnalysis, 
-  SellAlert, 
-  SellAnalysisData, 
+/* eslint-disable max-lines-per-function, complexity */
+import {
+  SellAnalysis,
+  SellAlert,
+  SellAnalysisData,
   SellAlertData, 
   SellThresholds, 
   SellScoreComponents,
@@ -13,9 +14,9 @@ import { UVAService } from './UVAService.js';
 import { CommissionService } from './CommissionService.js';
 import { TechnicalAnalysisService } from './TechnicalAnalysisService.js';
 import { InstrumentService } from './InstrumentService.js';
-import { winston } from '../utils/logger.js';
+import { createLogger } from '../utils/logger.js';
 
-const logger = winston.child({ module: 'SellAnalysisService' });
+const logger = createLogger('SellAnalysisService');
 
 export class SellAnalysisService {
   private sellAnalysisModel: SellAnalysis;
@@ -173,7 +174,7 @@ export class SellAnalysisService {
         analysis_date: new Date().toISOString()
       };
 
-      const savedAnalysis = await this.sellAnalysisModel.create(analysisData);
+      await this.sellAnalysisModel.create(analysisData);
 
       // Generate alerts if needed
       const alerts = await this.generateAlerts(position, analysisData, activeThresholds);
