@@ -97,7 +97,7 @@ export class MonthlyReviewController {
 
       const candidates = this.monthlyReviewService.getReviewCandidates(reviewId)
 
-      res.json({
+      return res.json({
         success: true,
         data: {
           review,
@@ -106,7 +106,7 @@ export class MonthlyReviewController {
       })
     } catch (error) {
       logger.error('Failed to get review:', error)
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Internal server error'
       })
@@ -163,7 +163,7 @@ export class MonthlyReviewController {
       const candidates = this.monthlyReviewService.getReviewCandidates(reviewId)
       const previewChanges = this.watchlistManagementService.previewChanges(reviewId)
 
-      res.json({
+      return res.json({
         success: true,
         data: {
           candidates,
@@ -172,7 +172,7 @@ export class MonthlyReviewController {
       })
     } catch (error) {
       logger.error('Failed to get review candidates:', error)
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Internal server error'
       })
@@ -216,13 +216,13 @@ export class MonthlyReviewController {
 
       await this.watchlistManagementService.approveCandidate(candidateId, candidateType, notes)
 
-      res.json({
+      return res.json({
         success: true,
         message: `${candidateType === 'addition' ? 'Addition' : 'Removal'} candidate approved successfully`
       })
     } catch (error) {
       logger.error('Failed to approve candidate:', error)
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Internal server error'
       })
@@ -266,13 +266,13 @@ export class MonthlyReviewController {
 
       await this.watchlistManagementService.rejectCandidate(candidateId, candidateType, notes)
 
-      res.json({
+      return res.json({
         success: true,
         message: `${candidateType === 'addition' ? 'Addition' : 'Removal'} candidate rejected successfully`
       })
     } catch (error) {
       logger.error('Failed to reject candidate:', error)
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Internal server error'
       })
@@ -311,14 +311,14 @@ export class MonthlyReviewController {
         notes
       )
 
-      res.json({
+      return res.json({
         success: true,
         data: { updatedCount },
         message: `${action === 'approve' ? 'Approved' : 'Rejected'} ${updatedCount} ${candidateType} candidates`
       })
     } catch (error) {
       logger.error('Failed to bulk update candidates:', error)
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Internal server error'
       })
@@ -352,16 +352,16 @@ export class MonthlyReviewController {
 
       const result = await this.watchlistManagementService.applyApprovedChanges(reviewId, dryRun)
 
-      res.json({
+      return res.json({
         success: true,
         data: result,
-        message: dryRun 
+        message: dryRun
           ? `Simulation complete: ${result.applied} changes would be applied`
           : `Applied ${result.applied} changes successfully`
       })
     } catch (error) {
       logger.error('Failed to apply changes:', error)
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Internal server error'
       })
@@ -415,13 +415,13 @@ export class MonthlyReviewController {
         logger.error('Manual review failed:', error)
       })
 
-      res.json({
+      return res.json({
         success: true,
         message: 'Manual review triggered successfully. Check notifications for progress updates.'
       })
     } catch (error) {
       logger.error('Failed to trigger manual review:', error)
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Internal server error'
       })
