@@ -48,7 +48,15 @@ export class BreakEvenController {
    */
   async calculateBreakEven(req: Request, res: Response) {
     try {
-      const tradeId = parseInt(req.params.tradeId)
+      const { tradeId: tradeIdParam } = req.params
+      if (!tradeIdParam) {
+        return res.status(400).json({
+          error: 'Invalid trade ID',
+          message: 'Trade ID must be provided'
+        })
+      }
+
+      const tradeId = parseInt(tradeIdParam, 10)
       if (isNaN(tradeId)) {
         return res.status(400).json({
           error: 'Invalid trade ID',
@@ -63,14 +71,14 @@ export class BreakEvenController {
 
       const result = await this.breakEvenService.calculateBreakEven(validatedBody)
 
-      res.json({
+      return res.json({
         success: true,
         data: result,
         timestamp: new Date().toISOString()
       })
     } catch (error) {
       logger.error('Error calculating break-even:', error)
-      
+
       if (error instanceof z.ZodError) {
         return res.status(400).json({
           error: 'Validation error',
@@ -79,7 +87,7 @@ export class BreakEvenController {
         })
       }
 
-      res.status(500).json({
+      return res.status(500).json({
         error: 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error occurred'
       })
@@ -108,7 +116,7 @@ export class BreakEvenController {
         scenarioType: 'PROJECTION'
       })
 
-      res.json({
+      return res.json({
         success: true,
         data: {
           analysis: result.analysis,
@@ -118,7 +126,7 @@ export class BreakEvenController {
       })
     } catch (error) {
       logger.error('Error generating projection:', error)
-      res.status(500).json({
+      return res.status(500).json({
         error: 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error occurred'
       })
@@ -133,14 +141,14 @@ export class BreakEvenController {
     try {
       const summary = await this.breakEvenService.getPortfolioBreakEvenSummary()
 
-      res.json({
+      return res.json({
         success: true,
         data: summary,
         timestamp: new Date().toISOString()
       })
     } catch (error) {
       logger.error('Error analyzing portfolio:', error)
-      res.status(500).json({
+      return res.status(500).json({
         error: 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error occurred'
       })
@@ -156,7 +164,7 @@ export class BreakEvenController {
       const validatedBody = MatrixParamsSchema.parse(req.body)
       const matrix = await this.breakEvenService.generateBreakEvenMatrix(validatedBody)
 
-      res.json({
+      return res.json({
         success: true,
         data: {
           matrix,
@@ -175,7 +183,7 @@ export class BreakEvenController {
         })
       }
 
-      res.status(500).json({
+      return res.status(500).json({
         error: 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error occurred'
       })
@@ -188,7 +196,15 @@ export class BreakEvenController {
    */
   async getOptimizations(req: Request, res: Response) {
     try {
-      const tradeId = parseInt(req.params.tradeId)
+      const { tradeId: tradeIdParam } = req.params
+      if (!tradeIdParam) {
+        return res.status(400).json({
+          error: 'Invalid trade ID',
+          message: 'Trade ID must be provided'
+        })
+      }
+
+      const tradeId = parseInt(tradeIdParam, 10)
       if (isNaN(tradeId)) {
         return res.status(400).json({
           error: 'Invalid trade ID',
@@ -202,7 +218,7 @@ export class BreakEvenController {
         scenarioType: 'OPTIMIZATION'
       })
 
-      res.json({
+      return res.json({
         success: true,
         data: {
           optimizations: result.optimizations,
@@ -212,7 +228,7 @@ export class BreakEvenController {
       })
     } catch (error) {
       logger.error('Error getting optimizations:', error)
-      res.status(500).json({
+      return res.status(500).json({
         error: 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error occurred'
       })
@@ -236,7 +252,7 @@ export class BreakEvenController {
           currentPrice: strategy.sellPrice,
           scenarioType: `STRATEGY_${strategy.name.toUpperCase()}`
         })
-        
+
         comparisons.push({
           strategy: strategy.name,
           sellPrice: strategy.sellPrice,
@@ -248,7 +264,7 @@ export class BreakEvenController {
         })
       }
 
-      res.json({
+      return res.json({
         success: true,
         data: {
           tradeId: validatedBody.tradeId,
@@ -267,7 +283,7 @@ export class BreakEvenController {
         })
       }
 
-      res.status(500).json({
+      return res.status(500).json({
         error: 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error occurred'
       })
@@ -280,7 +296,15 @@ export class BreakEvenController {
    */
   async getByTradeId(req: Request, res: Response) {
     try {
-      const tradeId = parseInt(req.params.tradeId)
+      const { tradeId: tradeIdParam } = req.params
+      if (!tradeIdParam) {
+        return res.status(400).json({
+          error: 'Invalid trade ID',
+          message: 'Trade ID must be provided'
+        })
+      }
+
+      const tradeId = parseInt(tradeIdParam, 10)
       if (isNaN(tradeId)) {
         return res.status(400).json({
           error: 'Invalid trade ID',
@@ -289,7 +313,7 @@ export class BreakEvenController {
       }
 
       const analysis = await this.breakEvenService.getBreakEvenByTradeId(tradeId)
-      
+
       if (!analysis) {
         return res.status(404).json({
           error: 'Analysis not found',
@@ -297,14 +321,14 @@ export class BreakEvenController {
         })
       }
 
-      res.json({
+      return res.json({
         success: true,
         data: analysis,
         timestamp: new Date().toISOString()
       })
     } catch (error) {
       logger.error('Error getting break-even by trade ID:', error)
-      res.status(500).json({
+      return res.status(500).json({
         error: 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error occurred'
       })
@@ -319,14 +343,14 @@ export class BreakEvenController {
     try {
       const summary = await this.breakEvenService.getPortfolioBreakEvenSummary()
 
-      res.json({
+      return res.json({
         success: true,
         data: summary,
         timestamp: new Date().toISOString()
       })
     } catch (error) {
       logger.error('Error getting break-even summary:', error)
-      res.status(500).json({
+      return res.status(500).json({
         error: 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error occurred'
       })
@@ -358,16 +382,16 @@ export class BreakEvenController {
       const { buyCommission, sellCommission, totalInvestment } = calculateCommissions(
         purchasePrice, quantity, currentPrice, commissionRate
       )
-      
+
       const custodyFee = custodyMonths * 500 * 1.21
       const inflationImpact = totalInvestment * (inflationRate * custodyMonths / 12)
       const totalCosts = buyCommission + sellCommission + custodyFee + inflationImpact
-      
+
       const metrics = calculateBreakEvenMetrics(
         totalInvestment, quantity, currentPrice, totalCosts
       )
 
-      res.json({
+      return res.json({
         success: true,
         data: {
           simulation: {
@@ -388,7 +412,7 @@ export class BreakEvenController {
       })
     } catch (error) {
       logger.error('Error simulating break-even:', error)
-      res.status(500).json({
+      return res.status(500).json({
         error: 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error occurred'
       })
@@ -402,8 +426,8 @@ export class BreakEvenController {
   async healthCheck(req: Request, res: Response) {
     try {
       const summary = await this.breakEvenService.getPortfolioBreakEvenSummary()
-      
-      res.json({
+
+      return res.json({
         success: true,
         data: {
           status: 'healthy',
@@ -422,7 +446,7 @@ export class BreakEvenController {
       })
     } catch (error) {
       logger.error('Break-even health check failed:', error)
-      res.status(503).json({
+      return res.status(503).json({
         success: false,
         data: {
           status: 'unhealthy',
