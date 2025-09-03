@@ -54,12 +54,14 @@ export class NotificationController {
   }
 
   private handleError(res: Response, error: unknown, code: string, status = 500) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : typeof error === 'string'
-          ? error
-          : 'Unknown error'
+    let message: string
+    if (error instanceof Error) {
+      message = error.message
+    } else if (typeof error === 'string') {
+      message = error
+    } else {
+      message = 'Unknown error'
+    }
     return res.status(status).json({ success: false, error: message, code })
   }
 
