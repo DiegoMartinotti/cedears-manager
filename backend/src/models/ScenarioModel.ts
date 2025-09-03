@@ -1,5 +1,5 @@
 import { Database, RunResult } from 'better-sqlite3';
-import { SimpleDatabase } from '../database/SimpleDatabase';
+import DatabaseConnection from '../database/connection.js';
 
 // Types for the 7 scenario tables
 export interface ScenarioDefinition {
@@ -120,7 +120,7 @@ export class ScenarioModel {
   private db: Database;
 
   constructor() {
-    this.db = SimpleDatabase.getInstance().getDatabase();
+    this.db = DatabaseConnection.getInstance();
   }
 
   // ==================== SCENARIO DEFINITIONS ====================
@@ -608,3 +608,4 @@ export class ScenarioModel {
 }
 
 export const scenarioModel = new ScenarioModel();
+

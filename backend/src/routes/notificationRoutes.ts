@@ -1,13 +1,13 @@
 import { Router } from 'express'
 import { NotificationController } from '../controllers/NotificationController.js'
 import { NotificationService } from '../services/NotificationService.js'
-import { getDatabase } from '../database/connection.js'
+import DatabaseConnection from '../database/connection.js'
 
 // Create router
 const router = Router()
 
 // Initialize service and controller
-const database = getDatabase()
+const database = DatabaseConnection.getInstance()
 const notificationService = new NotificationService(database)
 const notificationController = new NotificationController(notificationService)
 
@@ -40,3 +40,4 @@ export default router
 
 // Export service for use in other modules
 export { notificationService }
+
