@@ -3,7 +3,9 @@ import { z } from 'zod'
 import { benchmarkIndicesModel } from '../models/BenchmarkIndices.js'
 import { benchmarkDataService } from '../services/BenchmarkDataService.js'
 import { performanceAnalysisService } from '../services/PerformanceAnalysisService.js'
-import logger from '../utils/logger.js'
+import { createLogger } from '../utils/logger.js'
+
+const logger = createLogger('benchmark-controller')
 
 // Validation schemas
 const comparePerformanceSchema = z.object({
