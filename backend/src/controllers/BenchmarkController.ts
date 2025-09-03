@@ -51,14 +51,14 @@ export class BenchmarkController {
         benchmarks = benchmarks.filter(b => b.country === country)
       }
 
-      res.json({
+      return res.json({
         success: true,
         data: benchmarks,
         count: benchmarks.length
       })
     } catch (error) {
       logger.error('Error getting benchmark indices:', error)
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Failed to get benchmark indices'
       })
@@ -78,13 +78,13 @@ export class BenchmarkController {
         })
       }
 
-      res.json({
+      return res.json({
         success: true,
         data: benchmark
       })
     } catch (error) {
       logger.error('Error getting benchmark by id:', error)
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Failed to get benchmark'
       })
@@ -101,7 +101,7 @@ export class BenchmarkController {
         is_active: true
       })
 
-      res.status(201).json({
+      return res.status(201).json({
         success: true,
         data: benchmark
       })
@@ -115,7 +115,7 @@ export class BenchmarkController {
       }
       
       logger.error('Error creating benchmark:', error)
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Failed to create benchmark'
       })
@@ -137,7 +137,7 @@ export class BenchmarkController {
         })
       }
 
-      res.json({
+      return res.json({
         success: true,
         data: benchmark
       })
@@ -151,7 +151,7 @@ export class BenchmarkController {
       }
       
       logger.error('Error updating benchmark:', error)
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Failed to update benchmark'
       })
@@ -171,13 +171,13 @@ export class BenchmarkController {
         })
       }
 
-      res.json({
+      return res.json({
         success: true,
         message: 'Benchmark deleted successfully'
       })
     } catch (error) {
       logger.error('Error deleting benchmark:', error)
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Failed to delete benchmark'
       })
@@ -204,7 +204,7 @@ export class BenchmarkController {
         limitedData = data.filter((_, index) => index % step === 0).slice(0, limitNum)
       }
 
-      res.json({
+      return res.json({
         success: true,
         data: limitedData,
         count: limitedData.length,
@@ -212,7 +212,7 @@ export class BenchmarkController {
       })
     } catch (error) {
       logger.error('Error getting benchmark data:', error)
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Failed to get benchmark data'
       })
@@ -230,14 +230,14 @@ export class BenchmarkController {
 
       const data = await benchmarkDataService.getLatestBenchmarkData(id, limitNum)
 
-      res.json({
+      return res.json({
         success: true,
         data: data,
         count: data.length
       })
     } catch (error) {
       logger.error('Error getting latest benchmark data:', error)
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Failed to get latest benchmark data'
       })
@@ -259,13 +259,13 @@ export class BenchmarkController {
 
       const result = await benchmarkDataService.updateBenchmarkData(benchmark)
 
-      res.json({
+      return res.json({
         success: true,
         data: result
       })
     } catch (error) {
       logger.error('Error updating benchmark data:', error)
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Failed to update benchmark data'
       })
@@ -280,7 +280,7 @@ export class BenchmarkController {
       const successCount = results.filter(r => r.success).length
       const totalCount = results.length
 
-      res.json({
+      return res.json({
         success: true,
         data: {
           results: results,
@@ -293,7 +293,7 @@ export class BenchmarkController {
       })
     } catch (error) {
       logger.error('Error updating all benchmarks:', error)
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Failed to update all benchmarks'
       })
@@ -315,7 +315,7 @@ export class BenchmarkController {
         endDate
       )
 
-      res.json({
+      return res.json({
         success: true,
         data: comparison
       })
@@ -329,7 +329,7 @@ export class BenchmarkController {
       }
       
       logger.error('Error comparing with benchmark:', error)
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Failed to compare with benchmark'
       })
@@ -362,13 +362,13 @@ export class BenchmarkController {
         metrics = await performanceAnalysisService.calculatePortfolioMetrics(start, end)
       }
 
-      res.json({
+      return res.json({
         success: true,
         data: metrics
       })
     } catch (error) {
       logger.error('Error getting performance metrics:', error)
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Failed to get performance metrics'
       })
@@ -401,13 +401,13 @@ export class BenchmarkController {
         })
       }
 
-      res.json({
+      return res.json({
         success: true,
         data: returns
       })
     } catch (error) {
       logger.error('Error getting benchmark returns:', error)
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Failed to get benchmark returns'
       })
@@ -419,13 +419,13 @@ export class BenchmarkController {
     try {
       const stats = await benchmarkDataService.getServiceStatistics()
 
-      res.json({
+      return res.json({
         success: true,
         data: stats
       })
     } catch (error) {
       logger.error('Error getting benchmark statistics:', error)
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Failed to get benchmark statistics'
       })
@@ -454,7 +454,7 @@ export class BenchmarkController {
         })
       }
 
-      res.json({
+      return res.json({
         success: true,
         data: {
           benchmark: {
@@ -468,7 +468,7 @@ export class BenchmarkController {
       })
     } catch (error) {
       logger.error('Error getting current quote:', error)
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Failed to get current quote'
       })
@@ -487,7 +487,7 @@ export class BenchmarkController {
         update => !update.last_update || update.last_update < staleThreshold
       )
 
-      res.json({
+      return res.json({
         success: true,
         data: {
           service_status: 'healthy',
@@ -502,7 +502,7 @@ export class BenchmarkController {
       })
     } catch (error) {
       logger.error('Error getting health check:', error)
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Service health check failed',
         service_status: 'unhealthy'
