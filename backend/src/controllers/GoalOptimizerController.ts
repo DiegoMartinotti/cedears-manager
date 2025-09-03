@@ -35,7 +35,7 @@ export class GoalOptimizerController {
   }
 
   private sendSuccessResponse(res: Response, data: any, message: string) {
-    res.json({
+    return res.json({
       success: true,
       data,
       message
@@ -43,7 +43,7 @@ export class GoalOptimizerController {
   }
 
   private sendErrorResponse(res: Response, error: any, status: number = 500) {
-    res.status(status).json({
+    return res.status(status).json({
       success: false,
       error: typeof error === 'string' ? error : error.message
     });
@@ -160,13 +160,13 @@ export class GoalOptimizerController {
       const customData: CreateGapAnalysisDto = req.body;
       const gapAnalysis = await this.optimizerService.performGapAnalysis(goalId, customData);
 
-      res.json({
+      return res.json({
         success: true,
         data: gapAnalysis,
         message: 'Análisis de gap completado exitosamente'
       });
     } catch (error: any) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error.message
       });
@@ -188,13 +188,13 @@ export class GoalOptimizerController {
 
       const strategies = await this.optimizerService.generateOptimizationStrategies(goalId);
 
-      res.json({
+      return res.json({
         success: true,
         data: strategies,
         message: 'Estrategias de optimización generadas exitosamente'
       });
     } catch (error: any) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error.message
       });
@@ -216,13 +216,13 @@ export class GoalOptimizerController {
 
       const plans = await this.optimizerService.generateContributionPlans(goalId);
 
-      res.json({
+      return res.json({
         success: true,
         data: plans,
         message: 'Planes de contribución calculados exitosamente'
       });
     } catch (error: any) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error.message
       });
@@ -244,13 +244,13 @@ export class GoalOptimizerController {
 
       const milestones = await this.optimizerService.generateIntermediateMilestones(goalId);
 
-      res.json({
+      return res.json({
         success: true,
         data: milestones,
         message: 'Hitos intermedios generados exitosamente'
       });
     } catch (error: any) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error.message
       });
@@ -272,13 +272,13 @@ export class GoalOptimizerController {
 
       const strategies = await this.accelerationService.generateAccelerationStrategies(goalId);
 
-      res.json({
+      return res.json({
         success: true,
         data: strategies,
         message: 'Estrategias de aceleración generadas exitosamente'
       });
     } catch (error: any) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error.message
       });
@@ -300,13 +300,13 @@ export class GoalOptimizerController {
 
       const activatedStrategy = await this.accelerationService.activateAccelerationStrategy(id);
 
-      res.json({
+      return res.json({
         success: true,
         data: activatedStrategy,
         message: 'Estrategia de aceleración activada exitosamente'
       });
     } catch (error: any) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error.message
       });
@@ -336,13 +336,13 @@ export class GoalOptimizerController {
 
       const deactivatedStrategy = await this.accelerationService.deactivateAccelerationStrategy(id, reason);
 
-      res.json({
+      return res.json({
         success: true,
         data: deactivatedStrategy,
         message: 'Estrategia de aceleración desactivada exitosamente'
       });
     } catch (error: any) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error.message
       });
@@ -383,13 +383,13 @@ export class GoalOptimizerController {
 
       const matches = await this.opportunityIntegrationService.matchOpportunitiesForGoal(goalId, criteria);
 
-      res.json({
+      return res.json({
         success: true,
         data: matches,
         message: 'Oportunidades vinculadas obtenidas exitosamente'
       });
     } catch (error: any) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error.message
       });
@@ -429,13 +429,13 @@ export class GoalOptimizerController {
         actionDetails
       );
 
-      res.json({
+      return res.json({
         success: true,
         data: updatedMatch,
         message: `Acción ${action} ejecutada exitosamente`
       });
     } catch (error: any) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error.message
       });
@@ -466,13 +466,13 @@ export class GoalOptimizerController {
       const opportunityMatches = await this.opportunityIntegrationService.getOpportunityMatchesByGoal(goalId);
       summary.opportunity_matches = opportunityMatches;
 
-      res.json({
+      return res.json({
         success: true,
         data: summary,
         message: 'Resumen del optimizador obtenido exitosamente'
       });
     } catch (error: any) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error.message
       });
@@ -498,9 +498,9 @@ export class GoalOptimizerController {
 
       strategyData.goal_id = goalId;
       const newStrategy = this.buildMockOptimizationStrategy(strategyData);
-      this.sendSuccessResponse(res, newStrategy, 'Estrategia de optimización creada exitosamente');
+      return this.sendSuccessResponse(res, newStrategy, 'Estrategia de optimización creada exitosamente');
     } catch (error: any) {
-      this.sendErrorResponse(res, error);
+      return this.sendErrorResponse(res, error);
     }
   };
 
@@ -523,9 +523,9 @@ export class GoalOptimizerController {
 
       planData.goal_id = goalId;
       const newPlan = this.buildMockContributionPlan(planData);
-      this.sendSuccessResponse(res, newPlan, 'Plan de contribución creado exitosamente');
+      return this.sendSuccessResponse(res, newPlan, 'Plan de contribución creado exitosamente');
     } catch (error: any) {
-      this.sendErrorResponse(res, error);
+      return this.sendErrorResponse(res, error);
     }
   };
 
@@ -550,13 +550,13 @@ export class GoalOptimizerController {
         message: 'Plan activado exitosamente'
       };
 
-      res.json({
+      return res.json({
         success: true,
         data: activatedPlan,
         message: 'Plan de contribución activado exitosamente'
       });
     } catch (error: any) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error.message
       });
@@ -595,13 +595,13 @@ export class GoalOptimizerController {
         updated_at: new Date().toISOString()
       };
 
-      res.json({
+      return res.json({
         success: true,
         data: updatedMilestone,
         message: 'Progreso de hito actualizado exitosamente'
       });
     } catch (error: any) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error.message
       });
@@ -619,9 +619,9 @@ export class GoalOptimizerController {
       }
 
       const recommendations = this.generateMockRecommendations();
-      this.sendSuccessResponse(res, recommendations, 'Recomendaciones personalizadas generadas exitosamente');
+      return this.sendSuccessResponse(res, recommendations, 'Recomendaciones personalizadas generadas exitosamente');
     } catch (error: any) {
-      this.sendErrorResponse(res, error);
+      return this.sendErrorResponse(res, error);
     }
   };
 }
