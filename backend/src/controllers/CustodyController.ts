@@ -214,6 +214,7 @@ export class CustodyController {
    * POST /api/v1/custody/calculate
    * Calculadora manual de custodia
    */
+  // eslint-disable-next-line max-lines-per-function
   calculateCustody = async (req: Request, res: Response): Promise<void> => {
     try {
       const validationResult = calculateCustodySchema.safeParse(req.body)
@@ -233,7 +234,14 @@ export class CustodyController {
 
       // Obtener configuración del broker
       const config = this.commissionService.getConfigurationByBroker(broker)
-      
+      if (!config) {
+        res.status(404).json({
+          success: false,
+          error: 'Broker configuration not found'
+        })
+        return
+      }
+
       // Calcular custodia
       const custodyCalculation = this.commissionService.calculateCustodyFee(portfolioValue, config)
 
@@ -417,7 +425,11 @@ export class CustodyController {
       const { paymentDate } = req.body
 
       // Validar ID
-      const idValidation = validateNumericId(req.params.id)
+      const idParam = req.params.id
+      if (typeof idParam !== 'string') {
+        return sendValidationError(res, 'Invalid custody fee ID')
+      }
+      const idValidation = validateNumericId(idParam)
       if (!idValidation.isValid) {
         return sendValidationError(res, idValidation.error!)
       }
@@ -454,7 +466,7 @@ export class CustodyController {
     nextMonth.setMonth(nextMonth.getMonth() + 1)
     nextMonth.setDate(1)
     nextMonth.setHours(9, 0, 0, 0)
-    return nextMonth.toISOString().split('T')[0]
+    return nextMonth.toISOString().split('T')[0]!
   }
 
   private generateBasicRecommendations(
