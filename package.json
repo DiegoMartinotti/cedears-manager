@@ -32,7 +32,7 @@
     "lint:complexity": "npm run frontend:lint && npm run backend:lint",
     "lint:duplicates": "jscpd --config .jscpdrc.json",
     "quality:check": "npm run lint:complexity && npm run lint:duplicates",
-    "quality:report": "npm run quality:setup && npm run quality:check && npm run quality:dashboard",
+    "quality:report": "npm run quality:setup && (npm run lint:complexity || true) && (npm run lint:duplicates || true) && npm run quality:dashboard",
     "quality:setup": "rimraf quality-reports && mkdir quality-reports && mkdir quality-reports\\eslint && mkdir quality-reports\\duplicates",
     "quality:dashboard": "node scripts/create-quality-dashboard.js",
     "quality:html-reports": "npm run quality:eslint-html && npm run lint:duplicates",
