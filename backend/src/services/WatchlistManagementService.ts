@@ -32,7 +32,7 @@ export class WatchlistManagementService {
   private db = DatabaseConnection.getInstance()
   private watchlistChangeModel: WatchlistChangeModel
   private monthlyReviewModel: MonthlyReviewModel
-  private instrumentModel = instrumentModel
+  private readonly instrumentModel = instrumentModel
   private notificationService: NotificationService
   private readonly MAX_INSTRUMENTS = 100
 
