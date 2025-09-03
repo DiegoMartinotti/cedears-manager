@@ -3,7 +3,7 @@ import { benchmarkIndicesModel, BenchmarkIndex } from '../models/BenchmarkIndice
 import { benchmarkDataModel, BenchmarkDataRecord } from '../models/BenchmarkData.js'
 import { QuoteService } from './QuoteService.js'
 import { rateLimitService } from './rateLimitService.js'
-import logger from '../utils/logger.js'
+import { logger } from '../utils/logger.js'
 
 export interface YahooFinanceQuote {
   symbol: string
@@ -79,88 +79,86 @@ export class BenchmarkDataService {
     }
   }
 
+  // eslint-disable-next-line max-lines-per-function
   async updateBenchmarkData(benchmark: BenchmarkIndex): Promise<BenchmarkUpdateResult> {
-    try {
-      // Check rate limiting
-      const rateLimitKey = `benchmark_update_${benchmark.symbol}`
-      if (!await rateLimitService.checkRateLimit(rateLimitKey, 60, 1)) { // 1 per minute per symbol
-        throw new Error('Rate limit exceeded')
-      }
+    const rateLimitKey = `benchmark_update_${benchmark.symbol}`
+    // eslint-disable-next-line max-lines-per-function
+    return rateLimitService.executeWithLimit(async () => {
+      try {
+        const lastUpdateDate = await benchmarkDataModel.getLastUpdateDate(benchmark.id!)
+        const startDate = lastUpdateDate
+          ? new Date(lastUpdateDate.getTime() + 24 * 60 * 60 * 1000) // Next day after last update
+          : new Date(Date.now() - 365 * 24 * 60 * 60 * 1000) // 1 year ago if no data
 
-      const lastUpdateDate = await benchmarkDataModel.getLastUpdateDate(benchmark.id!)
-      const startDate = lastUpdateDate 
-        ? new Date(lastUpdateDate.getTime() + 24 * 60 * 60 * 1000) // Next day after last update
-        : new Date(Date.now() - 365 * 24 * 60 * 60 * 1000) // 1 year ago if no data
-      
-      const endDate = new Date()
-      
-      // Skip if already up to date
-      if (lastUpdateDate && startDate > endDate) {
+        const endDate = new Date()
+
+        // Skip if already up to date
+        if (lastUpdateDate && startDate > endDate) {
+          return {
+            benchmark_id: benchmark.id!,
+            symbol: benchmark.symbol,
+            records_updated: 0,
+            last_update_date: lastUpdateDate,
+            success: true
+          }
+        }
+
+        let historicalData: YahooHistoricalData[]
+
+        // Use different data sources based on the benchmark
+        if (benchmark.data_source === 'yahoo') {
+          historicalData = await this.fetchYahooHistoricalData(benchmark.symbol, startDate, endDate)
+        } else {
+          throw new Error(`Unsupported data source: ${benchmark.data_source}`)
+        }
+
+        if (historicalData.length === 0) {
+          return {
+            benchmark_id: benchmark.id!,
+            symbol: benchmark.symbol,
+            records_updated: 0,
+            last_update_date: lastUpdateDate || new Date(),
+            success: true
+          }
+        }
+
+        // Convert to benchmark data format
+        const benchmarkDataList: Omit<BenchmarkDataRecord, 'id' | 'created_at'>[] = historicalData.map(data => ({
+          benchmark_id: benchmark.id!,
+          date: data.date,
+          open_price: data.open,
+          high_price: data.high,
+          low_price: data.low,
+          close_price: data.close,
+          volume: data.volume,
+          adjusted_close: data.adjClose,
+          dividend_amount: 0.00, // TODO: Fetch dividend data separately
+          split_coefficient: 1.0000 // TODO: Handle stock splits
+        }))
+
+        // Batch insert the data
+        const recordsUpdated = await benchmarkDataModel.createBatch(benchmarkDataList)
+
+        // Update the benchmark's last_update timestamp
+        await benchmarkIndicesModel.update(benchmark.id!, {
+          last_update: endDate
+        })
+
         return {
           benchmark_id: benchmark.id!,
           symbol: benchmark.symbol,
-          records_updated: 0,
-          last_update_date: lastUpdateDate,
+          records_updated: recordsUpdated,
+          last_update_date: endDate,
           success: true
         }
+      } catch (error) {
+        logger.error(`Error updating benchmark data for ${benchmark.symbol}:`, error)
+        throw error
       }
-
-      let historicalData: YahooHistoricalData[]
-      
-      // Use different data sources based on the benchmark
-      if (benchmark.data_source === 'yahoo') {
-        historicalData = await this.fetchYahooHistoricalData(benchmark.symbol, startDate, endDate)
-      } else {
-        throw new Error(`Unsupported data source: ${benchmark.data_source}`)
-      }
-
-      if (historicalData.length === 0) {
-        return {
-          benchmark_id: benchmark.id!,
-          symbol: benchmark.symbol,
-          records_updated: 0,
-          last_update_date: lastUpdateDate || new Date(),
-          success: true
-        }
-      }
-
-      // Convert to benchmark data format
-      const benchmarkDataList: Omit<BenchmarkDataRecord, 'id' | 'created_at'>[] = historicalData.map(data => ({
-        benchmark_id: benchmark.id!,
-        date: data.date,
-        open_price: data.open,
-        high_price: data.high,
-        low_price: data.low,
-        close_price: data.close,
-        volume: data.volume,
-        adjusted_close: data.adjClose,
-        dividend_amount: 0.00, // TODO: Fetch dividend data separately
-        split_coefficient: 1.0000 // TODO: Handle stock splits
-      }))
-
-      // Batch insert the data
-      const recordsUpdated = await benchmarkDataModel.createBatch(benchmarkDataList)
-      
-      // Update the benchmark's last_update timestamp
-      await benchmarkIndicesModel.update(benchmark.id!, {
-        last_update: endDate
-      })
-
-      await rateLimitService.logRequest(rateLimitKey)
-
-      return {
-        benchmark_id: benchmark.id!,
-        symbol: benchmark.symbol,
-        records_updated: recordsUpdated,
-        last_update_date: endDate,
-        success: true
-      }
-    } catch (error) {
-      logger.error(`Error updating benchmark data for ${benchmark.symbol}:`, error)
-      throw error
-    }
+    }, rateLimitKey)
   }
 
+  // eslint-disable-next-line max-lines-per-function
   async fetchYahooHistoricalData(
     symbol: string, 
     startDate: Date, 
@@ -222,45 +220,43 @@ export class BenchmarkDataService {
     }
   }
 
+  // eslint-disable-next-line max-lines-per-function
   async fetchCurrentQuote(symbol: string): Promise<YahooFinanceQuote | null> {
-    try {
-      const rateLimitKey = `benchmark_quote_${symbol}`
-      if (!await rateLimitService.checkRateLimit(rateLimitKey, 60, 5)) { // 5 per minute per symbol
-        throw new Error('Rate limit exceeded for quotes')
-      }
+    const rateLimitKey = `benchmark_quote_${symbol}`
+    // eslint-disable-next-line max-lines-per-function
+    return rateLimitService.executeWithLimit(async () => {
+      try {
+        const url = `${this.yahooBaseUrl}/${symbol}?interval=1d&range=1d`
 
-      const url = `${this.yahooBaseUrl}/${symbol}?interval=1d&range=1d`
-      
-      const response = await axios.get(url, {
-        timeout: 10000,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        const response = await axios.get(url, {
+          timeout: 10000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        })
+
+        const result = response.data.chart.result[0]
+        if (!result) return null
+
+        const meta = result.meta
+        const lastQuote = result.indicators.quote[0]
+        const lastIndex = lastQuote.close.length - 1
+
+        return {
+          symbol: meta.symbol,
+          regularMarketPrice: meta.regularMarketPrice,
+          regularMarketPreviousClose: meta.previousClose,
+          regularMarketOpen: lastQuote.open[lastIndex] || meta.regularMarketPrice,
+          regularMarketDayHigh: meta.regularMarketDayHigh,
+          regularMarketDayLow: meta.regularMarketDayLow,
+          regularMarketVolume: meta.regularMarketVolume,
+          regularMarketTime: meta.regularMarketTime
         }
-      })
-
-      const result = response.data.chart.result[0]
-      if (!result) return null
-
-      const meta = result.meta
-      const lastQuote = result.indicators.quote[0]
-      const lastIndex = lastQuote.close.length - 1
-
-      await rateLimitService.logRequest(rateLimitKey)
-
-      return {
-        symbol: meta.symbol,
-        regularMarketPrice: meta.regularMarketPrice,
-        regularMarketPreviousClose: meta.previousClose,
-        regularMarketOpen: lastQuote.open[lastIndex] || meta.regularMarketPrice,
-        regularMarketDayHigh: meta.regularMarketDayHigh,
-        regularMarketDayLow: meta.regularMarketDayLow,
-        regularMarketVolume: meta.regularMarketVolume,
-        regularMarketTime: meta.regularMarketTime
+      } catch (error) {
+        logger.error(`Error fetching current quote for ${symbol}:`, error)
+        return null
       }
-    } catch (error) {
-      logger.error(`Error fetching current quote for ${symbol}:`, error)
-      return null
-    }
+    }, rateLimitKey)
   }
 
   async getBenchmarkDataRange(
