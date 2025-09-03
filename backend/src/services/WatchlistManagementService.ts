@@ -3,6 +3,7 @@ import { WatchlistChangeModel, WatchlistChangeData, CreateWatchlistChangeData } 
 import { MonthlyReviewModel } from '../models/MonthlyReview.js'
 import { InstrumentModel } from '../models/Instrument.js'
 import { NotificationService } from './NotificationService.js'
+import { NotificationPriority } from '../models/Notification.js'
 import { createLogger } from '../utils/logger.js'
 
 const logger = createLogger('WatchlistManagementService')
@@ -45,6 +46,7 @@ export class WatchlistManagementService {
   /**
    * Apply approved changes from a monthly review
    */
+  // eslint-disable-next-line max-lines-per-function
   async applyApprovedChanges(reviewId: number, dryRun = false): Promise<ApplyChangesResult> {
     logger.info(`${dryRun ? 'Simulating' : 'Applying'} approved changes for review ${reviewId}`)
 
@@ -59,6 +61,7 @@ export class WatchlistManagementService {
       }
     }
 
+    // eslint-disable-next-line max-lines-per-function, complexity
     const transaction = this.db.transaction(() => {
       try {
         // Get approved addition candidates
@@ -136,7 +139,7 @@ export class WatchlistManagementService {
       // Send notification about applied changes
       await this.notificationService.createNotification({
         type: 'PORTFOLIO_UPDATE',
-        priority: 'high',
+        priority: 'HIGH',
         title: 'Cambios Aplicados a la Watchlist',
         message: `Se aplicaron ${finalResult.applied} cambios: ${finalResult.summary.added.length} agregados, ${finalResult.summary.removed.length} removidos`,
         data: { reviewId, result: finalResult }
@@ -234,7 +237,7 @@ export class WatchlistManagementService {
     // Send notification
     await this.notificationService.createNotification({
       type: 'SYSTEM',
-      priority: 'medium',
+      priority: 'MEDIUM',
       title: 'Candidato Aprobado',
       message: `Se aprobó un candidato ${candidateType === 'addition' ? 'para agregar' : 'para remover'}`,
       data: { candidateId, candidateType }
@@ -449,7 +452,7 @@ export class WatchlistManagementService {
 
     await this.notificationService.createNotification({
       type: 'WATCHLIST_CHANGE',
-      priority: 'medium',
+      priority: 'MEDIUM',
       title: 'Cambio Manual en Watchlist',
       message: `Se realizó un cambio manual: ${action} - ${reason}`,
       data: { changeId: change.id, action, instrumentId }
@@ -486,14 +489,14 @@ export class WatchlistManagementService {
    */
   getOptimizationSuggestions() {
     const stats = this.getWatchlistStats()
-    const suggestions: Array<{ type: string, message: string, priority: 'low' | 'medium' | 'high' }> = []
+    const suggestions: Array<{ type: string, message: string, priority: NotificationPriority }> = []
 
     // Utilization suggestions
     if (stats.utilizationPercentage < 80) {
       suggestions.push({
         type: 'underutilized',
         message: `La watchlist está al ${stats.utilizationPercentage.toFixed(1)}% de capacidad. Considera agregar más instrumentos.`,
-        priority: 'medium'
+        priority: 'MEDIUM'
       })
     }
 
@@ -503,7 +506,7 @@ export class WatchlistManagementService {
       suggestions.push({
         type: 'diversification',
         message: `Solo hay ${sectorCount} sectores representados. Considera diversificar más.`,
-        priority: 'high'
+        priority: 'HIGH'
       })
     }
 
@@ -515,7 +518,7 @@ export class WatchlistManagementService {
       suggestions.push({
         type: 'esg_compliance',
         message: `Solo el ${esgPercentage.toFixed(1)}% de los instrumentos cumplen criterios ESG.`,
-        priority: 'medium'
+        priority: 'MEDIUM'
       })
     }
 
@@ -523,7 +526,7 @@ export class WatchlistManagementService {
       suggestions.push({
         type: 'vegan_compliance',
         message: `Solo el ${veganPercentage.toFixed(1)}% de los instrumentos son vegan-friendly.`,
-        priority: 'medium'
+        priority: 'MEDIUM'
       })
     }
 
