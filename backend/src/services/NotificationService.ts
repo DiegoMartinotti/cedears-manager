@@ -1,13 +1,16 @@
 import { Database } from 'better-sqlite3'
-import { 
-  NotificationModel, 
-  NotificationData, 
-  CreateNotificationData, 
-  NotificationFilters, 
+import {
+  NotificationModel,
+  NotificationData,
+  CreateNotificationData,
+  NotificationFilters,
   NotificationStats,
   NotificationType,
   NotificationPriority
 } from '../models/Notification.js'
+import { createLogger } from '../utils/logger.js'
+
+const logger = createLogger('NotificationService')
 
 export interface NotificationServiceConfig {
   maxNotificationsPerType: Record<NotificationType, number>
@@ -369,12 +372,12 @@ export class NotificationService {
       
       // Clean old archived notifications
       const archivedCount = this.model.cleanupOldArchived()
-      
+
       if (expiredCount > 0 || archivedCount > 0) {
-        
+        logger.info(`Notification cleanup: ${expiredCount} expired, ${archivedCount} old archived`)
       }
     } catch (error) {
-      
+      logger.error('Notification cleanup failed:', error)
     }
   }
 
@@ -428,6 +431,7 @@ export class NotificationService {
         issues: issues.length > 0 ? issues : undefined
       }
     } catch (error) {
+      logger.error('Notification health check failed:', error)
       return {
         status: 'error',
         stats: {} as NotificationStats,

@@ -4,6 +4,9 @@ import { FinancialGoal, GoalProgress } from '../models/FinancialGoal';
 import { GoalProjectionSummary } from './GoalProjectionService';
 import { SensitivityAnalysis, MonteCarloResult } from './SensitivityAnalysisService';
 import { PortfolioService } from './PortfolioService';
+import { createLogger } from '../utils/logger.js'
+
+const logger = createLogger('ClaudeGoalAdvisorService')
 
 /**
  * Servicio de recomendaciones personalizadas con Claude para objetivos financieros
@@ -240,6 +243,7 @@ export class ClaudeGoalAdvisorService {
   /**
    * Métodos de construcción de prompts
    */
+  // eslint-disable-next-line max-lines-per-function
   private buildAnalysisPrompt(context: GoalAnalysisContext): string {
     return `
 Como experto financiero especializado en objetivos de inversión, analiza la siguiente situación y genera recomendaciones personalizadas:
@@ -292,7 +296,7 @@ Responde en formato JSON estructurado.
     `;
   }
 
-  private buildStrategyPrompt(context: GoalAnalysisContext): string {
+  private buildStrategyPrompt(): string {
     return `
 Desarrolla una estrategia personalizada completa para el siguiente objetivo financiero:
 
@@ -325,7 +329,7 @@ Responde en formato JSON estructurado y detallado.
     `;
   }
 
-  private buildDeviationAnalysisPrompt(context: GoalAnalysisContext): string {
+  private buildDeviationAnalysisPrompt(): string {
     return `
 Analiza las desviaciones del siguiente objetivo financiero y genera alertas predictivas:
 
@@ -341,7 +345,7 @@ Responde en formato JSON.
     `;
   }
 
-  private buildContributionOptimizationPrompt(context: GoalAnalysisContext): string {
+  private buildContributionOptimizationPrompt(): string {
     return `
 Optimiza la estrategia de contribuciones para el siguiente objetivo:
 
@@ -357,7 +361,7 @@ Responde en formato JSON detallado.
     `;
   }
 
-  private buildMarketOpportunityPrompt(context: GoalAnalysisContext): string {
+  private buildMarketOpportunityPrompt(): string {
     return `
 Analiza oportunidades de mercado relevantes para este objetivo financiero:
 
@@ -403,7 +407,7 @@ Responde en formato JSON estructurado.
 
       return recommendations;
     } catch (error) {
-      
+      logger.error('Error parsing Claude recommendations:', error)
       return [];
     }
   }
@@ -424,7 +428,7 @@ Responde en formato JSON estructurado.
         success_metrics: parsed.metrics || {}
       };
     } catch (error) {
-      
+      logger.error('Error parsing personalized strategy:', error)
       throw new Error('Failed to parse strategy from Claude response');
     }
   }
