@@ -23,13 +23,13 @@ import breakEvenRoutes from './breakEvenRoutes.js'
 import { goalTrackerRoutes } from './goalTrackerRoutes.js'
 import { createGoalProjectionRoutes } from './goalProjectionRoutes.js'
 import { goalOptimizerRoutes } from './goalOptimizerRoutes'
-import SimpleDatabaseConnection from '../database/simple-connection.js'
+import DatabaseConnection from '../database/connection.js'
 
 const router = Router()
 
 // Health check endpoint for API
 router.get('/health', (req, res) => {
-  const dbHealthy = SimpleDatabaseConnection.isHealthy()
+  const dbHealthy = DatabaseConnection.isHealthy()
   
   res.json({
     status: dbHealthy ? 'ok' : 'degraded',
@@ -102,7 +102,8 @@ router.use('/benchmark', benchmarkRoutes)
 router.use('/scenarios', scenarioRoutes)
 router.use('/break-even', breakEvenRoutes)
 router.use('/goals', goalTrackerRoutes)
-router.use('/goal-projections', createGoalProjectionRoutes(SimpleDatabaseConnection.getDatabase()))
+router.use('/goal-projections', createGoalProjectionRoutes(DatabaseConnection.getInstance()))
 router.use('/goal-optimizer', goalOptimizerRoutes)
 
 export default router
+
