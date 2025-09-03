@@ -1,7 +1,7 @@
 import { Request, Response } from 'express'
 import { z } from 'zod'
 import { NotificationService } from '../services/NotificationService.js'
-import { NotificationFilters, NotificationType, NotificationPriority } from '../models/Notification.js'
+import { NotificationFilters } from '../models/Notification.js'
 
 // Validation schemas
 const notificationTypeSchema = z.enum([
@@ -47,12 +47,47 @@ const markAsReadSchema = z.object({
 })
 
 export class NotificationController {
-  constructor(private notificationService: NotificationService) {}
+  private readonly notificationService: NotificationService
+
+  constructor(notificationService: NotificationService) {
+    this.notificationService = notificationService
+  }
+
+  private handleError(res: Response, error: unknown, code: string, status = 500) {
+    let message: string
+    if (error instanceof Error) {
+      message = error.message
+    } else if (typeof error === 'string') {
+      message = error
+    } else {
+      message = 'Unknown error'
+    }
+    return res.status(status).json({ success: false, error: message, code })
+  }
+
+  private handleValidationError(res: Response, error: z.ZodError) {
+    return res.status(400).json({
+      success: false,
+      error: 'Validation error',
+      details: error.errors,
+      code: 'VALIDATION_ERROR'
+    })
+  }
+
+  private parseId(req: Request, res: Response): number | null {
+    const id = parseInt(req.params.id, 10)
+    if (isNaN(id)) {
+      this.handleError(res, 'Invalid notification ID', 'INVALID_ID', 400)
+      return null
+    }
+    return id
+  }
 
   /**
    * GET /api/v1/notifications
    * Get notifications with filtering and pagination
    */
+  // eslint-disable-next-line max-lines-per-function
   async getNotifications(req: Request, res: Response) {
     try {
       const query = getNotificationsQuerySchema.parse(req.query)
@@ -91,21 +126,16 @@ export class NotificationController {
         query.pageSize
       )
 
-      res.json({
-        success: true,
-        data: {
-          ...result,
-          page: query.page,
-          pageSize: query.pageSize
-        }
-      })
+        return res.json({
+          success: true,
+          data: {
+            ...result,
+            page: query.page,
+            pageSize: query.pageSize
+          }
+        })
     } catch (error) {
-      
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        code: 'FETCH_NOTIFICATIONS_ERROR'
-      })
+      return this.handleError(res, error, 'FETCH_NOTIFICATIONS_ERROR')
     }
   }
 
@@ -115,18 +145,13 @@ export class NotificationController {
    */
   async getSummary(req: Request, res: Response) {
     try {
-      const summary = await this.notificationService.getSummary()
-      res.json({
-        success: true,
-        data: summary
-      })
+        const summary = await this.notificationService.getSummary()
+        return res.json({
+          success: true,
+          data: summary
+        })
     } catch (error) {
-      
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        code: 'SUMMARY_ERROR'
-      })
+      return this.handleError(res, error, 'SUMMARY_ERROR')
     }
   }
 
@@ -136,18 +161,13 @@ export class NotificationController {
    */
   async getStats(req: Request, res: Response) {
     try {
-      const stats = await this.notificationService.getStats()
-      res.json({
-        success: true,
-        data: stats
-      })
+        const stats = await this.notificationService.getStats()
+        return res.json({
+          success: true,
+          data: stats
+        })
     } catch (error) {
-      
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        code: 'STATS_ERROR'
-      })
+      return this.handleError(res, error, 'STATS_ERROR')
     }
   }
 
@@ -157,18 +177,13 @@ export class NotificationController {
    */
   async getUnreadCount(req: Request, res: Response) {
     try {
-      const count = await this.notificationService.getUnreadCount()
-      res.json({
-        success: true,
-        data: { count }
-      })
+        const count = await this.notificationService.getUnreadCount()
+        return res.json({
+          success: true,
+          data: { count }
+        })
     } catch (error) {
-      
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        code: 'UNREAD_COUNT_ERROR'
-      })
+      return this.handleError(res, error, 'UNREAD_COUNT_ERROR')
     }
   }
 
@@ -178,35 +193,20 @@ export class NotificationController {
    */
   async getNotificationById(req: Request, res: Response) {
     try {
-      const id = parseInt(req.params.id, 10)
-      if (isNaN(id)) {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid notification ID',
-          code: 'INVALID_ID'
-        })
-      }
+      const id = this.parseId(req, res)
+      if (id === null) return
 
       const notification = await this.notificationService.getNotificationById(id)
       if (!notification) {
-        return res.status(404).json({
-          success: false,
-          error: 'Notification not found',
-          code: 'NOT_FOUND'
-        })
+        return this.handleError(res, 'Notification not found', 'NOT_FOUND', 404)
       }
 
-      res.json({
+      return res.json({
         success: true,
         data: notification
       })
     } catch (error) {
-      
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        code: 'FETCH_NOTIFICATION_ERROR'
-      })
+      return this.handleError(res, error, 'FETCH_NOTIFICATION_ERROR')
     }
   }
 
@@ -216,28 +216,18 @@ export class NotificationController {
    */
   async createNotification(req: Request, res: Response) {
     try {
-      const data = createNotificationSchema.parse(req.body)
-      const notification = await this.notificationService.createNotification(data)
-      
-      res.status(201).json({
-        success: true,
-        data: notification
-      })
-    } catch (error) {
-      
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          error: 'Validation error',
-          details: error.errors,
-          code: 'VALIDATION_ERROR'
+        const data = createNotificationSchema.parse(req.body)
+        const notification = await this.notificationService.createNotification(data)
+
+        return res.status(201).json({
+          success: true,
+          data: notification
         })
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return this.handleValidationError(res, error)
       }
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        code: 'CREATE_NOTIFICATION_ERROR'
-      })
+      return this.handleError(res, error, 'CREATE_NOTIFICATION_ERROR')
     }
   }
 
@@ -251,28 +241,18 @@ export class NotificationController {
         notifications: z.array(createNotificationSchema)
       })
       
-      const { notifications } = schema.parse(req.body)
-      const count = await this.notificationService.createBulkNotifications(notifications)
-      
-      res.status(201).json({
-        success: true,
-        data: { created: count }
-      })
-    } catch (error) {
-      
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          error: 'Validation error',
-          details: error.errors,
-          code: 'VALIDATION_ERROR'
+        const { notifications } = schema.parse(req.body)
+        const count = await this.notificationService.createBulkNotifications(notifications)
+
+        return res.status(201).json({
+          success: true,
+          data: { created: count }
         })
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return this.handleValidationError(res, error)
       }
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        code: 'BULK_CREATE_ERROR'
-      })
+      return this.handleError(res, error, 'BULK_CREATE_ERROR')
     }
   }
 
@@ -282,35 +262,20 @@ export class NotificationController {
    */
   async markAsRead(req: Request, res: Response) {
     try {
-      const id = parseInt(req.params.id, 10)
-      if (isNaN(id)) {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid notification ID',
-          code: 'INVALID_ID'
-        })
-      }
+      const id = this.parseId(req, res)
+      if (id === null) return
 
       const success = await this.notificationService.markAsRead(id)
       if (!success) {
-        return res.status(404).json({
-          success: false,
-          error: 'Notification not found',
-          code: 'NOT_FOUND'
-        })
+        return this.handleError(res, 'Notification not found', 'NOT_FOUND', 404)
       }
 
-      res.json({
+      return res.json({
         success: true,
         data: { updated: success }
       })
     } catch (error) {
-      
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        code: 'MARK_READ_ERROR'
-      })
+      return this.handleError(res, error, 'MARK_READ_ERROR')
     }
   }
 
@@ -320,37 +285,27 @@ export class NotificationController {
    */
   async markMultipleAsRead(req: Request, res: Response) {
     try {
-      const { ids, filters } = markAsReadSchema.parse(req.body)
-      let updated = 0
+        const { ids, filters } = markAsReadSchema.parse(req.body)
+        let updated = 0
 
-      if (ids && ids.length > 0) {
-        updated = await this.notificationService.markMultipleAsRead(ids)
-      } else if (filters) {
-        updated = await this.notificationService.markAllAsRead(filters)
-      } else {
-        // Mark all as read
-        updated = await this.notificationService.markAllAsRead()
-      }
+        if (ids && ids.length > 0) {
+          updated = await this.notificationService.markMultipleAsRead(ids)
+        } else if (filters) {
+          updated = await this.notificationService.markAllAsRead(filters)
+        } else {
+          // Mark all as read
+          updated = await this.notificationService.markAllAsRead()
+        }
 
-      res.json({
-        success: true,
-        data: { updated }
-      })
-    } catch (error) {
-      
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          error: 'Validation error',
-          details: error.errors,
-          code: 'VALIDATION_ERROR'
+        return res.json({
+          success: true,
+          data: { updated }
         })
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return this.handleValidationError(res, error)
       }
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        code: 'MARK_READ_ERROR'
-      })
+      return this.handleError(res, error, 'MARK_READ_ERROR')
     }
   }
 
@@ -360,35 +315,20 @@ export class NotificationController {
    */
   async archiveNotification(req: Request, res: Response) {
     try {
-      const id = parseInt(req.params.id, 10)
-      if (isNaN(id)) {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid notification ID',
-          code: 'INVALID_ID'
-        })
-      }
+      const id = this.parseId(req, res)
+      if (id === null) return
 
       const success = await this.notificationService.archiveNotification(id)
       if (!success) {
-        return res.status(404).json({
-          success: false,
-          error: 'Notification not found',
-          code: 'NOT_FOUND'
-        })
+        return this.handleError(res, 'Notification not found', 'NOT_FOUND', 404)
       }
 
-      res.json({
+      return res.json({
         success: true,
         data: { archived: success }
       })
     } catch (error) {
-      
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        code: 'ARCHIVE_ERROR'
-      })
+      return this.handleError(res, error, 'ARCHIVE_ERROR')
     }
   }
 
@@ -398,35 +338,20 @@ export class NotificationController {
    */
   async deleteNotification(req: Request, res: Response) {
     try {
-      const id = parseInt(req.params.id, 10)
-      if (isNaN(id)) {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid notification ID',
-          code: 'INVALID_ID'
-        })
-      }
+      const id = this.parseId(req, res)
+      if (id === null) return
 
       const success = await this.notificationService.deleteNotification(id)
       if (!success) {
-        return res.status(404).json({
-          success: false,
-          error: 'Notification not found',
-          code: 'NOT_FOUND'
-        })
+        return this.handleError(res, 'Notification not found', 'NOT_FOUND', 404)
       }
 
-      res.json({
+      return res.json({
         success: true,
         data: { deleted: success }
       })
     } catch (error) {
-      
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        code: 'DELETE_ERROR'
-      })
+      return this.handleError(res, error, 'DELETE_ERROR')
     }
   }
 
@@ -443,8 +368,8 @@ export class NotificationController {
       
       const { q, limit } = schema.parse(req.query)
       const results = await this.notificationService.searchNotifications(q, limit)
-      
-      res.json({
+
+      return res.json({
         success: true,
         data: {
           notifications: results,
@@ -453,20 +378,10 @@ export class NotificationController {
         }
       })
     } catch (error) {
-      
       if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          error: 'Validation error',
-          details: error.errors,
-          code: 'VALIDATION_ERROR'
-        })
+        return this.handleValidationError(res, error)
       }
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        code: 'SEARCH_ERROR'
-      })
+      return this.handleError(res, error, 'SEARCH_ERROR')
     }
   }
 
@@ -487,26 +402,16 @@ export class NotificationController {
       const notification = await this.notificationService.createOpportunityNotification(
         instrumentSymbol, score, reasons
       )
-      
-      res.status(201).json({
+
+      return res.status(201).json({
         success: true,
         data: notification
       })
     } catch (error) {
-      
       if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          error: 'Validation error',
-          details: error.errors,
-          code: 'VALIDATION_ERROR'
-        })
+        return this.handleValidationError(res, error)
       }
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        code: 'CREATE_OPPORTUNITY_ERROR'
-      })
+      return this.handleError(res, error, 'CREATE_OPPORTUNITY_ERROR')
     }
   }
 
@@ -528,26 +433,16 @@ export class NotificationController {
       const notification = await this.notificationService.createSellAlertNotification(
         instrumentSymbol, currentPrice, targetPrice, gainPercentage
       )
-      
-      res.status(201).json({
+
+      return res.status(201).json({
         success: true,
         data: notification
       })
     } catch (error) {
-      
       if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          error: 'Validation error',
-          details: error.errors,
-          code: 'VALIDATION_ERROR'
-        })
+        return this.handleValidationError(res, error)
       }
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        code: 'CREATE_SELL_ALERT_ERROR'
-      })
+      return this.handleError(res, error, 'CREATE_SELL_ALERT_ERROR')
     }
   }
 
@@ -557,18 +452,13 @@ export class NotificationController {
    */
   async healthCheck(req: Request, res: Response) {
     try {
-      const health = await this.notificationService.healthCheck()
-      res.json({
-        success: true,
-        data: health
-      })
+        const health = await this.notificationService.healthCheck()
+        return res.json({
+          success: true,
+          data: health
+        })
     } catch (error) {
-      
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        code: 'HEALTH_CHECK_ERROR'
-      })
+      return this.handleError(res, error, 'HEALTH_CHECK_ERROR')
     }
   }
 }
