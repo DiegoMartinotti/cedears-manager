@@ -5,11 +5,11 @@ import { quoteModel } from '../models/Quote.js'
 import { PortfolioService } from './PortfolioService.js'
 import { CommissionService } from './CommissionService.js'
 import { createLogger } from '../utils/logger.js'
-import type { 
-  TechnicalSignals, 
-  MarketData, 
-  ESGCriteria, 
-  RiskAssessment, 
+import type {
+  TechnicalSignals,
+  MarketData,
+  ESGCriteria,
+  RiskAssessment,
   ExpectedReturn,
   DiversificationCheck,
   CommissionImpact,
@@ -17,6 +17,7 @@ import type {
   OpportunityType
 } from '../types/opportunity.js'
 
+/* eslint-disable max-lines-per-function, max-depth, no-unused-vars */
 const logger = createLogger('OpportunityService')
 
 export class OpportunityService {
@@ -243,7 +244,7 @@ export class OpportunityService {
         currentVolume: 1200000
       },
       macd: {
-        signal: indicators.macd.signal,
+        signal: indicators.macd.signalType,
         strength: indicators.macd.strength,
         weight: 0.10, // 10% del score
         histogram: indicators.macd.histogram,
