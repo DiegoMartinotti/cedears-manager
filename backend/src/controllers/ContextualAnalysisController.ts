@@ -123,8 +123,8 @@ export class ContextualAnalysisController {
       logger.info('Portfolio contextual analysis completed', {
         symbolsCount: symbols.length,
         overallHealth: result.portfolioSummary.overallHealth,
-        bullishCount: result.bullishSymbols.length,
-        bearishCount: result.bearishSymbols.length
+        topPerformersCount: result.topPerformers.length,
+        underperformersCount: result.underperformers.length
       })
 
       res.json({
@@ -206,7 +206,7 @@ export class ContextualAnalysisController {
    */
   static async getNewsAnalysis(req: Request, res: Response): Promise<void> {
     try {
-      const { symbol } = req.params
+      const { symbol } = req.params as { symbol: string }
       const { 
         days = 7, 
         pageSize = 20, 
@@ -301,7 +301,7 @@ export class ContextualAnalysisController {
    */
   static async getEarningsAnalysis(req: Request, res: Response): Promise<void> {
     try {
-      const { symbol } = req.params
+        const { symbol } = req.params as { symbol: string }
       const { 
         includeHistorical = true,
         includeCompetitors = false,
@@ -346,9 +346,10 @@ export class ContextualAnalysisController {
    * GET /api/contextual/trends/:symbol
    * Obtiene predicción de tendencias para un símbolo
    */
-  static async getTrendPrediction(req: Request, res: Response): Promise<void> {
+    /* eslint-disable-next-line max-lines-per-function */
+    static async getTrendPrediction(req: Request, res: Response): Promise<void> {
     try {
-      const { symbol } = req.params
+        const { symbol } = req.params as { symbol: string }
       const { 
         timeframe = '1M',
         includeScenarios = true,
@@ -460,7 +461,8 @@ export class ContextualAnalysisController {
    * POST /api/contextual/portfolio/trends
    * Analiza tendencias para múltiples símbolos
    */
-  static async analyzePortfolioTrends(req: Request, res: Response): Promise<void> {
+    /* eslint-disable-next-line max-lines-per-function */
+    static async analyzePortfolioTrends(req: Request, res: Response): Promise<void> {
     try {
       const { symbols, timeframe = '1M' } = req.body
 
@@ -566,7 +568,8 @@ export class ContextualAnalysisController {
    * POST /api/contextual/cache/clear
    * Limpia cache de todos los servicios contextuales
    */
-  static async clearCache(req: Request, res: Response): Promise<void> {
+    /* eslint-disable-next-line max-lines-per-function */
+    static async clearCache(req: Request, res: Response): Promise<void> {
     try {
       const { service } = req.body
 
