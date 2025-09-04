@@ -66,7 +66,7 @@ export class BenchmarkController {
   }
 
   // GET /api/v1/benchmark/indices/:id
-  async getBenchmarkById(req: Request, res: Response) {
+  async getBenchmarkById(req: Request<{ id: string }>, res: Response) {
     try {
       const { id } = req.params
       const benchmark = await benchmarkIndicesModel.findById(parseInt(id))
@@ -123,7 +123,7 @@ export class BenchmarkController {
   }
 
   // PUT /api/v1/benchmark/indices/:id
-  async updateBenchmark(req: Request, res: Response) {
+  async updateBenchmark(req: Request<{ id: string }>, res: Response) {
     try {
       const { id } = req.params
       const validatedData = updateBenchmarkSchema.parse(req.body)
@@ -159,7 +159,7 @@ export class BenchmarkController {
   }
 
   // DELETE /api/v1/benchmark/indices/:id
-  async deleteBenchmark(req: Request, res: Response) {
+  async deleteBenchmark(req: Request<{ id: string }>, res: Response) {
     try {
       const { id } = req.params
       const deleted = await benchmarkIndicesModel.delete(parseInt(id))
@@ -185,7 +185,10 @@ export class BenchmarkController {
   }
 
   // GET /api/v1/benchmark/data/:benchmarkId
-  async getBenchmarkData(req: Request, res: Response) {
+  async getBenchmarkData(
+    req: Request<{ benchmarkId: string }>,
+    res: Response
+  ) {
     try {
       const { benchmarkId } = req.params
       const { startDate, endDate, limit } = req.query
@@ -220,7 +223,10 @@ export class BenchmarkController {
   }
 
   // GET /api/v1/benchmark/latest/:benchmarkId
-  async getLatestBenchmarkData(req: Request, res: Response) {
+  async getLatestBenchmarkData(
+    req: Request<{ benchmarkId: string }>,
+    res: Response
+  ) {
     try {
       const { benchmarkId } = req.params
       const { limit } = req.query
@@ -245,7 +251,10 @@ export class BenchmarkController {
   }
 
   // POST /api/v1/benchmark/update/:benchmarkId
-  async updateBenchmarkData(req: Request, res: Response) {
+  async updateBenchmarkData(
+    req: Request<{ benchmarkId: string }>,
+    res: Response
+  ) {
     try {
       const { benchmarkId } = req.params
       
@@ -301,7 +310,10 @@ export class BenchmarkController {
   }
 
   // POST /api/v1/benchmark/compare/:benchmarkId
-  async compareWithBenchmark(req: Request, res: Response) {
+  async compareWithBenchmark(
+    req: Request<{ benchmarkId: string }>,
+    res: Response
+  ) {
     try {
       const { benchmarkId } = req.params
       const validatedData = comparePerformanceSchema.parse(req.body)
@@ -376,7 +388,10 @@ export class BenchmarkController {
   }
 
   // GET /api/v1/benchmark/returns/:benchmarkId
-  async getBenchmarkReturns(req: Request, res: Response) {
+  async getBenchmarkReturns(
+    req: Request<{ benchmarkId: string }>,
+    res: Response
+  ) {
     try {
       const { benchmarkId } = req.params
       const { startDate, endDate } = req.query
@@ -433,7 +448,10 @@ export class BenchmarkController {
   }
 
   // GET /api/v1/benchmark/quote/:benchmarkId
-  async getCurrentQuote(req: Request, res: Response) {
+  async getCurrentQuote(
+    req: Request<{ benchmarkId: string }>,
+    res: Response
+  ) {
     try {
       const { benchmarkId } = req.params
       
