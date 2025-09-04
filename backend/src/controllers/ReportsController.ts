@@ -4,7 +4,9 @@ import { CostReportService } from '../services/reports/CostReportService';
 import { TaxReportService } from '../services/reports/TaxReportService';
 import { ExportService } from '../services/reports/ExportService';
 import { logger } from '../utils/logger';
-import { ReportRequest, ExportOptions } from '../types/reports';
+
+const getErrorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
 
 // Validation schemas
 const dateRangeSchema = z.object({
@@ -101,10 +103,11 @@ export class ReportsController {
         }
       });
     } catch (error) {
+      const message = getErrorMessage(error);
       logger.error('Error in getDashboard', { error });
       res.status(500).json({
         error: 'Failed to generate cost dashboard',
-        message: error.message
+        message
       });
     }
   }
@@ -147,10 +150,11 @@ export class ReportsController {
         }
       });
     } catch (error) {
+      const message = getErrorMessage(error);
       logger.error('Error in getImpactAnalysis', { error });
       res.status(500).json({
         error: 'Failed to generate impact analysis',
-        message: error.message
+        message
       });
     }
   }
@@ -193,10 +197,11 @@ export class ReportsController {
         }
       });
     } catch (error) {
+      const message = getErrorMessage(error);
       logger.error('Error in getCommissionComparison', { error });
       res.status(500).json({
         error: 'Failed to generate commission comparison',
-        message: error.message
+        message
       });
     }
   }
@@ -226,10 +231,11 @@ export class ReportsController {
         }
       });
     } catch (error) {
-      logger.error('Error in getAnnualReport', { error, year });
+      const message = getErrorMessage(error);
+      logger.error('Error in getAnnualReport', { error });
       res.status(500).json({
         error: 'Failed to generate annual report',
-        message: error.message
+        message
       });
     }
   }
@@ -265,10 +271,11 @@ export class ReportsController {
         message: 'Export started successfully'
       });
     } catch (error) {
+      const message = getErrorMessage(error);
       logger.error('Error in exportReport', { error });
       res.status(500).json({
         error: 'Failed to start export',
-        message: error.message
+        message
       });
     }
   }
@@ -287,10 +294,11 @@ export class ReportsController {
         data: history
       });
     } catch (error) {
+      const message = getErrorMessage(error);
       logger.error('Error in getExportHistory', { error });
       res.status(500).json({
         error: 'Failed to get export history',
-        message: error.message
+        message
       });
     }
   }
@@ -315,22 +323,23 @@ export class ReportsController {
       res.sendFile(downloadInfo.filepath);
 
     } catch (error) {
+      const message = getErrorMessage(error);
       logger.error('Error in downloadExport', { error, exportId: req.params.id });
-      
-      if (error.message.includes('not found')) {
+
+      if (message.includes('not found')) {
         res.status(404).json({
           error: 'Export not found',
-          message: error.message
+          message
         });
-      } else if (error.message.includes('not ready')) {
+      } else if (message.includes('not ready')) {
         res.status(409).json({
           error: 'Export not ready',
-          message: error.message
+          message
         });
       } else {
         res.status(500).json({
           error: 'Failed to download export',
-          message: error.message
+          message
         });
       }
     }
@@ -347,10 +356,11 @@ export class ReportsController {
         data: stats
       });
     } catch (error) {
+      const message = getErrorMessage(error);
       logger.error('Error in getExportStatistics', { error });
       res.status(500).json({
         error: 'Failed to get export statistics',
-        message: error.message
+        message
       });
     }
   }
@@ -370,15 +380,17 @@ export class ReportsController {
         message: `Cleaned up ${deletedCount} expired exports`
       });
     } catch (error) {
+      const message = getErrorMessage(error);
       logger.error('Error in cleanupExpiredExports', { error });
       res.status(500).json({
         error: 'Failed to cleanup expired exports',
-        message: error.message
+        message
       });
     }
   }
 
   // POST /api/v1/reports/generate
+  // eslint-disable-next-line max-lines-per-function
   async generateCustomReport(req: Request, res: Response): Promise<void> {
     try {
       const validation = reportRequestSchema.safeParse(req.body);
@@ -404,10 +416,11 @@ export class ReportsController {
         case 'commission_comparison':
           reportData = await this.costReportService.generateCommissionVsGainComparison(reportRequest.dateRange);
           break;
-        case 'annual_report':
+        case 'annual_report': {
           const year = new Date(reportRequest.dateRange.startDate).getFullYear();
           reportData = await this.taxReportService.generateAnnualReport(year);
           break;
+        }
         default:
           res.status(400).json({
             error: 'Unsupported report type'
@@ -427,10 +440,11 @@ export class ReportsController {
         }
       });
     } catch (error) {
+      const message = getErrorMessage(error);
       logger.error('Error in generateCustomReport', { error });
       res.status(500).json({
         error: 'Failed to generate custom report',
-        message: error.message
+        message
       });
     }
   }
@@ -465,10 +479,11 @@ export class ReportsController {
         }
       });
     } catch (error) {
-      logger.error('Error in getTaxExportData', { error, year });
+      const message = getErrorMessage(error);
+      logger.error('Error in getTaxExportData', { error, year: req.params.year });
       res.status(500).json({
         error: 'Failed to generate tax export data',
-        message: error.message
+        message
       });
     }
   }
@@ -492,10 +507,11 @@ export class ReportsController {
         }
       });
     } catch (error) {
+      const message = getErrorMessage(error);
       logger.error('Error in getReportsHealth', { error });
       res.status(500).json({
         error: 'Reports service unhealthy',
-        message: error.message
+        message
       });
     }
   }
