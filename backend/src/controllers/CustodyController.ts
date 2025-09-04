@@ -195,13 +195,13 @@ export class CustodyController {
       )
 
       // Construir respuesta
-      const responseData = buildProjectionResponse(
+      const responseData = buildProjectionResponse({
         projections,
         months,
         portfolioValue,
         monthlyGrowthRate,
         broker
-      )
+      })
 
       sendSuccessResponse(res, responseData)
 
@@ -214,6 +214,7 @@ export class CustodyController {
    * POST /api/v1/custody/calculate
    * Calculadora manual de custodia
    */
+  // eslint-disable-next-line max-lines-per-function
   calculateCustody = async (req: Request, res: Response): Promise<void> => {
     try {
       const validationResult = calculateCustodySchema.safeParse(req.body)
@@ -233,7 +234,14 @@ export class CustodyController {
 
       // Obtener configuración del broker
       const config = this.commissionService.getConfigurationByBroker(broker)
-      
+      if (!config) {
+        res.status(404).json({
+          success: false,
+          error: 'Broker configuration not found'
+        })
+        return
+      }
+
       // Calcular custodia
       const custodyCalculation = this.commissionService.calculateCustodyFee(portfolioValue, config)
 
@@ -289,13 +297,13 @@ export class CustodyController {
       )
 
       // Construir respuesta
-      const responseData = buildOptimizationResponse(
+      const responseData = buildOptimizationResponse({
         optimization,
         impactAnalysis,
         portfolioValue,
         targetAnnualReturn,
         broker
-      )
+      })
 
       sendSuccessResponse(res, responseData)
 
@@ -329,13 +337,13 @@ export class CustodyController {
       const brokerComparisons = await this.compareBrokerCustodyImpact(portfolioValue, expectedAnnualReturn)
 
       // Construir respuesta
-      const responseData = buildImpactAnalysisResponse(
+      const responseData = buildImpactAnalysisResponse({
         analysis,
         brokerComparisons,
         portfolioValue,
         expectedAnnualReturn,
         broker
-      )
+      })
 
       sendSuccessResponse(res, responseData)
 
@@ -417,18 +425,22 @@ export class CustodyController {
       const { paymentDate } = req.body
 
       // Validar ID
-      const idValidation = validateNumericId(req.params.id)
+      const idParam = req.params.id
+      if (typeof idParam !== 'string') {
+        return sendValidationError(res, 'Invalid custody fee ID')
+      }
+      const idValidation = validateNumericId(idParam)
       if (!idValidation.isValid) {
-        return sendValidationError(res, idValidation.error!)
+        return sendValidationError(res, idValidation.error)
       }
 
       // Validar fecha
       const dateValidation = validateDateString(paymentDate)
       if (!dateValidation.isValid) {
-        return sendValidationError(res, dateValidation.error!)
+        return sendValidationError(res, dateValidation.error)
       }
 
-      const custodyFeeId = idValidation.numericId!
+      const custodyFeeId = idValidation.numericId
       logOperation('Updating custody fee payment date', { custodyFeeId, paymentDate })
 
       // Actualizar fecha de pago
