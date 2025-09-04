@@ -2,8 +2,11 @@ import cron from 'node-cron'
 import { benchmarkDataService } from '../services/BenchmarkDataService.js'
 import { performanceAnalysisService } from '../services/PerformanceAnalysisService.js'
 import { benchmarkIndicesModel } from '../models/BenchmarkIndices.js'
-import { notificationService } from '../services/NotificationService.js'
-import logger from '../utils/logger.js'
+import { NotificationService } from '../services/NotificationService.js'
+import DatabaseConnection from '../database/connection.js'
+import { logger } from '../utils/logger.js'
+
+const notificationService = new NotificationService(DatabaseConnection.getInstance())
 
 class BenchmarkUpdateJob {
   private isRunning = false
@@ -77,7 +80,7 @@ class BenchmarkUpdateJob {
 
       // Create notification for significant issues
       if (failedResults.length > totalCount * 0.3) { // More than 30% failed
-        await notificationService.create({
+        await notificationService.createNotification({
           type: 'SYSTEM',
           priority: 'HIGH',
           title: 'Benchmark Update Issues',
@@ -86,7 +89,7 @@ class BenchmarkUpdateJob {
         })
       } else if (successCount === totalCount) {
         // Success notification (low priority)
-        await notificationService.create({
+        await notificationService.createNotification({
           type: 'SYSTEM',
           priority: 'LOW',
           title: 'Benchmark Update Complete',
@@ -101,7 +104,7 @@ class BenchmarkUpdateJob {
     } catch (error) {
       logger.error('Error in daily benchmark update job:', error)
       
-      await notificationService.create({
+      await notificationService.createNotification({
         type: 'SYSTEM',
         priority: 'CRITICAL',
         title: 'Benchmark Update Failed',
@@ -131,7 +134,7 @@ class BenchmarkUpdateJob {
 
       logger.info('Weekend comprehensive benchmark update completed')
 
-      await notificationService.create({
+      await notificationService.createNotification({
         type: 'SYSTEM',
         priority: 'LOW',
         title: 'Weekend Benchmark Update Complete',
@@ -141,7 +144,7 @@ class BenchmarkUpdateJob {
     } catch (error) {
       logger.error('Error in weekend benchmark update:', error)
       
-      await notificationService.create({
+      await notificationService.createNotification({
         type: 'SYSTEM',
         priority: 'HIGH',
         title: 'Weekend Benchmark Update Failed',
@@ -213,7 +216,7 @@ class BenchmarkUpdateJob {
 
       logger.info('Monthly performance metrics update completed', { results: performanceResults })
 
-      await notificationService.create({
+      await notificationService.createNotification({
         type: 'SYSTEM',
         priority: 'MEDIUM',
         title: 'Monthly Performance Update Complete',
@@ -224,7 +227,7 @@ class BenchmarkUpdateJob {
     } catch (error) {
       logger.error('Error in monthly performance update:', error)
       
-      await notificationService.create({
+      await notificationService.createNotification({
         type: 'SYSTEM',
         priority: 'HIGH',
         title: 'Monthly Performance Update Failed',
@@ -318,7 +321,7 @@ class BenchmarkUpdateJob {
         logger.warn(`Found ${staleBenchmarks.length} benchmarks with stale data:`, 
           staleBenchmarks.map(b => b.symbol))
         
-        await notificationService.create({
+        await notificationService.createNotification({
           type: 'SYSTEM',
           priority: 'MEDIUM',
           title: 'Stale Benchmark Data Detected',
