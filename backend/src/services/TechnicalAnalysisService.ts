@@ -5,6 +5,8 @@ import { logger } from '../utils/logger'
 
 /* eslint-disable max-lines-per-function */
 
+type TradeSignal = 'BUY' | 'SELL' | 'HOLD'
+
 export interface PriceData {
   date: Date
   open: number
@@ -18,27 +20,27 @@ export interface CalculatedIndicators {
   symbol: string
   rsi: {
     value: number
-    signal: 'BUY' | 'SELL' | 'HOLD'
+    signal: TradeSignal
     strength: number
   }
   sma: {
     sma20: number
     sma50: number
     sma200: number
-    signal: 'BUY' | 'SELL' | 'HOLD'
+    signal: TradeSignal
     strength: number
   }
   ema: {
     ema12: number
     ema26: number
-    signal: 'BUY' | 'SELL' | 'HOLD'
+    signal: TradeSignal
     strength: number
   }
   macd: {
     line: number
     signal: number
     histogram: number
-    signalType: 'BUY' | 'SELL' | 'HOLD'
+    signalType: TradeSignal
     strength: number
   }
   extremes: {
@@ -47,7 +49,7 @@ export interface CalculatedIndicators {
     current: number
     distanceFromHigh: number
     distanceFromLow: number
-    signal: 'BUY' | 'SELL' | 'HOLD'
+    signal: TradeSignal
     strength: number
   }
 }
@@ -122,7 +124,7 @@ export class TechnicalAnalysisService {
    */
   private calculateRSI(prices: PriceData[], period: number = 14): {
     value: number
-    signal: 'BUY' | 'SELL' | 'HOLD'
+    signal: TradeSignal
     strength: number
   } {
     if (prices.length < period + 1) {
@@ -164,7 +166,7 @@ export class TechnicalAnalysisService {
     const rsi = 100 - (100 / (1 + rs))
 
     // Generar señales
-    let signal: 'BUY' | 'SELL' | 'HOLD' = 'HOLD'
+    let signal: TradeSignal = 'HOLD'
     let strength = 0
 
     if (rsi <= 30) {
@@ -187,7 +189,7 @@ export class TechnicalAnalysisService {
     sma20: number
     sma50: number
     sma200: number
-    signal: 'BUY' | 'SELL' | 'HOLD'
+    signal: TradeSignal
     strength: number
   } {
     const sma20 = this.calculateSingleSMA(prices, 20)
@@ -196,7 +198,7 @@ export class TechnicalAnalysisService {
     const current = prices[prices.length - 1].close
 
     // Generar señales basadas en cruces de medias
-    let signal: 'BUY' | 'SELL' | 'HOLD' = 'HOLD'
+    let signal: TradeSignal = 'HOLD'
     let strength = 0
 
     // Señal alcista: precio > SMA20 > SMA50 > SMA200
@@ -244,14 +246,14 @@ export class TechnicalAnalysisService {
   private calculateEMA(prices: PriceData[]): {
     ema12: number
     ema26: number
-    signal: 'BUY' | 'SELL' | 'HOLD'
+    signal: TradeSignal
     strength: number
   } {
     const ema12 = this.calculateSingleEMA(prices, 12)
     const ema26 = this.calculateSingleEMA(prices, 26)
 
     // Generar señales basadas en cruce de EMAs
-    let signal: 'BUY' | 'SELL' | 'HOLD' = 'HOLD'
+    let signal: TradeSignal = 'HOLD'
     let strength = 0
 
     const spread = ((ema12 - ema26) / ema26) * 100
@@ -289,7 +291,7 @@ export class TechnicalAnalysisService {
     line: number
     signal: number
     histogram: number
-    signalType: 'BUY' | 'SELL' | 'HOLD'
+    signalType: TradeSignal
     strength: number
   } {
     const ema12 = this.calculateSingleEMA(prices, 12)
@@ -303,7 +305,7 @@ export class TechnicalAnalysisService {
     const histogram = macdLine - macdSignal
 
     // Generar señales
-    let signalType: 'BUY' | 'SELL' | 'HOLD' = 'HOLD'
+    let signalType: TradeSignal = 'HOLD'
     let strength = 0
 
     if (histogram > 0 && macdLine > 0) {
@@ -334,7 +336,7 @@ export class TechnicalAnalysisService {
     current: number
     distanceFromHigh: number
     distanceFromLow: number
-    signal: 'BUY' | 'SELL' | 'HOLD'
+    signal: TradeSignal
     strength: number
   }> {
     const extremes = simpleTechnicalIndicatorModel.getExtremes(symbol, 365)
@@ -355,7 +357,7 @@ export class TechnicalAnalysisService {
     const distanceFromLow = ((currentPrice - extremes.yearLow) / extremes.yearLow) * 100
 
     // Generar señales basadas en proximidad a extremos
-    let signal: 'BUY' | 'SELL' | 'HOLD' = 'HOLD'
+    let signal: TradeSignal = 'HOLD'
     let strength = 0
 
     // Cerca del mínimo anual (oportunidad de compra)
@@ -430,7 +432,7 @@ export class TechnicalAnalysisService {
         symbol: indicators.symbol,
         indicator: 'MACD',
         value: indicators.macd.line,
-        signal: indicators.macd.signal,
+        signal: indicators.macd.signalType,
         strength: indicators.macd.strength,
         metadata: {
           macdLine: indicators.macd.line,
