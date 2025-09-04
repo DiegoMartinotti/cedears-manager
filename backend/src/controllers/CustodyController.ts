@@ -466,7 +466,8 @@ export class CustodyController {
     nextMonth.setMonth(nextMonth.getMonth() + 1)
     nextMonth.setDate(1)
     nextMonth.setHours(9, 0, 0, 0)
-    return nextMonth.toISOString().split('T')[0]
+    const [datePart] = nextMonth.toISOString().split('T')
+    return datePart ?? ''
   }
 
   private generateBasicRecommendations(
