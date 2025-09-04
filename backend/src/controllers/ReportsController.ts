@@ -209,9 +209,16 @@ export class ReportsController {
   // GET /api/v1/reports/annual/:year
   async getAnnualReport(req: Request, res: Response): Promise<void> {
     try {
-      const { year } = req.params;
-      
-      const yearNum = parseInt(year);
+      const year = req.params.year;
+
+      if (!year) {
+        res.status(400).json({
+          error: 'Year parameter is required'
+        });
+        return;
+      }
+
+      const yearNum = parseInt(year, 10);
       if (isNaN(yearNum) || yearNum < 2020 || yearNum > new Date().getFullYear()) {
         res.status(400).json({
           error: 'Invalid year parameter'

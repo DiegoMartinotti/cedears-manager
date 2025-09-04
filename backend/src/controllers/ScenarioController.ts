@@ -111,7 +111,7 @@ export class ScenarioController {
   
   async getScenario(req: Request, res: Response): Promise<void> {
     try {
-      const scenarioId = parseInt(req.params.id);
+      const scenarioId = parseInt(req.params.id ?? '', 10);
       if (isNaN(scenarioId)) {
         res.status(400).json({
           success: false,
@@ -181,7 +181,7 @@ export class ScenarioController {
   
   async updateScenario(req: Request, res: Response): Promise<void> {
     try {
-      const scenarioId = parseInt(req.params.id);
+      const scenarioId = parseInt(req.params.id ?? '', 10);
       if (isNaN(scenarioId)) {
         res.status(400).json({
           success: false,
@@ -229,7 +229,7 @@ export class ScenarioController {
   
   async deleteScenario(req: Request, res: Response): Promise<void> {
     try {
-      const scenarioId = parseInt(req.params.id);
+      const scenarioId = parseInt(req.params.id ?? '', 10);
       if (isNaN(scenarioId)) {
         res.status(400).json({
           success: false,
@@ -296,7 +296,7 @@ export class ScenarioController {
   
   async getScenarioVariables(req: Request, res: Response): Promise<void> {
     try {
-      const scenarioId = parseInt(req.params.scenarioId);
+      const scenarioId = parseInt(req.params.scenarioId ?? '', 10);
       if (isNaN(scenarioId)) {
         res.status(400).json({
           success: false,
@@ -326,7 +326,7 @@ export class ScenarioController {
   
   async updateVariable(req: Request, res: Response): Promise<void> {
     try {
-      const variableId = parseInt(req.params.id);
+      const variableId = parseInt(req.params.id ?? '', 10);
       if (isNaN(variableId)) {
         res.status(400).json({
           success: false,
@@ -363,7 +363,7 @@ export class ScenarioController {
   
   async deleteVariable(req: Request, res: Response): Promise<void> {
     try {
-      const variableId = parseInt(req.params.id);
+      const variableId = parseInt(req.params.id ?? '', 10);
       if (isNaN(variableId)) {
         res.status(400).json({
           success: false,
@@ -442,7 +442,7 @@ export class ScenarioController {
   
   async generateRecommendations(req: Request, res: Response): Promise<void> {
     try {
-      const scenarioId = parseInt(req.params.scenarioId);
+      const scenarioId = parseInt(req.params.scenarioId ?? '', 10);
       if (isNaN(scenarioId)) {
         res.status(400).json({
           success: false,
@@ -511,7 +511,7 @@ export class ScenarioController {
   
   async getScenarioResults(req: Request, res: Response): Promise<void> {
     try {
-      const scenarioId = parseInt(req.params.scenarioId);
+      const scenarioId = parseInt(req.params.scenarioId ?? '', 10);
       if (isNaN(scenarioId)) {
         res.status(400).json({
           success: false,
@@ -543,7 +543,7 @@ export class ScenarioController {
   
   async getResultInstrumentImpacts(req: Request, res: Response): Promise<void> {
     try {
-      const resultId = parseInt(req.params.resultId);
+      const resultId = parseInt(req.params.resultId ?? '', 10);
       if (isNaN(resultId)) {
         res.status(400).json({
           success: false,
@@ -627,7 +627,7 @@ export class ScenarioController {
   
   async createFromTemplate(req: Request, res: Response): Promise<void> {
     try {
-      const templateId = parseInt(req.params.templateId);
+      const templateId = parseInt(req.params.templateId ?? '', 10);
       const { name, description, created_by } = req.body;
       
       if (isNaN(templateId)) {
@@ -762,7 +762,7 @@ export class ScenarioController {
   
   async getMonteCarloResults(req: Request, res: Response): Promise<void> {
     try {
-      const scenarioId = parseInt(req.params.scenarioId);
+      const scenarioId = parseInt(req.params.scenarioId ?? '', 10);
       if (isNaN(scenarioId)) {
         res.status(400).json({
           success: false,
