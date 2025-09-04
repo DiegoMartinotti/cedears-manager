@@ -1,7 +1,7 @@
 import axios from 'axios'
 import * as cheerio from 'cheerio'
 import ESGEvaluationModel, { ESGEvaluation, ESGScoreBreakdown } from '../models/ESGEvaluation.js'
-import InstrumentModel from '../models/Instrument.js'
+import { Instrument as InstrumentModel } from '../models/Instrument.js'
 import { ClaudeContextualService } from './ClaudeContextualService.js'
 import { NewsAnalysisService } from './NewsAnalysisService.js'
 import { createLogger } from '../utils/logger.js'
