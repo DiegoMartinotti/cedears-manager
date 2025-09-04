@@ -3,6 +3,8 @@ import { quoteModel } from '../models/Quote'
 import { SimpleInstrument } from '../models/SimpleInstrument'
 import { logger } from '../utils/logger'
 
+/* eslint-disable max-lines-per-function */
+
 export interface PriceData {
   date: Date
   open: number
@@ -36,7 +38,7 @@ export interface CalculatedIndicators {
     line: number
     signal: number
     histogram: number
-    signal: 'BUY' | 'SELL' | 'HOLD'
+    signalType: 'BUY' | 'SELL' | 'HOLD'
     strength: number
   }
   extremes: {
@@ -96,7 +98,7 @@ export class TechnicalAnalysisService {
           line: macd.line,
           signal: macd.signal,
           histogram: macd.histogram,
-          signal: macd.signalType,
+          signalType: macd.signalType,
           strength: macd.strength
         },
         extremes: {
