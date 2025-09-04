@@ -1,7 +1,7 @@
 import * as cron from 'node-cron'
 import ESGAnalysisService from '../services/ESGAnalysisService.js'
 import VeganAnalysisService from '../services/VeganAnalysisService.js'
-import InstrumentModel from '../models/Instrument.js'
+import { Instrument as InstrumentModel } from '../models/Instrument.js'
 import ESGEvaluationModel from '../models/ESGEvaluation.js'
 import VeganEvaluationModel from '../models/VeganEvaluation.js'
 import { createLogger } from '../utils/logger.js'
