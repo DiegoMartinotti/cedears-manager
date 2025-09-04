@@ -4,7 +4,7 @@ import { newsAnalysisService } from '../services/NewsAnalysisService.js'
 import { marketSentimentService } from '../services/MarketSentimentService.js'
 import { earningsAnalysisService } from '../services/EarningsAnalysisService.js'
 import { trendPredictionService } from '../services/TrendPredictionService.js'
-import { validateSymbolParam, handleValidationError } from '../utils/validationHelpers.js'
+import { validateSymbolParam } from '../utils/validationHelpers.js'
 import { buildEarningsSummary, calculateNewsStats } from '../utils/responseBuilders.js'
 import { createLogger } from '../utils/logger.js'
 import { z } from 'zod'
@@ -54,10 +54,7 @@ export class ContextualAnalysisController {
    */
   static async analyzeSymbol(req: Request, res: Response): Promise<void> {
     try {
-      const validation = SymbolAnalysisSchema.safeParse(req.body)
-      if (!handleValidationError(validation, res)) return
-
-      const { symbol, analysisType, timeframe, options } = validation.data
+      const { symbol, analysisType, timeframe, options } = SymbolAnalysisSchema.parse(req.body)
 
       logger.info('Symbol contextual analysis request', {
         symbol, analysisType, timeframe, includeOptions: Object.keys(options || {})
@@ -76,9 +73,18 @@ export class ContextualAnalysisController {
       res.json({ success: true, data: result })
 
     } catch (error) {
-      logger.error('Symbol contextual analysis failed', { 
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid request data',
+          details: error.issues
+        })
+        return
+      }
+
+      logger.error('Symbol contextual analysis failed', {
         error: (error as Error).message,
-        symbol: req.body?.symbol 
+        symbol: req.body?.symbol
       })
       res.status(500).json({
         success: false,
