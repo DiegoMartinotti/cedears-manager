@@ -64,6 +64,7 @@ export class MonthlyReviewJob {
   /**
    * Execute the monthly review process
    */
+  // eslint-disable-next-line max-lines-per-function
   async executeMonthlyReview(): Promise<void> {
     if (this.isRunning) {
       logger.warn('Monthly review already running, skipping...')
@@ -86,7 +87,7 @@ export class MonthlyReviewJob {
       // Step 3: Send summary notification
       await this.notificationService.createNotification({
         type: 'SYSTEM',
-        priority: 'high',
+        priority: 'HIGH',
         title: '📋 Revisión Mensual Completada',
         message: `La revisión mensual ha finalizado. Se encontraron ${scanResult.candidatesForAddition.length} candidatos para agregar y ${scanResult.candidatesForRemoval.length} para remover. Revisa los cambios propuestos.`,
         data: {
@@ -109,7 +110,7 @@ export class MonthlyReviewJob {
         
         await this.notificationService.createNotification({
           type: 'PORTFOLIO_UPDATE',
-          priority: 'high',
+          priority: 'HIGH',
           title: '✅ Cambios Aplicados Automáticamente',
           message: `Se aplicaron ${applyResult.applied} cambios automáticamente basados en alta confianza.`,
           data: { reviewId: review.id, result: applyResult }
@@ -117,7 +118,7 @@ export class MonthlyReviewJob {
       } else {
         await this.notificationService.createNotification({
           type: 'WATCHLIST_CHANGE',
-          priority: 'critical',
+          priority: 'CRITICAL',
           title: '👁️ Aprobación Requerida',
           message: `Hay ${totalPending} cambios pendientes que requieren tu aprobación. Revisa la sección de Revisión Mensual.`,
           data: { reviewId: review.id, pendingCount: totalPending }
@@ -130,7 +131,7 @@ export class MonthlyReviewJob {
       // Send failure notification
       await this.notificationService.createNotification({
         type: 'SYSTEM',
-        priority: 'critical',
+        priority: 'CRITICAL',
         title: '⚠️ Error en Revisión Mensual',
         message: `La revisión mensual falló: ${error instanceof Error ? error.message : 'Error desconocido'}`,
         data: { error: error instanceof Error ? error.message : 'Unknown error' }
@@ -153,7 +154,7 @@ export class MonthlyReviewJob {
 
       await this.notificationService.createNotification({
         type: 'SYSTEM',
-        priority: 'medium',
+        priority: 'MEDIUM',
         title: '📅 Revisión Mensual Próxima',
         message: `La revisión mensual automática se ejecutará en 3 días. Watchlist actual: ${stats.totalInstruments}/100 instrumentos (${stats.utilizationPercentage.toFixed(1)}% utilización).`,
         data: { 
@@ -164,11 +165,11 @@ export class MonthlyReviewJob {
       })
 
       // If there are high-priority suggestions, create separate notifications
-      const highPrioritySuggestions = suggestions.filter(s => s.priority === 'high')
+      const highPrioritySuggestions = suggestions.filter(s => s.priority === 'HIGH')
       if (highPrioritySuggestions.length > 0) {
         await this.notificationService.createNotification({
           type: 'ALERT',
-          priority: 'high',
+          priority: 'HIGH',
           title: '⚠️ Optimización Recomendada',
           message: `Se identificaron ${highPrioritySuggestions.length} oportunidades de optimización de alta prioridad para tu watchlist.`,
           data: { suggestions: highPrioritySuggestions }
@@ -203,7 +204,7 @@ export class MonthlyReviewJob {
         
         await this.notificationService.createNotification({
           type: 'ALERT',
-          priority: 'high',
+          priority: 'HIGH',
           title: '⚠️ Revisión Pendiente',
           message: `La revisión mensual #${currentReview.id} lleva ${daysSinceReview} días en progreso. Puede requerir atención.`,
           data: { reviewId: currentReview.id, daysPending: daysSinceReview }
@@ -218,7 +219,7 @@ export class MonthlyReviewJob {
         if (totalPending > 0) {
           await this.notificationService.createNotification({
             type: 'ALERT',
-            priority: 'medium',
+            priority: 'MEDIUM',
             title: '📋 Acción Requerida',
             message: `Hay ${totalPending} cambios esperando aprobación desde hace ${daysSinceReview} días.`,
             data: { reviewId: currentReview.id, pendingCount: totalPending, daysPending: daysSinceReview }
@@ -234,6 +235,7 @@ export class MonthlyReviewJob {
   /**
    * Cleanup old review data
    */
+  // eslint-disable-next-line max-lines-per-function
   private async cleanupOldData(): Promise<void> {
     try {
       logger.info('Starting cleanup of old review data...')
@@ -286,7 +288,7 @@ export class MonthlyReviewJob {
       // Send cleanup summary
       await this.notificationService.createNotification({
         type: 'SYSTEM',
-        priority: 'low',
+        priority: 'LOW',
         title: '🧹 Limpieza de Datos',
         message: `Se limpiaron ${result.changes} revisiones antiguas y ${notifResult.changes} notificaciones del sistema.`,
         data: { 
@@ -309,7 +311,7 @@ export class MonthlyReviewJob {
     
     await this.notificationService.createNotification({
       type: 'SYSTEM',
-      priority: 'medium',
+      priority: 'MEDIUM',
       title: '🔧 Revisión Manual Iniciada',
       message: 'Se ha iniciado una revisión mensual manual.',
       data: { manual: true, timestamp: new Date().toISOString() }
