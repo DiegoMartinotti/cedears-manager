@@ -271,7 +271,7 @@ export class SectorBalanceController {
    */
   acknowledgeAlert = async (req: Request, res: Response): Promise<void> => {
     try {
-      const alertId = parseInt(req.params.id)
+      const alertId = parseInt(req.params.id ?? '', 10)
       
       if (isNaN(alertId)) {
         res.status(400).json({
@@ -509,7 +509,7 @@ export class SectorBalanceController {
    */
   performance = async (req: Request, res: Response): Promise<void> => {
     try {
-      const months = parseInt(req.params.months) || 12
+      const months = parseInt(req.params.months ?? '', 10) || 12
       
       if (months < 1 || months > 60) {
         res.status(400).json({
@@ -579,7 +579,7 @@ export class SectorBalanceController {
    */
   updateTarget = async (req: Request, res: Response): Promise<void> => {
     try {
-      const targetId = parseInt(req.params.id)
+      const targetId = parseInt(req.params.id ?? '', 10)
       
       if (isNaN(targetId)) {
         res.status(400).json({
