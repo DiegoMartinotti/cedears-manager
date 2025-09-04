@@ -195,13 +195,13 @@ export class CustodyController {
       )
 
       // Construir respuesta
-      const responseData = buildProjectionResponse(
+      const responseData = buildProjectionResponse({
         projections,
         months,
         portfolioValue,
         monthlyGrowthRate,
         broker
-      )
+      })
 
       sendSuccessResponse(res, responseData)
 
@@ -297,13 +297,13 @@ export class CustodyController {
       )
 
       // Construir respuesta
-      const responseData = buildOptimizationResponse(
+      const responseData = buildOptimizationResponse({
         optimization,
         impactAnalysis,
         portfolioValue,
         targetAnnualReturn,
         broker
-      )
+      })
 
       sendSuccessResponse(res, responseData)
 
@@ -337,13 +337,13 @@ export class CustodyController {
       const brokerComparisons = await this.compareBrokerCustodyImpact(portfolioValue, expectedAnnualReturn)
 
       // Construir respuesta
-      const responseData = buildImpactAnalysisResponse(
+      const responseData = buildImpactAnalysisResponse({
         analysis,
         brokerComparisons,
         portfolioValue,
         expectedAnnualReturn,
         broker
-      )
+      })
 
       sendSuccessResponse(res, responseData)
 
@@ -431,16 +431,16 @@ export class CustodyController {
       }
       const idValidation = validateNumericId(idParam)
       if (!idValidation.isValid) {
-        return sendValidationError(res, idValidation.error!)
+        return sendValidationError(res, idValidation.error)
       }
 
       // Validar fecha
       const dateValidation = validateDateString(paymentDate)
       if (!dateValidation.isValid) {
-        return sendValidationError(res, dateValidation.error!)
+        return sendValidationError(res, dateValidation.error)
       }
 
-      const custodyFeeId = idValidation.numericId!
+      const custodyFeeId = idValidation.numericId
       logOperation('Updating custody fee payment date', { custodyFeeId, paymentDate })
 
       // Actualizar fecha de pago
@@ -466,7 +466,7 @@ export class CustodyController {
     nextMonth.setMonth(nextMonth.getMonth() + 1)
     nextMonth.setDate(1)
     nextMonth.setHours(9, 0, 0, 0)
-    return nextMonth.toISOString().split('T')[0]!
+    return nextMonth.toISOString().split('T')[0]
   }
 
   private generateBasicRecommendations(

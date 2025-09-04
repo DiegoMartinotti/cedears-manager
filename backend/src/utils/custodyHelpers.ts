@@ -3,46 +3,55 @@ import { createLogger } from './logger.js'
 
 const logger = createLogger('CustodyHelpers')
 
+/** Tipos de validación */
+export type NumericIdValidation =
+  | { isValid: true; numericId: number }
+  | { isValid: false; error: string }
+
+export type DateValidation =
+  | { isValid: true }
+  | { isValid: false; error: string }
+
 /**
  * Valida un ID numérico desde parámetros de request
  */
-export function validateNumericId(id: string): { isValid: boolean; numericId?: number; error?: string } {
+export function validateNumericId(id: string): NumericIdValidation {
   const numericId = parseInt(id)
-  
+
   if (isNaN(numericId)) {
-    return { 
-      isValid: false, 
-      error: 'Invalid custody fee ID' 
+    return {
+      isValid: false,
+      error: 'Invalid custody fee ID'
     }
   }
-  
+
   return { isValid: true, numericId }
 }
 
 /**
  * Valida formato de fecha YYYY-MM-DD
  */
-export function validateDateString(dateString: string): { isValid: boolean; error?: string } {
+export function validateDateString(dateString: string): DateValidation {
   if (!dateString) {
-    return { 
-      isValid: false, 
-      error: 'Payment date is required' 
+    return {
+      isValid: false,
+      error: 'Payment date is required'
     }
   }
 
   const regex = /^\d{4}-\d{2}-\d{2}$/
   if (!regex.test(dateString)) {
-    return { 
-      isValid: false, 
-      error: 'Invalid payment date format. Expected YYYY-MM-DD' 
+    return {
+      isValid: false,
+      error: 'Invalid payment date format. Expected YYYY-MM-DD'
     }
   }
-  
+
   const date = new Date(dateString)
   if (!(date instanceof Date) || isNaN(date.getTime())) {
-    return { 
-      isValid: false, 
-      error: 'Invalid payment date. Expected YYYY-MM-DD' 
+    return {
+      isValid: false,
+      error: 'Invalid payment date. Expected YYYY-MM-DD'
     }
   }
 
@@ -52,13 +61,19 @@ export function validateDateString(dateString: string): { isValid: boolean; erro
 /**
  * Construye respuesta de proyección de custodia
  */
-export function buildProjectionResponse(
-  projections: any[],
-  months: number,
-  portfolioValue: number,
-  monthlyGrowthRate: number,
+export function buildProjectionResponse({
+  projections,
+  months,
+  portfolioValue,
+  monthlyGrowthRate,
+  broker
+}: {
+  projections: any[]
+  months: number
+  portfolioValue: number
+  monthlyGrowthRate: number
   broker: string
-) {
+}) {
   const totalProjectedCustody = projections.reduce((sum, p) => sum + p.custodyCalculation.totalMonthlyCost, 0)
   const thresholdCrossings = projections.filter(p => p.isThresholdCrossed)
 
@@ -83,13 +98,19 @@ export function buildProjectionResponse(
 /**
  * Construye respuesta de optimización de custodia
  */
-export function buildOptimizationResponse(
-  optimization: any,
-  impactAnalysis: any,
-  portfolioValue: number,
-  targetAnnualReturn: number,
+export function buildOptimizationResponse({
+  optimization,
+  impactAnalysis,
+  portfolioValue,
+  targetAnnualReturn,
+  broker
+}: {
+  optimization: any
+  impactAnalysis: any
+  portfolioValue: number
+  targetAnnualReturn: number
   broker: string
-) {
+}) {
   return {
     optimization,
     impactAnalysis,
@@ -104,13 +125,19 @@ export function buildOptimizationResponse(
 /**
  * Construye respuesta de análisis de impacto
  */
-export function buildImpactAnalysisResponse(
-  analysis: any,
-  brokerComparisons: any[],
-  portfolioValue: number,
-  expectedAnnualReturn: number,
+export function buildImpactAnalysisResponse({
+  analysis,
+  brokerComparisons,
+  portfolioValue,
+  expectedAnnualReturn,
+  broker
+}: {
+  analysis: any
+  brokerComparisons: any[]
+  portfolioValue: number
+  expectedAnnualReturn: number
   broker: string
-) {
+}) {
   return {
     analysis,
     brokerComparisons,
