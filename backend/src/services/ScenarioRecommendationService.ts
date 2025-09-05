@@ -162,21 +162,21 @@ export interface ImplementationStep {
 
 const SECTION_PATTERNS = {
   'Strategic Assessment':
-    /(?:^|\n)(?:\d+\.\s*)?\*\*Strategic Assessment\*\*:?\s*([\s\S]*?)(?=\n(?:\d+\.\s*)?\*\*|$)/i,
+    /\*\*Strategic Assessment\*\*:?\s*([^]*?)(?=\n\*\*|$)/i,
   'Top Priorities':
-    /(?:^|\n)(?:\d+\.\s*)?\*\*Top Priorities\*\*:?\s*([\s\S]*?)(?=\n(?:\d+\.\s*)?\*\*|$)/i,
+    /\*\*Top Priorities\*\*:?\s*([^]*?)(?=\n\*\*|$)/i,
   'Risk Warnings':
-    /(?:^|\n)(?:\d+\.\s*)?\*\*Risk Warnings\*\*:?\s*([\s\S]*?)(?=\n(?:\d+\.\s*)?\*\*|$)/i,
+    /\*\*Risk Warnings\*\*:?\s*([^]*?)(?=\n\*\*|$)/i,
   'Opportunity Highlights':
-    /(?:^|\n)(?:\d+\.\s*)?\*\*Opportunity Highlights\*\*:?\s*([\s\S]*?)(?=\n(?:\d+\.\s*)?\*\*|$)/i,
+    /\*\*Opportunity Highlights\*\*:?\s*([^]*?)(?=\n\*\*|$)/i,
   'Implementation Advice':
-    /(?:^|\n)(?:\d+\.\s*)?\*\*Implementation Advice\*\*:?\s*([\s\S]*?)(?=\n(?:\d+\.\s*)?\*\*|$)/i,
+    /\*\*Implementation Advice\*\*:?\s*([^]*?)(?=\n\*\*|$)/i,
   'Market Timing Guidance':
-    /(?:^|\n)(?:\d+\.\s*)?\*\*Market Timing Guidance\*\*:?\s*([\s\S]*?)(?=\n(?:\d+\.\s*)?\*\*|$)/i,
+    /\*\*Market Timing Guidance\*\*:?\s*([^]*?)(?=\n\*\*|$)/i,
   'ESG Considerations':
-    /(?:^|\n)(?:\d+\.\s*)?\*\*ESG Considerations\*\*:?\s*([\s\S]*?)(?=\n(?:\d+\.\s*)?\*\*|$)/i,
+    /\*\*ESG Considerations\*\*:?\s*([^]*?)(?=\n\*\*|$)/i,
   'Argentine Context Factors':
-    /(?:^|\n)(?:\d+\.\s*)?\*\*Argentine Context Factors\*\*:?\s*([\s\S]*?)(?=\n(?:\d+\.\s*)?\*\*|$)/i,
+    /\*\*Argentine Context Factors\*\*:?\s*([^]*?)(?=\n\*\*|$)/i,
 } as const;
 
 type SectionName = keyof typeof SECTION_PATTERNS;
