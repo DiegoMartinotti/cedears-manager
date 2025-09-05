@@ -39,14 +39,14 @@ export class GoalTrackerController {
       }
 
       const goal = await this.goalService.createFinancialGoal(goalData);
-      
-      res.json({
+
+      return res.json({
         success: true,
         data: goal,
         message: 'Objetivo financiero creado exitosamente'
       });
     } catch (error: any) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error.message
       });
@@ -57,13 +57,13 @@ export class GoalTrackerController {
   getAllGoals = async (req: Request, res: Response) => {
     try {
       const goals = await this.goalService.getAllGoals();
-      
-      res.json({
+
+      return res.json({
         success: true,
         data: goals
       });
     } catch (error: any) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error.message
       });
@@ -73,18 +73,11 @@ export class GoalTrackerController {
   // 26.1: Obtener objetivo por ID
   getGoalById = async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
-      const goalId = parseInt(id);
-      
-      if (isNaN(goalId)) {
-        return res.status(400).json({
-          success: false,
-          error: 'ID de objetivo inválido'
-        });
-      }
+      const goalId = this.parseGoalId(req, res);
+      if (!goalId) return;
 
       const goal = await this.goalService.getGoalById(goalId);
-      
+
       if (!goal) {
         return res.status(404).json({
           success: false,
@@ -92,12 +85,12 @@ export class GoalTrackerController {
         });
       }
 
-      res.json({
+      return res.json({
         success: true,
         data: goal
       });
     } catch (error: any) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error.message
       });
@@ -107,25 +100,18 @@ export class GoalTrackerController {
   // 26.2: Calculadora de tiempo para alcanzar metas
   calculateTimeToGoal = async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
-      const goalId = parseInt(id);
-      
-      if (isNaN(goalId)) {
-        return res.status(400).json({
-          success: false,
-          error: 'ID de objetivo inválido'
-        });
-      }
+      const goalId = this.parseGoalId(req, res);
+      if (!goalId) return;
 
       const calculation = await this.goalService.calculateTimeToGoal(goalId);
-      
-      res.json({
+
+      return res.json({
         success: true,
         data: calculation,
         message: 'Cálculos de tiempo realizados exitosamente'
       });
     } catch (error: any) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error.message
       });
@@ -135,24 +121,17 @@ export class GoalTrackerController {
   // 26.3: Dashboard completo de progreso
   getGoalDashboard = async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
-      const goalId = parseInt(id);
-      
-      if (isNaN(goalId)) {
-        return res.status(400).json({
-          success: false,
-          error: 'ID de objetivo inválido'
-        });
-      }
+      const goalId = this.parseGoalId(req, res);
+      if (!goalId) return;
 
       const dashboard = await this.goalService.getGoalDashboard(goalId);
-      
-      res.json({
+
+      return res.json({
         success: true,
         data: dashboard
       });
     } catch (error: any) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error.message
       });
@@ -162,25 +141,18 @@ export class GoalTrackerController {
   // 26.3: Actualizar progreso manualmente
   updateGoalProgress = async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
-      const goalId = parseInt(id);
-      
-      if (isNaN(goalId)) {
-        return res.status(400).json({
-          success: false,
-          error: 'ID de objetivo inválido'
-        });
-      }
+      const goalId = this.parseGoalId(req, res);
+      if (!goalId) return;
 
       const progress = await this.goalService.updateGoalProgress(goalId);
-      
-      res.json({
+
+      return res.json({
         success: true,
         data: progress,
         message: 'Progreso actualizado exitosamente'
       });
     } catch (error: any) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error.message
       });
@@ -190,15 +162,8 @@ export class GoalTrackerController {
   // 26.4: Simulador de aportes extraordinarios
   simulateExtraContribution = async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
-      const goalId = parseInt(id);
-      
-      if (isNaN(goalId)) {
-        return res.status(400).json({
-          success: false,
-          error: 'ID de objetivo inválido'
-        });
-      }
+      const goalId = this.parseGoalId(req, res);
+      if (!goalId) return;
 
       const { extraAmount, months } = req.body;
       
@@ -217,14 +182,14 @@ export class GoalTrackerController {
       }
 
       const simulation = await this.goalService.simulateExtraContribution(goalId, extraAmount, months);
-      
-      res.json({
+
+      return res.json({
         success: true,
         data: simulation,
         message: 'Simulación de aporte extraordinario completada'
       });
     } catch (error: any) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error.message
       });
@@ -241,14 +206,14 @@ export class GoalTrackerController {
       if (!scenarios) return;
 
       const simulations = await this.processScenarios(goalId, scenarios);
-      
-      res.json({
+
+      return res.json({
         success: true,
         data: simulations,
         message: `${simulations.length} simulaciones completadas`
       });
     } catch (error: any) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error.message
       });
@@ -257,8 +222,14 @@ export class GoalTrackerController {
 
   private parseGoalId(req: Request, res: Response): number | null {
     const { id } = req.params;
-    const goalId = parseInt(id);
-    
+    if (typeof id !== 'string') {
+      res.status(400).json({
+        success: false,
+        error: 'ID de objetivo inválido'
+      });
+      return null;
+    }
+    const goalId = parseInt(id, 10);
     if (isNaN(goalId)) {
       res.status(400).json({
         success: false,
@@ -310,13 +281,13 @@ export class GoalTrackerController {
   checkAlerts = async (req: Request, res: Response) => {
     try {
       await this.goalService.checkGoalAlerts();
-      
-      res.json({
+
+      return res.json({
         success: true,
         message: 'Verificación de alertas completada'
       });
     } catch (error: any) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error.message
       });
@@ -329,7 +300,7 @@ export class GoalTrackerController {
   getGoalsSummary = async (req: Request, res: Response) => {
     try {
       const goals = await this.goalService.getAllGoals();
-      
+
       const summary = {
         totalGoals: goals.length,
         activeGoals: goals.filter(g => g.status === 'ACTIVE').length,
@@ -341,13 +312,13 @@ export class GoalTrackerController {
           returnRate: goals.filter(g => g.type === 'RETURN_RATE').length
         }
       };
-      
-      res.json({
+
+      return res.json({
         success: true,
         data: summary
       });
     } catch (error: any) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error.message
       });
@@ -358,8 +329,8 @@ export class GoalTrackerController {
   getGoalsWithProgress = async (req: Request, res: Response) => {
     try {
       const goals = await this.goalService.getAllGoals();
-      const goalsWithProgress = [];
-      
+      const goalsWithProgress = [] as any[];
+
       for (const goal of goals) {
         try {
           const dashboard = await this.goalService.getGoalDashboard(goal.id);
@@ -369,7 +340,6 @@ export class GoalTrackerController {
             calculatedProjection: dashboard.calculatedProjection
           });
         } catch (error) {
-          // Si hay error obteniendo el dashboard, incluir solo el objetivo
           goalsWithProgress.push({
             goal: goal,
             latestProgress: null,
@@ -377,13 +347,13 @@ export class GoalTrackerController {
           });
         }
       }
-      
-      res.json({
+
+      return res.json({
         success: true,
         data: goalsWithProgress
       });
     } catch (error: any) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error.message
       });
