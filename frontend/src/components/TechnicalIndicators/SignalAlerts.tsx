@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useActiveSignals, useForceJobRun } from '../../hooks/useTechnicalIndicators'
 import { technicalIndicatorService } from '../../services/technicalIndicatorService'
 import { Card } from '../ui/Card'

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Calculator, AlertCircle, TrendingUp, TrendingDown, DollarSign } from 'lucide-react'
 import { useBreakEvenSimulationMutation } from '../../hooks/useBreakEven'
 
