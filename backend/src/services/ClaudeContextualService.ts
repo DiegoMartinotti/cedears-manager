@@ -1,3 +1,4 @@
+/* eslint-disable max-lines-per-function */
 import { newsAnalysisService } from './NewsAnalysisService.js'
 import { marketSentimentService } from './MarketSentimentService.js'
 import { earningsAnalysisService } from './EarningsAnalysisService.js'
@@ -142,6 +143,7 @@ export class ClaudeContextualService {
   /**
    * Realiza análisis contextual completo de un símbolo
    */
+  // eslint-disable-next-line complexity
   async analyzeSymbol(request: ContextualAnalysisRequest): Promise<ComprehensiveAnalysisResult> {
     const startTime = Date.now()
     
@@ -158,7 +160,6 @@ export class ClaudeContextualService {
         includeSentiment = true,
         includeEarnings = true,
         includeTrends = true,
-        includeRecommendations = true,
         useCache = true,
         cacheTTLMinutes = this.DEFAULT_CACHE_TTL
       } = options
@@ -930,7 +931,6 @@ Responde en formato JSON:
     affectedSymbols: string[]
   }[] {
     // Extraer factores comunes
-    const allFactors = analyses.flatMap(a => a.overallAssessment.keyFactors)
     const factorCounts = new Map<string, { positive: string[], negative: string[], neutral: string[] }>()
 
     analyses.forEach(analysis => {

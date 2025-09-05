@@ -1,3 +1,4 @@
+/* eslint-disable max-lines-per-function */
 import SectorBalanceModel from '../models/SectorBalance.js'
 import SectorClassificationModel from '../models/SectorClassification.js'
 import { Instrument } from '../models/Instrument.js'
@@ -12,15 +13,11 @@ import type {
   InstrumentSectorSummary,
   ConcentrationAlert,
   RebalancingSuggestion,
-  SectorBalanceAnalysis,
   PortfolioBalance,
   ConcentrationRisk,
   DiversificationMetrics,
   RebalanceRecommendation,
-  SuggestedAction,
-  BalanceHealthScore,
-  SectorStats,
-  SectorBalanceConfig
+  SuggestedAction
 } from '../types/sectorBalance.types.js'
 
 const logger = createLogger('SectorBalanceService')

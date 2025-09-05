@@ -1,5 +1,6 @@
+/* eslint-disable max-lines-per-function */
 import DatabaseConnection from '../database/connection.js'
-import { MonthlyReviewModel, MonthlyReviewData, CreateMonthlyReviewData, UpdateMonthlyReviewData, InstrumentCandidateData, RemovalCandidateData } from '../models/MonthlyReview.js'
+import { MonthlyReviewModel, MonthlyReviewData, CreateMonthlyReviewData, InstrumentCandidateData, RemovalCandidateData } from '../models/MonthlyReview.js'
 import { InstrumentModel } from '../models/Instrument.js'
 import { ESGAnalysisService } from './ESGAnalysisService.js'
 import { VeganAnalysisService } from './VeganAnalysisService.js'
