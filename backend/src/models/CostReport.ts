@@ -187,6 +187,7 @@ export class CostReport {
   }
 
   // Get report statistics
+  // eslint-disable-next-line max-lines-per-function
   async getReportStatistics(): Promise<{
     totalReports: number;
     reportsByType: { [key: string]: number };
