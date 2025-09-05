@@ -33,6 +33,14 @@ export class MonthlyReviewController {
     this.watchlistManagementService = new WatchlistManagementService()
   }
 
+  private parseId(id?: string): number | null {
+    if (!id) {
+      return null;
+    }
+    const parsed = parseInt(id, 10)
+    return Number.isNaN(parsed) ? null : parsed
+  }
+
   /**
    * GET /monthly-review/current
    * Get current or latest review
@@ -79,8 +87,8 @@ export class MonthlyReviewController {
    */
   getReview = async (req: Request, res: Response) => {
     try {
-      const reviewId = parseInt(req.params.id)
-      if (isNaN(reviewId)) {
+      const reviewId = this.parseId(req.params.id)
+      if (reviewId === null) {
         return res.status(400).json({
           success: false,
           message: 'Invalid review ID'
@@ -152,8 +160,8 @@ export class MonthlyReviewController {
    */
   getReviewCandidates = async (req: Request, res: Response) => {
     try {
-      const reviewId = parseInt(req.params.id)
-      if (isNaN(reviewId)) {
+      const reviewId = this.parseId(req.params.id)
+      if (reviewId === null) {
         return res.status(400).json({
           success: false,
           message: 'Invalid review ID'
@@ -179,105 +187,96 @@ export class MonthlyReviewController {
     }
   }
 
-  /**
-   * POST /monthly-review/:id/candidates/:candidateId/approve
-   * Approve a specific candidate
-   */
-  approveCandidate = async (req: Request, res: Response) => {
+  private getCandidateContext(
+    req: Request,
+    res: Response
+  ): { reviewId: number; candidateId: number; candidateType: 'addition' | 'removal'; notes?: string } | null {
+    const reviewId = this.parseId(req.params.id)
+    const candidateId = this.parseId(req.params.candidateId)
+
+    if (reviewId === null || candidateId === null) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid review or candidate ID'
+      })
+      return null
+    }
+
+    const candidateType = req.query.type as 'addition' | 'removal'
+    if (!candidateType || !['addition', 'removal'].includes(candidateType)) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid or missing candidate type. Must be "addition" or "removal"'
+      })
+      return null
+    }
+
+    const validation = ApprovalSchema.safeParse(req.body)
+    if (!validation.success) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid request body',
+        errors: validation.error.issues
+      })
+      return null
+    }
+
+    return { reviewId, candidateId, candidateType, ...validation.data }
+  }
+
+  private readonly handleCandidateAction = async (
+    req: Request,
+    res: Response,
+    action: 'approve' | 'reject'
+  ) => {
     try {
-      const reviewId = parseInt(req.params.id)
-      const candidateId = parseInt(req.params.candidateId)
-      
-      if (isNaN(reviewId) || isNaN(candidateId)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid review or candidate ID'
-        })
+      const context = this.getCandidateContext(req, res)
+      if (!context) return
+
+      const { candidateId, candidateType, notes } = context
+
+      if (action === 'approve') {
+        await this.watchlistManagementService.approveCandidate(
+          candidateId,
+          candidateType,
+          notes
+        )
+      } else {
+        await this.watchlistManagementService.rejectCandidate(
+          candidateId,
+          candidateType,
+          notes
+        )
       }
-
-      const candidateType = req.query.type as 'addition' | 'removal'
-      if (!candidateType || !['addition', 'removal'].includes(candidateType)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid or missing candidate type. Must be "addition" or "removal"'
-        })
-      }
-
-      const validation = ApprovalSchema.safeParse(req.body)
-      if (!validation.success) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid request body',
-          errors: validation.error.issues
-        })
-      }
-
-      const { notes } = validation.data
-
-      await this.watchlistManagementService.approveCandidate(candidateId, candidateType, notes)
 
       return res.json({
         success: true,
-        message: `${candidateType === 'addition' ? 'Addition' : 'Removal'} candidate approved successfully`
+        message: `${candidateType === 'addition' ? 'Addition' : 'Removal'} candidate ${
+          action === 'approve' ? 'approved' : 'rejected'
+        } successfully`
       })
     } catch (error) {
-      logger.error('Failed to approve candidate:', error)
+      logger.error(`Failed to ${action} candidate:`, error)
       return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Internal server error'
       })
     }
   }
+
+  /**
+   * POST /monthly-review/:id/candidates/:candidateId/approve
+   * Approve a specific candidate
+   */
+  approveCandidate = async (req: Request, res: Response) =>
+    this.handleCandidateAction(req, res, 'approve')
 
   /**
    * POST /monthly-review/:id/candidates/:candidateId/reject
    * Reject a specific candidate
    */
-  rejectCandidate = async (req: Request, res: Response) => {
-    try {
-      const reviewId = parseInt(req.params.id)
-      const candidateId = parseInt(req.params.candidateId)
-      
-      if (isNaN(reviewId) || isNaN(candidateId)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid review or candidate ID'
-        })
-      }
-
-      const candidateType = req.query.type as 'addition' | 'removal'
-      if (!candidateType || !['addition', 'removal'].includes(candidateType)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid or missing candidate type. Must be "addition" or "removal"'
-        })
-      }
-
-      const validation = ApprovalSchema.safeParse(req.body)
-      if (!validation.success) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid request body',
-          errors: validation.error.issues
-        })
-      }
-
-      const { notes } = validation.data
-
-      await this.watchlistManagementService.rejectCandidate(candidateId, candidateType, notes)
-
-      return res.json({
-        success: true,
-        message: `${candidateType === 'addition' ? 'Addition' : 'Removal'} candidate rejected successfully`
-      })
-    } catch (error) {
-      logger.error('Failed to reject candidate:', error)
-      return res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal server error'
-      })
-    }
-  }
+  rejectCandidate = async (req: Request, res: Response) =>
+    this.handleCandidateAction(req, res, 'reject')
 
   /**
    * POST /monthly-review/:id/candidates/bulk-update
@@ -285,8 +284,8 @@ export class MonthlyReviewController {
    */
   bulkUpdateCandidates = async (req: Request, res: Response) => {
     try {
-      const reviewId = parseInt(req.params.id)
-      if (isNaN(reviewId)) {
+      const reviewId = this.parseId(req.params.id)
+      if (reviewId === null) {
         return res.status(400).json({
           success: false,
           message: 'Invalid review ID'
@@ -331,8 +330,8 @@ export class MonthlyReviewController {
    */
   applyChanges = async (req: Request, res: Response) => {
     try {
-      const reviewId = parseInt(req.params.id)
-      if (isNaN(reviewId)) {
+      const reviewId = this.parseId(req.params.id)
+      if (reviewId === null) {
         return res.status(400).json({
           success: false,
           message: 'Invalid review ID'
@@ -482,28 +481,28 @@ export class MonthlyReviewController {
    */
   previewChanges = async (req: Request, res: Response) => {
     try {
-      const reviewId = parseInt(req.params.id)
-      if (isNaN(reviewId)) {
+      const reviewId = this.parseId(req.params.id)
+      if (reviewId === null) {
         return res.status(400).json({
           success: false,
           message: 'Invalid review ID'
         })
       }
 
-      const preview = this.watchlistManagementService.previewChanges(reviewId)
+        const preview = this.watchlistManagementService.previewChanges(reviewId)
 
-      res.json({
-        success: true,
-        data: preview
-      })
-    } catch (error) {
-      logger.error('Failed to preview changes:', error)
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal server error'
-      })
+        return res.json({
+          success: true,
+          data: preview
+        })
+      } catch (error) {
+        logger.error('Failed to preview changes:', error)
+        return res.status(500).json({
+          success: false,
+          message: error instanceof Error ? error.message : 'Internal server error'
+        })
+      }
     }
-  }
 
   /**
    * GET /monthly-review/change-history
@@ -557,25 +556,25 @@ export class MonthlyReviewController {
         })
       }
 
-      const change = await this.watchlistManagementService.createManualChange(
-        parseInt(instrumentId),
-        action,
-        reason
-      )
+        const change = await this.watchlistManagementService.createManualChange(
+          parseInt(instrumentId),
+          action,
+          reason
+        )
 
-      res.json({
-        success: true,
-        data: change,
-        message: 'Manual change created successfully'
-      })
-    } catch (error) {
-      logger.error('Failed to create manual change:', error)
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal server error'
-      })
+        return res.json({
+          success: true,
+          data: change,
+          message: 'Manual change created successfully'
+        })
+      } catch (error) {
+        logger.error('Failed to create manual change:', error)
+        return res.status(500).json({
+          success: false,
+          message: error instanceof Error ? error.message : 'Internal server error'
+        })
+      }
     }
-  }
 
   /**
    * GET /monthly-review/stats

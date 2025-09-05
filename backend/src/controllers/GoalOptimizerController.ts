@@ -29,9 +29,12 @@ export class GoalOptimizerController {
     this.opportunityIntegrationService = opportunityIntegrationService;
   }
 
-  private validateGoalId(id: string): number | null {
-    const goalId = parseInt(id);
-    return isNaN(goalId) ? null : goalId;
+  private validateGoalId(id?: string): number | null {
+    if (!id) {
+      return null;
+    }
+    const goalId = parseInt(id, 10);
+    return Number.isNaN(goalId) ? null : goalId;
   }
 
   private sendSuccessResponse(res: Response, data: any, message: string) {
@@ -147,10 +150,9 @@ export class GoalOptimizerController {
   // 28.1: Análisis de gap entre actual y objetivo
   analyzeGap = async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
-      const goalId = parseInt(id);
+      const goalId = this.validateGoalId(req.params.id);
 
-      if (isNaN(goalId)) {
+      if (goalId === null) {
         return res.status(400).json({
           success: false,
           error: 'ID de objetivo inválido'
@@ -176,10 +178,9 @@ export class GoalOptimizerController {
   // 28.2: Obtener estrategias de optimización
   getOptimizationStrategies = async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
-      const goalId = parseInt(id);
+      const goalId = this.validateGoalId(req.params.id);
 
-      if (isNaN(goalId)) {
+      if (goalId === null) {
         return res.status(400).json({
           success: false,
           error: 'ID de objetivo inválido'
@@ -204,10 +205,9 @@ export class GoalOptimizerController {
   // 28.2: Calcular planes de contribución optimizados
   calculateContributionPlans = async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
-      const goalId = parseInt(id);
+      const goalId = this.validateGoalId(req.params.id);
 
-      if (isNaN(goalId)) {
+      if (goalId === null) {
         return res.status(400).json({
           success: false,
           error: 'ID de objetivo inválido'
@@ -232,10 +232,9 @@ export class GoalOptimizerController {
   // 28.3: Obtener hitos intermedios
   getIntermediateMilestones = async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
-      const goalId = parseInt(id);
+      const goalId = this.validateGoalId(req.params.id);
 
-      if (isNaN(goalId)) {
+      if (goalId === null) {
         return res.status(400).json({
           success: false,
           error: 'ID de objetivo inválido'
@@ -260,10 +259,9 @@ export class GoalOptimizerController {
   // 28.4: Obtener estrategias de aceleración
   getAccelerationStrategies = async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
-      const goalId = parseInt(id);
+      const goalId = this.validateGoalId(req.params.id);
 
-      if (isNaN(goalId)) {
+      if (goalId === null) {
         return res.status(400).json({
           success: false,
           error: 'ID de objetivo inválido'
@@ -289,9 +287,15 @@ export class GoalOptimizerController {
   activateAccelerationStrategy = async (req: Request, res: Response) => {
     try {
       const { strategyId } = req.params;
-      const id = parseInt(strategyId);
+      if (!strategyId) {
+        return res.status(400).json({
+          success: false,
+          error: 'ID de estrategia inválido'
+        });
+      }
 
-      if (isNaN(id)) {
+      const id = parseInt(strategyId, 10);
+      if (Number.isNaN(id)) {
         return res.status(400).json({
           success: false,
           error: 'ID de estrategia inválido'
@@ -318,9 +322,16 @@ export class GoalOptimizerController {
     try {
       const { strategyId } = req.params;
       const { reason } = req.body;
-      const id = parseInt(strategyId);
 
-      if (isNaN(id)) {
+      if (!strategyId) {
+        return res.status(400).json({
+          success: false,
+          error: 'ID de estrategia inválido'
+        });
+      }
+
+      const id = parseInt(strategyId, 10);
+      if (Number.isNaN(id)) {
         return res.status(400).json({
           success: false,
           error: 'ID de estrategia inválido'
@@ -352,10 +363,9 @@ export class GoalOptimizerController {
   // 28.5: Obtener oportunidades vinculadas a objetivo
   getMatchedOpportunities = async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
-      const goalId = parseInt(id);
+      const goalId = this.validateGoalId(req.params.id);
 
-      if (isNaN(goalId)) {
+      if (goalId === null) {
         return res.status(400).json({
           success: false,
           error: 'ID de objetivo inválido'
@@ -397,13 +407,21 @@ export class GoalOptimizerController {
   };
 
   // 28.5: Ejecutar acción sobre oportunidad
+  // eslint-disable-next-line max-lines-per-function
   executeOpportunityAction = async (req: Request, res: Response) => {
     try {
       const { matchId } = req.params;
       const { action, amount_invested, execution_price, notes } = req.body;
-      const id = parseInt(matchId);
 
-      if (isNaN(id)) {
+      if (!matchId) {
+        return res.status(400).json({
+          success: false,
+          error: 'ID de match inválido'
+        });
+      }
+
+      const id = parseInt(matchId, 10);
+      if (Number.isNaN(id)) {
         return res.status(400).json({
           success: false,
           error: 'ID de match inválido'
@@ -445,10 +463,9 @@ export class GoalOptimizerController {
   // 28: Resumen completo del optimizador
   getOptimizerSummary = async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
-      const goalId = parseInt(id);
+      const goalId = this.validateGoalId(req.params.id);
 
-      if (isNaN(goalId)) {
+      if (goalId === null) {
         return res.status(400).json({
           success: false,
           error: 'ID de objetivo inválido'
@@ -533,9 +550,15 @@ export class GoalOptimizerController {
   activateContributionPlan = async (req: Request, res: Response) => {
     try {
       const { planId } = req.params;
-      const id = parseInt(planId);
+      if (!planId) {
+        return res.status(400).json({
+          success: false,
+          error: 'ID de plan inválido'
+        });
+      }
 
-      if (isNaN(id)) {
+      const id = parseInt(planId, 10);
+      if (Number.isNaN(id)) {
         return res.status(400).json({
           success: false,
           error: 'ID de plan inválido'
@@ -568,9 +591,16 @@ export class GoalOptimizerController {
     try {
       const { milestoneId } = req.params;
       const { current_progress, is_achieved, notes } = req.body;
-      const id = parseInt(milestoneId);
 
-      if (isNaN(id)) {
+      if (!milestoneId) {
+        return res.status(400).json({
+          success: false,
+          error: 'ID de hito inválido'
+        });
+      }
+
+      const id = parseInt(milestoneId, 10);
+      if (Number.isNaN(id)) {
         return res.status(400).json({
           success: false,
           error: 'ID de hito inválido'
