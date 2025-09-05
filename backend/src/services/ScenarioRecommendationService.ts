@@ -871,16 +871,24 @@ export class ScenarioRecommendationService {
         riskTolerance: request.riskTolerance,
       } as const;
 
-      const sortedContext = Object.keys(contextData)
-        .sort((a, b) => a.localeCompare(b))
-        .reduce<Record<string, unknown>>((acc, key) => {
-          acc[key] = contextData[key as keyof typeof contextData];
-          return acc;
-        }, {});
+      const contextJson =
+        '{' +
+        Object.keys(contextData)
+          .sort((a, b) => a.localeCompare(b))
+          .map(key => {
+            const value = contextData[key as keyof typeof contextData];
+            const formatted =
+              typeof value === 'string'
+                ? `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+                : String(value);
+            return `"${key}":${formatted}`;
+          })
+          .join(',') +
+        '}';
 
       const claudeResponse = await this.claudeService.analyze({
         prompt,
-        context: JSON.stringify(sortedContext),
+        context: contextJson,
       });
 
       return this.parseClaudeRecommendationResponse(
