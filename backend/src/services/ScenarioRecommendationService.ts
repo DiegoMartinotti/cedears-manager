@@ -160,6 +160,27 @@ export interface ImplementationStep {
   rollbackPlan?: string;
 }
 
+const SECTION_PATTERNS = {
+  'Strategic Assessment':
+    /(?:^|\n)(?:\d+\.\s*)?\*\*Strategic Assessment\*\*:?\s*([^\n]*(?:\n(?!\d+\.\s*\*\*)[^\n]*)*)/i,
+  'Top Priorities':
+    /(?:^|\n)(?:\d+\.\s*)?\*\*Top Priorities\*\*:?\s*([^\n]*(?:\n(?!\d+\.\s*\*\*)[^\n]*)*)/i,
+  'Risk Warnings':
+    /(?:^|\n)(?:\d+\.\s*)?\*\*Risk Warnings\*\*:?\s*([^\n]*(?:\n(?!\d+\.\s*\*\*)[^\n]*)*)/i,
+  'Opportunity Highlights':
+    /(?:^|\n)(?:\d+\.\s*)?\*\*Opportunity Highlights\*\*:?\s*([^\n]*(?:\n(?!\d+\.\s*\*\*)[^\n]*)*)/i,
+  'Implementation Advice':
+    /(?:^|\n)(?:\d+\.\s*)?\*\*Implementation Advice\*\*:?\s*([^\n]*(?:\n(?!\d+\.\s*\*\*)[^\n]*)*)/i,
+  'Market Timing Guidance':
+    /(?:^|\n)(?:\d+\.\s*)?\*\*Market Timing Guidance\*\*:?\s*([^\n]*(?:\n(?!\d+\.\s*\*\*)[^\n]*)*)/i,
+  'ESG Considerations':
+    /(?:^|\n)(?:\d+\.\s*)?\*\*ESG Considerations\*\*:?\s*([^\n]*(?:\n(?!\d+\.\s*\*\*)[^\n]*)*)/i,
+  'Argentine Context Factors':
+    /(?:^|\n)(?:\d+\.\s*)?\*\*Argentine Context Factors\*\*:?\s*([^\n]*(?:\n(?!\d+\.\s*\*\*)[^\n]*)*)/i,
+} as const;
+
+type SectionName = keyof typeof SECTION_PATTERNS;
+
 export class ScenarioRecommendationService {
   private claudeService: ClaudeService;
 
@@ -852,16 +873,25 @@ export class ScenarioRecommendationService {
     );
 
     try {
+      const contextData = {
+        scenario: scenario.name,
+        category: scenario.category,
+        portfolioReturn:
+          analysisResult.portfolioImpact.totalReturnPercentage,
+        riskLevel: analysisResult.riskMetrics.maxDrawdown,
+        riskTolerance: request.riskTolerance,
+      } as const;
+
+      const sortedContext = Object.keys(contextData)
+        .sort()
+        .reduce<Record<string, unknown>>((acc, key) => {
+          acc[key] = contextData[key as keyof typeof contextData];
+          return acc;
+        }, {});
+
       const claudeResponse = await this.claudeService.analyze({
         prompt,
-        context: JSON.stringify({
-          scenario: scenario.name,
-          category: scenario.category,
-          portfolioReturn:
-            analysisResult.portfolioImpact.totalReturnPercentage,
-          riskLevel: analysisResult.riskMetrics.maxDrawdown,
-          riskTolerance: request.riskTolerance,
-        }),
+        context: JSON.stringify(sortedContext),
       });
 
       return this.parseClaudeRecommendationResponse(
@@ -973,16 +1003,13 @@ Format your response with clear section headers matching the 8 points above.
     };
   }
 
-  private extractSection(text: string, sectionName: string): string {
-    const regex = new RegExp(
-      `(?:^|\\n)(?:\\d+\\.\\s*)?\\*\\*${sectionName}\\*\\*:?\\s*([^\\n]*(?:\\n(?!\\d+\\.\\s*\\*\\*)[^\\n]*)*)`,
-      'i'
-    );
+  private extractSection(text: string, sectionName: SectionName): string {
+    const regex = SECTION_PATTERNS[sectionName];
     const match = text.match(regex);
     return match?.[1] ? match[1].trim() : '';
   }
 
-  private extractListItems(text: string, sectionName: string): string[] {
+  private extractListItems(text: string, sectionName: SectionName): string[] {
     const section = this.extractSection(text, sectionName);
     if (!section) return [];
     
