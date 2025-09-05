@@ -160,6 +160,16 @@ export interface ImplementationStep {
   rollbackPlan?: string;
 }
 
+type SectionName =
+  | 'Strategic Assessment'
+  | 'Top Priorities'
+  | 'Risk Warnings'
+  | 'Opportunity Highlights'
+  | 'Implementation Advice'
+  | 'Market Timing Guidance'
+  | 'ESG Considerations'
+  | 'Argentine Context Factors';
+
 export class ScenarioRecommendationService {
   private claudeService: ClaudeService;
 
@@ -852,19 +862,38 @@ export class ScenarioRecommendationService {
     );
 
     try {
+      const contextData = {
+        scenario: scenario.name,
+        category: scenario.category,
+        portfolioReturn:
+          analysisResult.portfolioImpact.totalReturnPercentage,
+        riskLevel: analysisResult.riskMetrics.maxDrawdown,
+        riskTolerance: request.riskTolerance,
+      } as const;
+
+      const contextJson =
+        '{' +
+        Object.keys(contextData)
+          .sort((a, b) => a.localeCompare(b))
+          .map(key => {
+            const value = contextData[key as keyof typeof contextData];
+            const formatted =
+              typeof value === 'string'
+                ? `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+                : String(value);
+            return `"${key}":${formatted}`;
+          })
+          .join(',') +
+        '}';
+
       const claudeResponse = await this.claudeService.analyze({
         prompt,
-        analysisType: 'SCENARIO_RECOMMENDATIONS',
-        context: {
-          scenario: scenario.name,
-          category: scenario.category,
-          portfolioReturn: analysisResult.portfolioImpact.totalReturnPercentage,
-          riskLevel: analysisResult.riskMetrics.maxDrawdown,
-          riskTolerance: request.riskTolerance
-        }
+        context: contextJson,
       });
 
-      return this.parseClaudeRecommendationResponse(claudeResponse.analysis);
+      return this.parseClaudeRecommendationResponse(
+        claudeResponse.analysis || ''
+      );
 
     } catch (error) {
       logger.warn(`Claude recommendations failed, using fallback: ${error}`);
@@ -971,13 +1000,32 @@ Format your response with clear section headers matching the 8 points above.
     };
   }
 
-  private extractSection(text: string, sectionName: string): string {
-    const regex = new RegExp(`(?:^|\\n)(?:\\d+\\.\\s*)?\\*\\*${sectionName}\\*\\*:?\\s*([^\\n]*(?:\\n(?!\\d+\\.\\s*\\*\\*)[^\\n]*)*)`, 'i');
-    const match = text.match(regex);
-    return match ? match[1].trim() : '';
+  private extractSection(text: string, sectionName: SectionName): string {
+    const header = `**${sectionName}**`;
+    const start = text.indexOf(header);
+    if (start === -1) return '';
+
+    let sectionStart = start + header.length;
+    if (text[sectionStart] === ':') sectionStart++;
+
+    while (
+      sectionStart < text.length &&
+      (text[sectionStart] === ' ' ||
+        text[sectionStart] === '\t' ||
+        text[sectionStart] === '\n' ||
+        text[sectionStart] === '\r')
+    ) {
+      sectionStart++;
+    }
+
+    const remainder = text.slice(sectionStart);
+    const nextHeaderIndex = remainder.indexOf('\n**');
+    const content =
+      nextHeaderIndex === -1 ? remainder : remainder.slice(0, nextHeaderIndex);
+    return content.trim();
   }
 
-  private extractListItems(text: string, sectionName: string): string[] {
+  private extractListItems(text: string, sectionName: SectionName): string[] {
     const section = this.extractSection(text, sectionName);
     if (!section) return [];
     

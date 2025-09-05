@@ -1,8 +1,11 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
 echo "🔍 Ejecutando controles de calidad de código..."
 
 # Ejecutar lint-staged para archivos modificados
 echo "📝 Analizando archivos modificados..."
-npx lint-staged
+npx lint-staged --debug
 
 # Si hay errores, cancelar commit
 if [ $? -ne 0 ]; then
