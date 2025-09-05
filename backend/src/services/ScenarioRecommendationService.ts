@@ -160,26 +160,15 @@ export interface ImplementationStep {
   rollbackPlan?: string;
 }
 
-const SECTION_PATTERNS = {
-  'Strategic Assessment':
-    /\*\*Strategic Assessment\*\*:?\s*([^]*?)(?=\n\*\*|$)/i,
-  'Top Priorities':
-    /\*\*Top Priorities\*\*:?\s*([^]*?)(?=\n\*\*|$)/i,
-  'Risk Warnings':
-    /\*\*Risk Warnings\*\*:?\s*([^]*?)(?=\n\*\*|$)/i,
-  'Opportunity Highlights':
-    /\*\*Opportunity Highlights\*\*:?\s*([^]*?)(?=\n\*\*|$)/i,
-  'Implementation Advice':
-    /\*\*Implementation Advice\*\*:?\s*([^]*?)(?=\n\*\*|$)/i,
-  'Market Timing Guidance':
-    /\*\*Market Timing Guidance\*\*:?\s*([^]*?)(?=\n\*\*|$)/i,
-  'ESG Considerations':
-    /\*\*ESG Considerations\*\*:?\s*([^]*?)(?=\n\*\*|$)/i,
-  'Argentine Context Factors':
-    /\*\*Argentine Context Factors\*\*:?\s*([^]*?)(?=\n\*\*|$)/i,
-} as const;
-
-type SectionName = keyof typeof SECTION_PATTERNS;
+type SectionName =
+  | 'Strategic Assessment'
+  | 'Top Priorities'
+  | 'Risk Warnings'
+  | 'Opportunity Highlights'
+  | 'Implementation Advice'
+  | 'Market Timing Guidance'
+  | 'ESG Considerations'
+  | 'Argentine Context Factors';
 
 export class ScenarioRecommendationService {
   private claudeService: ClaudeService;
@@ -1004,9 +993,28 @@ Format your response with clear section headers matching the 8 points above.
   }
 
   private extractSection(text: string, sectionName: SectionName): string {
-    const regex = SECTION_PATTERNS[sectionName];
-    const match = text.match(regex);
-    return match?.[1] ? match[1].trim() : '';
+    const header = `**${sectionName}**`;
+    const start = text.indexOf(header);
+    if (start === -1) return '';
+
+    let sectionStart = start + header.length;
+    if (text[sectionStart] === ':') sectionStart++;
+
+    while (
+      sectionStart < text.length &&
+      (text[sectionStart] === ' ' ||
+        text[sectionStart] === '\t' ||
+        text[sectionStart] === '\n' ||
+        text[sectionStart] === '\r')
+    ) {
+      sectionStart++;
+    }
+
+    const remainder = text.slice(sectionStart);
+    const nextHeaderIndex = remainder.indexOf('\n**');
+    const content =
+      nextHeaderIndex === -1 ? remainder : remainder.slice(0, nextHeaderIndex);
+    return content.trim();
   }
 
   private extractListItems(text: string, sectionName: SectionName): string[] {
