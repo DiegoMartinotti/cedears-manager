@@ -187,105 +187,96 @@ export class MonthlyReviewController {
     }
   }
 
-  /**
-   * POST /monthly-review/:id/candidates/:candidateId/approve
-   * Approve a specific candidate
-   */
-  approveCandidate = async (req: Request, res: Response) => {
+  private getCandidateContext(
+    req: Request,
+    res: Response
+  ): { reviewId: number; candidateId: number; candidateType: 'addition' | 'removal'; notes?: string } | null {
+    const reviewId = this.parseId(req.params.id)
+    const candidateId = this.parseId(req.params.candidateId)
+
+    if (reviewId === null || candidateId === null) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid review or candidate ID'
+      })
+      return null
+    }
+
+    const candidateType = req.query.type as 'addition' | 'removal'
+    if (!candidateType || !['addition', 'removal'].includes(candidateType)) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid or missing candidate type. Must be "addition" or "removal"'
+      })
+      return null
+    }
+
+    const validation = ApprovalSchema.safeParse(req.body)
+    if (!validation.success) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid request body',
+        errors: validation.error.issues
+      })
+      return null
+    }
+
+    return { reviewId, candidateId, candidateType, ...validation.data }
+  }
+
+  private handleCandidateAction = async (
+    req: Request,
+    res: Response,
+    action: 'approve' | 'reject'
+  ) => {
     try {
-      const reviewId = this.parseId(req.params.id)
-      const candidateId = this.parseId(req.params.candidateId)
+      const context = this.getCandidateContext(req, res)
+      if (!context) return
 
-      if (reviewId === null || candidateId === null) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid review or candidate ID'
-        })
+      const { candidateId, candidateType, notes } = context
+
+      if (action === 'approve') {
+        await this.watchlistManagementService.approveCandidate(
+          candidateId,
+          candidateType,
+          notes
+        )
+      } else {
+        await this.watchlistManagementService.rejectCandidate(
+          candidateId,
+          candidateType,
+          notes
+        )
       }
-
-      const candidateType = req.query.type as 'addition' | 'removal'
-      if (!candidateType || !['addition', 'removal'].includes(candidateType)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid or missing candidate type. Must be "addition" or "removal"'
-        })
-      }
-
-      const validation = ApprovalSchema.safeParse(req.body)
-      if (!validation.success) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid request body',
-          errors: validation.error.issues
-        })
-      }
-
-      const { notes } = validation.data
-
-      await this.watchlistManagementService.approveCandidate(candidateId, candidateType, notes)
 
       return res.json({
         success: true,
-        message: `${candidateType === 'addition' ? 'Addition' : 'Removal'} candidate approved successfully`
+        message: `${candidateType === 'addition' ? 'Addition' : 'Removal'} candidate ${
+          action === 'approve' ? 'approved' : 'rejected'
+        } successfully`
       })
     } catch (error) {
-      logger.error('Failed to approve candidate:', error)
+      logger.error(`Failed to ${action} candidate:`, error)
       return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Internal server error'
       })
     }
   }
+
+  /**
+   * POST /monthly-review/:id/candidates/:candidateId/approve
+   * Approve a specific candidate
+   */
+  approveCandidate = async (req: Request, res: Response) =>
+    this.handleCandidateAction(req, res, 'approve')
 
   /**
    * POST /monthly-review/:id/candidates/:candidateId/reject
    * Reject a specific candidate
    */
-  rejectCandidate = async (req: Request, res: Response) => {
-    try {
-      const reviewId = this.parseId(req.params.id)
-      const candidateId = this.parseId(req.params.candidateId)
-
-      if (reviewId === null || candidateId === null) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid review or candidate ID'
-        })
-      }
-
-      const candidateType = req.query.type as 'addition' | 'removal'
-      if (!candidateType || !['addition', 'removal'].includes(candidateType)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid or missing candidate type. Must be "addition" or "removal"'
-        })
-      }
-
-      const validation = ApprovalSchema.safeParse(req.body)
-      if (!validation.success) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid request body',
-          errors: validation.error.issues
-        })
-      }
-
-      const { notes } = validation.data
-
-      await this.watchlistManagementService.rejectCandidate(candidateId, candidateType, notes)
-
-      return res.json({
-        success: true,
-        message: `${candidateType === 'addition' ? 'Addition' : 'Removal'} candidate rejected successfully`
-      })
-    } catch (error) {
-      logger.error('Failed to reject candidate:', error)
-      return res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal server error'
-      })
-    }
-  }
+  rejectCandidate = async (req: Request, res: Response) =>
+    this.handleCandidateAction(req, res, 'reject')
 
   /**
    * POST /monthly-review/:id/candidates/bulk-update
