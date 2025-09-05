@@ -883,7 +883,7 @@ export class ScenarioRecommendationService {
       } as const;
 
       const sortedContext = Object.keys(contextData)
-        .sort()
+        .sort((a, b) => a.localeCompare(b))
         .reduce<Record<string, unknown>>((acc, key) => {
           acc[key] = contextData[key as keyof typeof contextData];
           return acc;
