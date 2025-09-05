@@ -33,6 +33,14 @@ export class MonthlyReviewController {
     this.watchlistManagementService = new WatchlistManagementService()
   }
 
+  private parseId(id?: string): number | null {
+    if (!id) {
+      return null;
+    }
+    const parsed = parseInt(id, 10)
+    return Number.isNaN(parsed) ? null : parsed
+  }
+
   /**
    * GET /monthly-review/current
    * Get current or latest review
@@ -79,8 +87,8 @@ export class MonthlyReviewController {
    */
   getReview = async (req: Request, res: Response) => {
     try {
-      const reviewId = parseInt(req.params.id)
-      if (isNaN(reviewId)) {
+      const reviewId = this.parseId(req.params.id)
+      if (reviewId === null) {
         return res.status(400).json({
           success: false,
           message: 'Invalid review ID'
@@ -152,8 +160,8 @@ export class MonthlyReviewController {
    */
   getReviewCandidates = async (req: Request, res: Response) => {
     try {
-      const reviewId = parseInt(req.params.id)
-      if (isNaN(reviewId)) {
+      const reviewId = this.parseId(req.params.id)
+      if (reviewId === null) {
         return res.status(400).json({
           success: false,
           message: 'Invalid review ID'
@@ -185,10 +193,10 @@ export class MonthlyReviewController {
    */
   approveCandidate = async (req: Request, res: Response) => {
     try {
-      const reviewId = parseInt(req.params.id)
-      const candidateId = parseInt(req.params.candidateId)
-      
-      if (isNaN(reviewId) || isNaN(candidateId)) {
+      const reviewId = this.parseId(req.params.id)
+      const candidateId = this.parseId(req.params.candidateId)
+
+      if (reviewId === null || candidateId === null) {
         return res.status(400).json({
           success: false,
           message: 'Invalid review or candidate ID'
@@ -235,10 +243,10 @@ export class MonthlyReviewController {
    */
   rejectCandidate = async (req: Request, res: Response) => {
     try {
-      const reviewId = parseInt(req.params.id)
-      const candidateId = parseInt(req.params.candidateId)
-      
-      if (isNaN(reviewId) || isNaN(candidateId)) {
+      const reviewId = this.parseId(req.params.id)
+      const candidateId = this.parseId(req.params.candidateId)
+
+      if (reviewId === null || candidateId === null) {
         return res.status(400).json({
           success: false,
           message: 'Invalid review or candidate ID'
@@ -285,8 +293,8 @@ export class MonthlyReviewController {
    */
   bulkUpdateCandidates = async (req: Request, res: Response) => {
     try {
-      const reviewId = parseInt(req.params.id)
-      if (isNaN(reviewId)) {
+      const reviewId = this.parseId(req.params.id)
+      if (reviewId === null) {
         return res.status(400).json({
           success: false,
           message: 'Invalid review ID'
@@ -331,8 +339,8 @@ export class MonthlyReviewController {
    */
   applyChanges = async (req: Request, res: Response) => {
     try {
-      const reviewId = parseInt(req.params.id)
-      if (isNaN(reviewId)) {
+      const reviewId = this.parseId(req.params.id)
+      if (reviewId === null) {
         return res.status(400).json({
           success: false,
           message: 'Invalid review ID'
@@ -482,28 +490,28 @@ export class MonthlyReviewController {
    */
   previewChanges = async (req: Request, res: Response) => {
     try {
-      const reviewId = parseInt(req.params.id)
-      if (isNaN(reviewId)) {
+      const reviewId = this.parseId(req.params.id)
+      if (reviewId === null) {
         return res.status(400).json({
           success: false,
           message: 'Invalid review ID'
         })
       }
 
-      const preview = this.watchlistManagementService.previewChanges(reviewId)
+        const preview = this.watchlistManagementService.previewChanges(reviewId)
 
-      res.json({
-        success: true,
-        data: preview
-      })
-    } catch (error) {
-      logger.error('Failed to preview changes:', error)
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal server error'
-      })
+        return res.json({
+          success: true,
+          data: preview
+        })
+      } catch (error) {
+        logger.error('Failed to preview changes:', error)
+        return res.status(500).json({
+          success: false,
+          message: error instanceof Error ? error.message : 'Internal server error'
+        })
+      }
     }
-  }
 
   /**
    * GET /monthly-review/change-history
@@ -557,25 +565,25 @@ export class MonthlyReviewController {
         })
       }
 
-      const change = await this.watchlistManagementService.createManualChange(
-        parseInt(instrumentId),
-        action,
-        reason
-      )
+        const change = await this.watchlistManagementService.createManualChange(
+          parseInt(instrumentId),
+          action,
+          reason
+        )
 
-      res.json({
-        success: true,
-        data: change,
-        message: 'Manual change created successfully'
-      })
-    } catch (error) {
-      logger.error('Failed to create manual change:', error)
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal server error'
-      })
+        return res.json({
+          success: true,
+          data: change,
+          message: 'Manual change created successfully'
+        })
+      } catch (error) {
+        logger.error('Failed to create manual change:', error)
+        return res.status(500).json({
+          success: false,
+          message: error instanceof Error ? error.message : 'Internal server error'
+        })
+      }
     }
-  }
 
   /**
    * GET /monthly-review/stats

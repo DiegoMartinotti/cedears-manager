@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import Database from 'better-sqlite3';
-import { GoalProjectionService, GoalProjectionSummary } from '../services/GoalProjectionService';
+import { GoalProjectionService } from '../services/GoalProjectionService';
 import { SensitivityAnalysisService } from '../services/SensitivityAnalysisService';
 import { ClaudeGoalAdvisorService } from '../services/ClaudeGoalAdvisorService';
 import { CompoundInterestEngine, ProjectionParameters } from '../services/CompoundInterestEngine';
@@ -28,7 +28,15 @@ export class GoalProjectionController {
     this.claudeAdvisorService = new ClaudeGoalAdvisorService(db);
     this.compoundEngine = new CompoundInterestEngine(db);
     this.goalTrackerService = new GoalTrackerService(db);
-    this.portfolioService = new PortfolioService(db);
+    this.portfolioService = new PortfolioService();
+  }
+
+  private parseGoalId(id?: string): number | null {
+    if (!id) {
+      return null;
+    }
+    const goalId = parseInt(id, 10);
+    return Number.isNaN(goalId) ? null : goalId;
   }
 
   /**
@@ -37,10 +45,10 @@ export class GoalProjectionController {
    */
   async calculateProjections(req: Request, res: Response): Promise<void> {
     try {
-      const goalId = parseInt(req.params.id);
+      const goalId = this.parseGoalId(req.params.id);
       const { recalculate = false } = req.body;
 
-      if (isNaN(goalId)) {
+      if (goalId === null) {
         res.status(400).json({ error: 'ID de objetivo inválido' });
         return;
       }
@@ -48,9 +56,9 @@ export class GoalProjectionController {
       // Si no es recálculo forzado, verificar si hay proyecciones recientes
       if (!recalculate) {
         const existingProjections = await this.goalProjectionService.getGoalProjections(goalId);
-        if (existingProjections.length > 0) {
-          const latestProjection = existingProjections[0];
-          const isRecent = new Date(latestProjection.projection_date).getTime() > 
+          if (existingProjections.length > 0) {
+            const latestProjection = existingProjections[0]!;
+            const isRecent = new Date(latestProjection.projection_date).getTime() >
                           (Date.now() - 24 * 60 * 60 * 1000); // Menos de 24 horas
           
           if (isRecent) {
@@ -91,9 +99,9 @@ export class GoalProjectionController {
    */
   async getCurrentProjections(req: Request, res: Response): Promise<void> {
     try {
-      const goalId = parseInt(req.params.id);
+      const goalId = this.parseGoalId(req.params.id);
 
-      if (isNaN(goalId)) {
+      if (goalId === null) {
         res.status(400).json({ error: 'ID de objetivo inválido' });
         return;
       }
@@ -123,9 +131,10 @@ export class GoalProjectionController {
    * PUT /goals/:id/projections/adjust
    * Ajusta proyecciones con parámetros personalizados
    */
+  // eslint-disable-next-line max-lines-per-function
   async adjustProjections(req: Request, res: Response): Promise<void> {
     try {
-      const goalId = parseInt(req.params.id);
+      const goalId = this.parseGoalId(req.params.id);
       const {
         monthlyContribution,
         annualReturnRate,
@@ -134,7 +143,7 @@ export class GoalProjectionController {
         periods
       } = req.body;
 
-      if (isNaN(goalId)) {
+      if (goalId === null) {
         res.status(400).json({ error: 'ID de objetivo inválido' });
         return;
       }
@@ -184,9 +193,9 @@ export class GoalProjectionController {
    */
   async performSensitivityAnalysis(req: Request, res: Response): Promise<void> {
     try {
-      const goalId = parseInt(req.params.id);
+      const goalId = this.parseGoalId(req.params.id);
 
-      if (isNaN(goalId)) {
+      if (goalId === null) {
         res.status(400).json({ error: 'ID de objetivo inválido' });
         return;
       }
@@ -224,10 +233,10 @@ export class GoalProjectionController {
    */
   async performMonteCarloSimulation(req: Request, res: Response): Promise<void> {
     try {
-      const goalId = parseInt(req.params.id);
+      const goalId = this.parseGoalId(req.params.id);
       const { simulations = 1000 } = req.body;
 
-      if (isNaN(goalId)) {
+      if (goalId === null) {
         res.status(400).json({ error: 'ID de objetivo inválido' });
         return;
       }
@@ -274,9 +283,9 @@ export class GoalProjectionController {
    */
   async getScenarios(req: Request, res: Response): Promise<void> {
     try {
-      const goalId = parseInt(req.params.id);
+      const goalId = this.parseGoalId(req.params.id);
 
-      if (isNaN(goalId)) {
+      if (goalId === null) {
         res.status(400).json({ error: 'ID de objetivo inválido' });
         return;
       }
@@ -318,10 +327,9 @@ export class GoalProjectionController {
    */
   async generateRecommendations(req: Request, res: Response): Promise<void> {
     try {
-      const goalId = parseInt(req.params.id);
-      const { forceRefresh = false } = req.body;
+      const goalId = this.parseGoalId(req.params.id);
 
-      if (isNaN(goalId)) {
+      if (goalId === null) {
         res.status(400).json({ error: 'ID de objetivo inválido' });
         return;
       }
@@ -357,9 +365,9 @@ export class GoalProjectionController {
    */
   async getLatestRecommendations(req: Request, res: Response): Promise<void> {
     try {
-      const goalId = parseInt(req.params.id);
+      const goalId = this.parseGoalId(req.params.id);
 
-      if (isNaN(goalId)) {
+      if (goalId === null) {
         res.status(400).json({ error: 'ID de objetivo inválido' });
         return;
       }
@@ -394,10 +402,10 @@ export class GoalProjectionController {
    */
   async applyRecommendation(req: Request, res: Response): Promise<void> {
     try {
-      const goalId = parseInt(req.params.id);
+      const goalId = this.parseGoalId(req.params.id);
       const { recommendationId, implementationNotes } = req.body;
 
-      if (isNaN(goalId) || !recommendationId) {
+      if (goalId === null || !recommendationId) {
         res.status(400).json({ error: 'Parámetros inválidos' });
         return;
       }
