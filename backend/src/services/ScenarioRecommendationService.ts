@@ -854,17 +854,19 @@ export class ScenarioRecommendationService {
     try {
       const claudeResponse = await this.claudeService.analyze({
         prompt,
-        analysisType: 'SCENARIO_RECOMMENDATIONS',
-        context: {
+        context: JSON.stringify({
           scenario: scenario.name,
           category: scenario.category,
-          portfolioReturn: analysisResult.portfolioImpact.totalReturnPercentage,
+          portfolioReturn:
+            analysisResult.portfolioImpact.totalReturnPercentage,
           riskLevel: analysisResult.riskMetrics.maxDrawdown,
-          riskTolerance: request.riskTolerance
-        }
+          riskTolerance: request.riskTolerance,
+        }),
       });
 
-      return this.parseClaudeRecommendationResponse(claudeResponse.analysis);
+      return this.parseClaudeRecommendationResponse(
+        claudeResponse.analysis || ''
+      );
 
     } catch (error) {
       logger.warn(`Claude recommendations failed, using fallback: ${error}`);
@@ -972,9 +974,12 @@ Format your response with clear section headers matching the 8 points above.
   }
 
   private extractSection(text: string, sectionName: string): string {
-    const regex = new RegExp(`(?:^|\\n)(?:\\d+\\.\\s*)?\\*\\*${sectionName}\\*\\*:?\\s*([^\\n]*(?:\\n(?!\\d+\\.\\s*\\*\\*)[^\\n]*)*)`, 'i');
+    const regex = new RegExp(
+      `(?:^|\\n)(?:\\d+\\.\\s*)?\\*\\*${sectionName}\\*\\*:?\\s*([^\\n]*(?:\\n(?!\\d+\\.\\s*\\*\\*)[^\\n]*)*)`,
+      'i'
+    );
     const match = text.match(regex);
-    return match ? match[1].trim() : '';
+    return match?.[1] ? match[1].trim() : '';
   }
 
   private extractListItems(text: string, sectionName: string): string[] {
