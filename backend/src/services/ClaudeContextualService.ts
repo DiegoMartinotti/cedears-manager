@@ -139,133 +139,163 @@ export class ClaudeContextualService {
     logger.info('ClaudeContextualService initialized')
   }
 
+  private prepareOptions(request: ContextualAnalysisRequest) {
+    const { symbol, analysisType, timeframe = '1M', options = {} } = request
+    const {
+      includeNews = true,
+      includeSentiment = true,
+      includeEarnings = true,
+      includeTrends = true,
+      useCache = true,
+      cacheTTLMinutes = this.DEFAULT_CACHE_TTL
+    } = options
+    const cacheKey = `${this.CACHE_PREFIX}:${symbol}:${analysisType}:${timeframe}:${JSON.stringify(options)}`
+    return {
+      symbol,
+      analysisType,
+      timeframe,
+      includeNews,
+      includeSentiment,
+      includeEarnings,
+      includeTrends,
+      useCache,
+      cacheTTLMinutes,
+      cacheKey
+    }
+  }
+
+  private checkCache(options: {
+    cacheKey: string
+    useCache: boolean
+    symbol: string
+    analysisType: ContextualAnalysisRequest['analysisType']
+  }) {
+    if (!options.useCache) {
+      return null
+    }
+    const cached = cacheService.get<ComprehensiveAnalysisResult>(options.cacheKey)
+    if (cached) {
+      logger.info('Contextual analysis served from cache', {
+        symbol: options.symbol,
+        analysisType: options.analysisType,
+        cacheKey: options.cacheKey
+      })
+      return cached
+    }
+    return null
+  }
+
+  private async performAnalyses(options: {
+    symbol: string
+    analysisType: ContextualAnalysisRequest['analysisType']
+    timeframe: NonNullable<ContextualAnalysisRequest['timeframe']>
+    includeNews: boolean
+    includeSentiment: boolean
+    includeEarnings: boolean
+    includeTrends: boolean
+  }) {
+    const dataPromises = []
+
+    if (options.includeNews || options.analysisType === 'COMPREHENSIVE') {
+      dataPromises.push(this.getNewsData(options.symbol))
+    }
+
+    if (options.includeSentiment || options.analysisType === 'COMPREHENSIVE') {
+      dataPromises.push(this.getSentimentData())
+    }
+
+    if (options.includeEarnings || options.analysisType === 'COMPREHENSIVE') {
+      dataPromises.push(this.getEarningsData(options.symbol))
+    }
+
+    if (options.includeTrends || options.analysisType === 'COMPREHENSIVE') {
+      dataPromises.push(this.getTrendsData(options.symbol, options.timeframe))
+    }
+
+    const results = await Promise.allSettled(dataPromises)
+
+    return {
+      newsData: results[0]?.status === 'fulfilled' ? results[0].value : null,
+      sentimentData: results[1]?.status === 'fulfilled' ? results[1].value : null,
+      earningsData: results[2]?.status === 'fulfilled' ? results[2].value : null,
+      trendsData: results[3]?.status === 'fulfilled' ? results[3].value : null
+    }
+  }
+
+  private async aggregateResults(
+    symbol: string,
+    data: {
+      newsData: any
+      sentimentData: any
+      earningsData: any
+      trendsData: any
+    }
+  ) {
+    const overallAssessment = await this.calculateOverallAssessment(symbol, data)
+
+    const components = this.buildAnalysisComponents(data)
+
+    const risks = this.identifyRisks(data)
+    const opportunities = this.identifyOpportunities(data)
+
+    const actionItems = this.generateActionItems(overallAssessment, risks, opportunities)
+
+    const claudeInsights = await this.generateClaudeInsights(symbol, {
+      overallAssessment,
+      components,
+      risks,
+      opportunities,
+      rawData: data
+    })
+
+    return { overallAssessment, components, risks, opportunities, actionItems, claudeInsights }
+  }
+
+
   /**
    * Realiza análisis contextual completo de un símbolo
    */
   async analyzeSymbol(request: ContextualAnalysisRequest): Promise<ComprehensiveAnalysisResult> {
     const startTime = Date.now()
-    
+
     try {
-      const {
-        symbol,
-        analysisType,
-        timeframe = '1M',
-        options = {}
-      } = request
-
-      const {
-        includeNews = true,
-        includeSentiment = true,
-        includeEarnings = true,
-        includeTrends = true,
-        includeRecommendations = true,
-        useCache = true,
-        cacheTTLMinutes = this.DEFAULT_CACHE_TTL
-      } = options
-
-      const cacheKey = `${this.CACHE_PREFIX}:${symbol}:${analysisType}:${timeframe}:${JSON.stringify(options)}`
-
-      // Verificar cache
-      if (useCache) {
-        const cached = cacheService.get<ComprehensiveAnalysisResult>(cacheKey)
-        if (cached) {
-          logger.info('Contextual analysis served from cache', { symbol, analysisType, cacheKey })
-          return cached
-        }
+      const options = this.prepareOptions(request)
+      const cached = this.checkCache(options)
+      if (cached) {
+        return cached
       }
 
-      // Recopilar datos de todos los servicios
-      const dataPromises = []
-
-      if (includeNews || analysisType === 'COMPREHENSIVE') {
-        dataPromises.push(this.getNewsData(symbol))
-      }
-
-      if (includeSentiment || analysisType === 'COMPREHENSIVE') {
-        dataPromises.push(this.getSentimentData())
-      }
-
-      if (includeEarnings || analysisType === 'COMPREHENSIVE') {
-        dataPromises.push(this.getEarningsData(symbol))
-      }
-
-      if (includeTrends || analysisType === 'COMPREHENSIVE') {
-        dataPromises.push(this.getTrendsData(symbol, timeframe))
-      }
-
-      const results = await Promise.allSettled(dataPromises)
-
-      // Procesar resultados
-      const newsData = results[0]?.status === 'fulfilled' ? results[0].value : null
-      const sentimentData = results[1]?.status === 'fulfilled' ? results[1].value : null
-      const earningsData = results[2]?.status === 'fulfilled' ? results[2].value : null
-      const trendsData = results[3]?.status === 'fulfilled' ? results[3].value : null
-
-      // Calcular assessment general
-      const overallAssessment = await this.calculateOverallAssessment(
-        symbol,
-        { newsData, sentimentData, earningsData, trendsData }
-      )
-
-      // Construir componentes del análisis
-      const components = this.buildAnalysisComponents({
-        newsData,
-        sentimentData,
-        earningsData,
-        trendsData
-      })
-
-      // Identificar riesgos y oportunidades
-      const risks = this.identifyRisks({ newsData, sentimentData, earningsData, trendsData })
-      const opportunities = this.identifyOpportunities({ newsData, sentimentData, earningsData, trendsData })
-
-      // Generar action items
-      const actionItems = this.generateActionItems(overallAssessment, risks, opportunities)
-
-      // Análisis con Claude para insights adicionales
-      const claudeInsights = await this.generateClaudeInsights(symbol, {
-        overallAssessment,
-        components,
-        risks,
-        opportunities,
-        rawData: { newsData, sentimentData, earningsData, trendsData }
-      })
+      const data = await this.performAnalyses(options)
+      const aggregated = await this.aggregateResults(options.symbol, data)
 
       const result: ComprehensiveAnalysisResult = {
-        symbol,
+        symbol: options.symbol,
         timestamp: new Date(),
-        overallAssessment,
-        components,
-        risks,
-        opportunities,
-        actionItems,
-        claudeInsights
+        ...aggregated
       }
 
-      // Guardar en cache
-      if (useCache) {
-        cacheService.set(cacheKey, result, cacheTTLMinutes * 60 * 1000)
+      if (options.useCache) {
+        cacheService.set(options.cacheKey, result, options.cacheTTLMinutes * 60 * 1000)
       }
 
       const executionTime = Date.now() - startTime
       logger.info('Contextual analysis completed', {
-        symbol,
-        analysisType,
-        recommendation: overallAssessment.recommendation,
-        confidence: overallAssessment.confidence,
-        componentsCount: Object.keys(components).length,
+        symbol: options.symbol,
+        analysisType: options.analysisType,
+        recommendation: aggregated.overallAssessment.recommendation,
+        confidence: aggregated.overallAssessment.confidence,
+        componentsCount: Object.keys(aggregated.components).length,
         executionTime
       })
 
       return result
-
     } catch (error) {
       const executionTime = Date.now() - startTime
-      logger.error('Contextual analysis failed', { 
-        symbol: request.symbol, 
+      logger.error('Contextual analysis failed', {
+        symbol: request.symbol,
         analysisType: request.analysisType,
-        error, 
-        executionTime 
+        error,
+        executionTime
       })
       throw error
     }
@@ -274,6 +304,7 @@ export class ClaudeContextualService {
   /**
    * Analiza múltiples símbolos de un portafolio
    */
+  /* eslint-disable-next-line max-lines-per-function */
   async analyzePortfolio(
     symbols: string[],
     options: { useCache?: boolean; analysisDepth?: 'BASIC' | 'DETAILED' } = {}
@@ -365,6 +396,7 @@ export class ClaudeContextualService {
   /**
    * Genera reporte personalizado
    */
+  /* eslint-disable-next-line max-lines-per-function */
   async generateCustomReport(
     symbol: string,
     reportType: 'INVESTMENT_THESIS' | 'RISK_ASSESSMENT' | 'OPPORTUNITY_ANALYSIS' | 'MARKET_OUTLOOK',
@@ -497,6 +529,7 @@ export class ClaudeContextualService {
   /**
    * Calcula assessment general
    */
+  /* eslint-disable-next-line max-lines-per-function */
   private async calculateOverallAssessment(
     symbol: string,
     data: any
@@ -559,6 +592,7 @@ export class ClaudeContextualService {
   /**
    * Construye componentes del análisis
    */
+  /* eslint-disable-next-line max-lines-per-function */
   private buildAnalysisComponents(data: any): any {
     const components: any = {}
 
@@ -723,6 +757,7 @@ export class ClaudeContextualService {
   /**
    * Genera action items
    */
+  /* eslint-disable-next-line max-lines-per-function */
   private generateActionItems(
     assessment: any,
     risks: any[],
@@ -778,6 +813,7 @@ export class ClaudeContextualService {
   /**
    * Genera insights adicionales con Claude
    */
+  /* eslint-disable-next-line max-lines-per-function */
   private async generateClaudeInsights(symbol: string, analysisData: any): Promise<{
     summary: string
     keyPoints: string[]
@@ -930,7 +966,6 @@ Responde en formato JSON:
     affectedSymbols: string[]
   }[] {
     // Extraer factores comunes
-    const allFactors = analyses.flatMap(a => a.overallAssessment.keyFactors)
     const factorCounts = new Map<string, { positive: string[], negative: string[], neutral: string[] }>()
 
     analyses.forEach(analysis => {
