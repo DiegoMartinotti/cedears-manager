@@ -1,5 +1,5 @@
-import { DatabaseConnection } from '../database/connection.js'
-import logger from '../utils/logger.js'
+import DatabaseConnection from '../database/connection.js'
+import { logger } from '../utils/logger.js'
 
 export interface BenchmarkIndex {
   id?: number
