@@ -63,6 +63,7 @@ export class ContextualAnalysisJob {
   /**
    * Job diario de análisis de noticias
    */
+  // eslint-disable-next-line max-lines-per-function
   private async runDailyNewsAnalysis(): Promise<void> {
     if (this.isRunning) {
       logger.warn('Daily news analysis job already running, skipping')

@@ -361,6 +361,7 @@ export class BreakEvenController {
    * POST /break-even/simulate
    * Simulador interactivo de break-even
    */
+  // eslint-disable-next-line max-lines-per-function
   async simulate(req: Request, res: Response) {
     try {
       const {
