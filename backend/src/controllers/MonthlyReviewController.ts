@@ -224,7 +224,7 @@ export class MonthlyReviewController {
     return { reviewId, candidateId, candidateType, ...validation.data }
   }
 
-  private handleCandidateAction = async (
+  private readonly handleCandidateAction = async (
     req: Request,
     res: Response,
     action: 'approve' | 'reject'

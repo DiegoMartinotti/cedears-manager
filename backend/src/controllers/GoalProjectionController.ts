@@ -57,7 +57,7 @@ export class GoalProjectionController {
       if (!recalculate) {
         const existingProjections = await this.goalProjectionService.getGoalProjections(goalId);
           if (existingProjections.length > 0) {
-            const latestProjection = existingProjections[0]!;
+            const latestProjection = existingProjections[0];
             const isRecent = new Date(latestProjection.projection_date).getTime() >
                           (Date.now() - 24 * 60 * 60 * 1000); // Menos de 24 horas
           
