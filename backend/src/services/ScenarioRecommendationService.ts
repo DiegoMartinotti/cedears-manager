@@ -162,21 +162,21 @@ export interface ImplementationStep {
 
 const SECTION_PATTERNS = {
   'Strategic Assessment':
-    /(?:^|\n)(?:\d+\.\s*)?\*\*Strategic Assessment\*\*:?\s*([^\n]*(?:\n(?!\d+\.\s*\*\*)[^\n]*)*)/i,
+    /(?:^|\n)(?:\d+\.\s*)?\*\*Strategic Assessment\*\*:?\s*([\s\S]*?)(?=\n(?:\d+\.\s*)?\*\*|$)/i,
   'Top Priorities':
-    /(?:^|\n)(?:\d+\.\s*)?\*\*Top Priorities\*\*:?\s*([^\n]*(?:\n(?!\d+\.\s*\*\*)[^\n]*)*)/i,
+    /(?:^|\n)(?:\d+\.\s*)?\*\*Top Priorities\*\*:?\s*([\s\S]*?)(?=\n(?:\d+\.\s*)?\*\*|$)/i,
   'Risk Warnings':
-    /(?:^|\n)(?:\d+\.\s*)?\*\*Risk Warnings\*\*:?\s*([^\n]*(?:\n(?!\d+\.\s*\*\*)[^\n]*)*)/i,
+    /(?:^|\n)(?:\d+\.\s*)?\*\*Risk Warnings\*\*:?\s*([\s\S]*?)(?=\n(?:\d+\.\s*)?\*\*|$)/i,
   'Opportunity Highlights':
-    /(?:^|\n)(?:\d+\.\s*)?\*\*Opportunity Highlights\*\*:?\s*([^\n]*(?:\n(?!\d+\.\s*\*\*)[^\n]*)*)/i,
+    /(?:^|\n)(?:\d+\.\s*)?\*\*Opportunity Highlights\*\*:?\s*([\s\S]*?)(?=\n(?:\d+\.\s*)?\*\*|$)/i,
   'Implementation Advice':
-    /(?:^|\n)(?:\d+\.\s*)?\*\*Implementation Advice\*\*:?\s*([^\n]*(?:\n(?!\d+\.\s*\*\*)[^\n]*)*)/i,
+    /(?:^|\n)(?:\d+\.\s*)?\*\*Implementation Advice\*\*:?\s*([\s\S]*?)(?=\n(?:\d+\.\s*)?\*\*|$)/i,
   'Market Timing Guidance':
-    /(?:^|\n)(?:\d+\.\s*)?\*\*Market Timing Guidance\*\*:?\s*([^\n]*(?:\n(?!\d+\.\s*\*\*)[^\n]*)*)/i,
+    /(?:^|\n)(?:\d+\.\s*)?\*\*Market Timing Guidance\*\*:?\s*([\s\S]*?)(?=\n(?:\d+\.\s*)?\*\*|$)/i,
   'ESG Considerations':
-    /(?:^|\n)(?:\d+\.\s*)?\*\*ESG Considerations\*\*:?\s*([^\n]*(?:\n(?!\d+\.\s*\*\*)[^\n]*)*)/i,
+    /(?:^|\n)(?:\d+\.\s*)?\*\*ESG Considerations\*\*:?\s*([\s\S]*?)(?=\n(?:\d+\.\s*)?\*\*|$)/i,
   'Argentine Context Factors':
-    /(?:^|\n)(?:\d+\.\s*)?\*\*Argentine Context Factors\*\*:?\s*([^\n]*(?:\n(?!\d+\.\s*\*\*)[^\n]*)*)/i,
+    /(?:^|\n)(?:\d+\.\s*)?\*\*Argentine Context Factors\*\*:?\s*([\s\S]*?)(?=\n(?:\d+\.\s*)?\*\*|$)/i,
 } as const;
 
 type SectionName = keyof typeof SECTION_PATTERNS;
