@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -136,7 +136,7 @@ export default function Goals() {
                 {/* Botón de optimizador */}
                 <div className="mt-3 pt-3 border-t border-gray-200">
                   <Button
-                    size="small"
+                    size="sm"
                     variant="outline"
                     className="w-full text-xs"
                     onClick={(e) => {
@@ -248,8 +248,8 @@ export default function Goals() {
           )}
 
           {activeTab === 'simulator' && (
-            <ContributionSimulator
-              goalId={selectedGoalId}
+              <ContributionSimulator
+              goalId={selectedGoalId ?? 0}
               currency={selectedGoal.currency}
               currentCapital={dashboard?.latestProgress?.current_capital || 0}
               onSimulate={simulate}
