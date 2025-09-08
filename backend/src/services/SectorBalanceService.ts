@@ -31,6 +31,9 @@ interface OverviewData extends BaseMetrics {
   balancedSectorCount: number
 }
 
+type AlertOmitFields = 'id' | 'createdAt' | 'updatedAt'
+type SuggestionOmitFields = 'id' | 'createdAt'
+
 const logger = createLogger('SectorBalanceService')
 
 export class SectorBalanceService {
@@ -299,7 +302,7 @@ export class SectorBalanceService {
 
   private async saveGeneratedAlerts(
     distributions: SectorDistribution[]
-  ): Promise<Omit<ConcentrationAlert, 'id' | 'createdAt' | 'updatedAt'>[]> {
+  ): Promise<Omit<ConcentrationAlert, AlertOmitFields>[]> {
     const alerts = await this.generateConcentrationAlerts(distributions)
     for (const alert of alerts) {
       await this.sectorBalanceModel.createAlert(alert)
@@ -309,7 +312,7 @@ export class SectorBalanceService {
 
   private async saveGeneratedSuggestions(
     distributions: SectorDistribution[]
-  ): Promise<Omit<RebalancingSuggestion, 'id' | 'createdAt'>[]> {
+  ): Promise<Omit<RebalancingSuggestion, SuggestionOmitFields>[]> {
     const suggestions = await this.generateRebalancingSuggestions(distributions)
     for (const suggestion of suggestions) {
       await this.sectorBalanceModel.createSuggestion(suggestion)
@@ -319,7 +322,7 @@ export class SectorBalanceService {
 
   private identifyAnalysisIssues(
     sectorsAnalyzed: number,
-    alerts: Omit<ConcentrationAlert, 'id' | 'createdAt' | 'updatedAt'>[]
+    alerts: Omit<ConcentrationAlert, AlertOmitFields>[]
   ): string[] {
     const issues: string[] = []
     if (sectorsAnalyzed < 3) {
@@ -528,7 +531,16 @@ export class SectorBalanceService {
     else if (maxConcentration > config.warningThreshold) score += 25
     if (sectorCount < config.minSectorCount) score += 30
     score += Math.min(20, overAllocatedCount * 5)
-    const level = score > 70 ? 'CRITICAL' : score > 50 ? 'HIGH' : score > 25 ? 'MEDIUM' : 'LOW'
+    let level: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+    if (score > 70) {
+      level = 'CRITICAL'
+    } else if (score > 50) {
+      level = 'HIGH'
+    } else if (score > 25) {
+      level = 'MEDIUM'
+    } else {
+      level = 'LOW'
+    }
     return { score, level }
   }
 
@@ -617,7 +629,7 @@ export class SectorBalanceService {
    */
   private async generateConcentrationAlerts(
     distributions: SectorDistribution[]
-  ): Promise<Omit<ConcentrationAlert, 'id' | 'createdAt' | 'updatedAt'>[]> {
+  ): Promise<Omit<ConcentrationAlert, AlertOmitFields>[]> {
     const config = DEFAULT_SECTOR_BALANCE_CONFIG
     const alerts = distributions.flatMap(dist =>
       this.evaluateDistributionAlerts(dist, config)
@@ -629,8 +641,8 @@ export class SectorBalanceService {
   private evaluateDistributionAlerts(
     dist: SectorDistribution,
     config: typeof DEFAULT_SECTOR_BALANCE_CONFIG
-  ): Omit<ConcentrationAlert, 'id' | 'createdAt' | 'updatedAt'>[] {
-    const alerts: Omit<ConcentrationAlert, 'id' | 'createdAt' | 'updatedAt'>[] = []
+  ): Omit<ConcentrationAlert, AlertOmitFields>[] {
+    const alerts: Omit<ConcentrationAlert, AlertOmitFields>[] = []
     if (dist.percentage > config.criticalThreshold) {
       alerts.push({
         sector: dist.sector,
@@ -675,7 +687,7 @@ export class SectorBalanceService {
   }
 
   private addPortfolioAlertIfNeeded(
-    alerts: Omit<ConcentrationAlert, 'id' | 'createdAt' | 'updatedAt'>[],
+    alerts: Omit<ConcentrationAlert, AlertOmitFields>[],
     distributions: SectorDistribution[],
     config: typeof DEFAULT_SECTOR_BALANCE_CONFIG
   ) {
@@ -697,13 +709,13 @@ export class SectorBalanceService {
   /**
    * Generate rebalancing suggestions
    */
-  private async generateRebalancingSuggestions(distributions: SectorDistribution[]): Promise<Omit<RebalancingSuggestion, 'id' | 'createdAt'>[]> {
+  private async generateRebalancingSuggestions(distributions: SectorDistribution[]): Promise<Omit<RebalancingSuggestion, SuggestionOmitFields>[]> {
     const context = await this.prepareSuggestionContext()
     const evaluations = await Promise.all(
       distributions.map(dist => this.evaluateDistributionForSuggestions(dist, context))
     )
     const suggestions = evaluations.filter(
-      (s): s is Omit<RebalancingSuggestion, 'id' | 'createdAt'> => s !== null
+      (s): s is Omit<RebalancingSuggestion, SuggestionOmitFields> => s !== null
     )
     return this.sortSuggestions(suggestions)
   }
@@ -718,7 +730,7 @@ export class SectorBalanceService {
   private async evaluateDistributionForSuggestions(
     dist: SectorDistribution,
     ctx: { analysisDate: string; totalValue: number }
-  ): Promise<Omit<RebalancingSuggestion, 'id' | 'createdAt'> | null> {
+  ): Promise<Omit<RebalancingSuggestion, SuggestionOmitFields> | null> {
     if (Math.abs(dist.deviation) <= DEFAULT_SECTOR_BALANCE_CONFIG.rebalanceThreshold) {
       return null
     }
@@ -745,8 +757,8 @@ export class SectorBalanceService {
   }
 
   private sortSuggestions(
-    suggestions: Omit<RebalancingSuggestion, 'id' | 'createdAt'>[]
-  ): Omit<RebalancingSuggestion, 'id' | 'createdAt'>[] {
+    suggestions: Omit<RebalancingSuggestion, SuggestionOmitFields>[]
+  ): Omit<RebalancingSuggestion, SuggestionOmitFields>[] {
     return suggestions.sort((a, b) => a.priority - b.priority)
   }
 
