@@ -338,7 +338,13 @@ class GoalOptimizerService {
     description: string;
     action: string;
   }> {
-    const actions: any[] = [];
+    const actions: Array<{
+      type: 'gap' | 'contribution' | 'strategy' | 'milestone' | 'opportunity';
+      priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+      title: string;
+      description: string;
+      action: string;
+    }> = [];
 
     // Revisar gap crítico
     if (summary.gap_analysis && summary.gap_analysis.risk_level === 'HIGH') {
@@ -398,10 +404,13 @@ class GoalOptimizerService {
       });
     }
 
-    return actions.sort((a, b) => {
-      const priorityOrder = { 'URGENT': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 };
-      return priorityOrder[b.priority] - priorityOrder[a.priority];
-    });
+    const priorityOrder: Record<'URGENT' | 'HIGH' | 'MEDIUM' | 'LOW', number> = {
+      URGENT: 4,
+      HIGH: 3,
+      MEDIUM: 2,
+      LOW: 1
+    };
+    return actions.sort((a, b) => priorityOrder[b.priority] - priorityOrder[a.priority]);
   }
 }
 

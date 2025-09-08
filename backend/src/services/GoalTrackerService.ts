@@ -19,68 +19,39 @@ export class GoalTrackerService {
 
   // 26.1: Crear nuevo objetivo financiero
   async createFinancialGoal(goalData: CreateFinancialGoalDto): Promise<FinancialGoal> {
-    return new Promise((resolve, reject) => {
-      const query = `
-        INSERT INTO financial_goals (
-          name, type, target_amount, target_date, monthly_contribution,
-          expected_return_rate, description, currency
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `;
-      
-      this.db.run(query, [
-        goalData.name,
-        goalData.type,
-        goalData.target_amount,
-        goalData.target_date,
-        goalData.monthly_contribution || 0,
-        goalData.expected_return_rate,
-        goalData.description,
-        goalData.currency || 'USD'
-      ], function(err) {
-        if (err) {
-          reject(err);
-          return;
-        }
-        
-        // Recuperar el objetivo creado
-        const selectQuery = 'SELECT * FROM financial_goals WHERE id = ?';
-        this.get(selectQuery, [this.lastID], (selectErr, row) => {
-          if (selectErr) {
-            reject(selectErr);
-            return;
-          }
-          resolve(row as FinancialGoal);
-        });
-      });
-    });
+    const query = `
+      INSERT INTO financial_goals (
+        name, type, target_amount, target_date, monthly_contribution,
+        expected_return_rate, description, currency
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    const stmt = this.db.prepare(query);
+    const info = stmt.run(
+      goalData.name,
+      goalData.type,
+      goalData.target_amount,
+      goalData.target_date,
+      goalData.monthly_contribution || 0,
+      goalData.expected_return_rate,
+      goalData.description,
+      goalData.currency || 'USD'
+    );
+    const row = this.db.prepare('SELECT * FROM financial_goals WHERE id = ?').get(info.lastInsertRowid);
+    return row as FinancialGoal;
   }
 
   // 26.1: Obtener todos los objetivos
   async getAllGoals(): Promise<FinancialGoal[]> {
-    return new Promise((resolve, reject) => {
-      const query = 'SELECT * FROM financial_goals ORDER BY created_date DESC';
-      this.db.all(query, [], (err, rows) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve(rows as FinancialGoal[]);
-      });
-    });
+    const query = 'SELECT * FROM financial_goals ORDER BY created_date DESC';
+    const rows = this.db.prepare(query).all();
+    return rows as FinancialGoal[];
   }
 
   // 26.1: Obtener objetivo por ID
   async getGoalById(goalId: number): Promise<FinancialGoal | null> {
-    return new Promise((resolve, reject) => {
-      const query = 'SELECT * FROM financial_goals WHERE id = ?';
-      this.db.get(query, [goalId], (err, row) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve(row as FinancialGoal || null);
-      });
-    });
+    const query = 'SELECT * FROM financial_goals WHERE id = ?';
+    const row = this.db.prepare(query).get(goalId);
+    return (row as FinancialGoal) || null;
   }
 
   // 26.2: Calculadora de tiempo para alcanzar metas
