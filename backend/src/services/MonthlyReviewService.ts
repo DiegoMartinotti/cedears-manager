@@ -43,6 +43,10 @@ export interface CEDEARMarketData {
   isVeganFriendly?: boolean
 }
 
+type CandidateRecommendation = 'STRONG_ADD' | 'ADD' | 'CONSIDER' | 'REJECT'
+type RemovalSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+type RemovalRecommendation = 'REMOVE_IMMEDIATELY' | 'REMOVE' | 'MONITOR' | 'KEEP'
+
 export class MonthlyReviewService {
   private db = DatabaseConnection.getInstance()
   private monthlyReviewModel: MonthlyReviewModel
@@ -296,27 +300,27 @@ export class MonthlyReviewService {
       const currentESGScore = await this.calculateESGScore(baseData)
       const currentVeganScore = await this.calculateVeganScore(baseData)
 
-      const shouldRemove = this.shouldRemoveInstrument(
+      const removal = await this.shouldRemoveInstrument(
         instrument,
         currentESGScore,
         currentVeganScore,
         settings
       )
 
-      if (!shouldRemove.remove) return null
+      if (!removal.remove) return null
 
       return this.monthlyReviewModel.createRemovalCandidate({
         instrumentId: instrument.id!,
-        reason: shouldRemove.reason,
-        severity: shouldRemove.severity,
+        reason: removal.reason,
+        severity: removal.severity,
         currentEsgScore: currentESGScore,
         currentVeganScore: currentVeganScore,
         previousEsgScore: instrument.esgScore,
         previousVeganScore: instrument.veganScore,
-        recommendation: shouldRemove.recommendation,
-        confidenceScore: shouldRemove.confidence,
-        claudeAnalysis: JSON.stringify(shouldRemove.claudeAnalysis),
-        lostCriteria: JSON.stringify(shouldRemove.lostCriteria),
+        recommendation: removal.recommendation,
+        confidenceScore: removal.confidence,
+        claudeAnalysis: JSON.stringify(removal.claudeAnalysis),
+        lostCriteria: JSON.stringify(removal.lostCriteria),
         reviewId,
         status: 'PENDING'
       })
@@ -431,7 +435,7 @@ export class MonthlyReviewService {
     veganScore: number,
     settings: ReviewSettings
   ): Promise<{
-    recommendation: 'STRONG_ADD' | 'ADD' | 'CONSIDER' | 'REJECT'
+    recommendation: CandidateRecommendation
     confidence: number
     reasons: string[]
     claudeAnalysis: any
@@ -486,7 +490,7 @@ export class MonthlyReviewService {
     return { baseScore, reasons }
   }
 
-  private determineRecommendation(baseScore: number): 'STRONG_ADD' | 'ADD' | 'CONSIDER' | 'REJECT' {
+  private determineRecommendation(baseScore: number): CandidateRecommendation {
     if (baseScore >= 85) return 'STRONG_ADD'
     if (baseScore >= 70) return 'ADD'
     if (baseScore >= 55) return 'CONSIDER'
@@ -495,7 +499,7 @@ export class MonthlyReviewService {
 
   private async getCandidateAnalysis(
     data: CEDEARMarketData,
-    recommendation: 'STRONG_ADD' | 'ADD' | 'CONSIDER' | 'REJECT'
+    recommendation: CandidateRecommendation
   ): Promise<any> {
     if (recommendation === 'REJECT') return null
     try {
@@ -506,23 +510,36 @@ export class MonthlyReviewService {
     }
   }
 
+  private async getRemovalAnalysis(
+    instrument: any,
+    recommendation: RemovalRecommendation
+  ): Promise<any> {
+    if (recommendation === 'KEEP') return null
+    try {
+      return await this.claudeService.analyzeInstrument(instrument.ticker, 'divestment_thesis')
+    } catch (error) {
+      logger.warn(`Failed to get Claude removal analysis for ${instrument.ticker}:`, error)
+      return null
+    }
+  }
+
   /**
    * Check if an instrument should be removed
    */
-  private shouldRemoveInstrument(
+  private async shouldRemoveInstrument(
     instrument: any,
     currentESGScore: number,
     currentVeganScore: number,
     settings: ReviewSettings
-  ): {
+  ): Promise<{
     remove: boolean
     reason: string
-    severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
-    recommendation: 'REMOVE_IMMEDIATELY' | 'REMOVE' | 'MONITOR' | 'KEEP'
+    severity: RemovalSeverity
+    recommendation: RemovalRecommendation
     confidence: number
     lostCriteria: string[]
     claudeAnalysis: any
-  } {
+  }> {
     const { lostCriteria, severity, confidence } = this.evaluateRemovalCriteria(
       instrument,
       currentESGScore,
@@ -532,6 +549,7 @@ export class MonthlyReviewService {
 
     const shouldRemove = lostCriteria.length > 0 && settings.removeOnCriteriaLoss
     const recommendation = this.determineRemovalRecommendation(severity)
+    const claudeAnalysis = await this.getRemovalAnalysis(instrument, recommendation)
 
     return {
       remove: shouldRemove,
@@ -540,7 +558,7 @@ export class MonthlyReviewService {
       recommendation,
       confidence: Math.min(confidence, 95),
       lostCriteria,
-      claudeAnalysis: null // TODO: Add Claude analysis for removal candidates
+      claudeAnalysis
     }
   }
 
@@ -549,9 +567,9 @@ export class MonthlyReviewService {
     currentESGScore: number,
     currentVeganScore: number,
     settings: ReviewSettings
-  ): { lostCriteria: string[]; severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'; confidence: number } {
+  ): { lostCriteria: string[]; severity: RemovalSeverity; confidence: number } {
     const lostCriteria: string[] = []
-    let severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = 'LOW'
+    let severity: RemovalSeverity = 'LOW'
     let confidence = 70
 
     const esgLoss = (instrument.esgScore || 0) - currentESGScore
@@ -580,8 +598,8 @@ export class MonthlyReviewService {
   }
 
   private determineRemovalRecommendation(
-    severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
-  ): 'REMOVE_IMMEDIATELY' | 'REMOVE' | 'MONITOR' | 'KEEP' {
+    severity: RemovalSeverity
+  ): RemovalRecommendation {
     if (severity === 'CRITICAL') return 'REMOVE_IMMEDIATELY'
     if (severity === 'HIGH') return 'REMOVE'
     if (severity === 'MEDIUM') return 'MONITOR'
