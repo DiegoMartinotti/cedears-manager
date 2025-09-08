@@ -33,6 +33,7 @@ interface OverviewData extends BaseMetrics {
 
 type AlertOmitFields = 'id' | 'createdAt' | 'updatedAt'
 type SuggestionOmitFields = 'id' | 'createdAt'
+type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
 
 const logger = createLogger('SectorBalanceService')
 
@@ -531,7 +532,7 @@ export class SectorBalanceService {
     else if (maxConcentration > config.warningThreshold) score += 25
     if (sectorCount < config.minSectorCount) score += 30
     score += Math.min(20, overAllocatedCount * 5)
-    let level: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+    let level: RiskLevel
     if (score > 70) {
       level = 'CRITICAL'
     } else if (score > 50) {
@@ -779,7 +780,7 @@ export class SectorBalanceService {
     return deviation > 0 ? 'OVER_ALLOCATED' : 'UNDER_ALLOCATED'
   }
 
-  private getRiskLevel(percentage: number, maxAllowed: number): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
+  private getRiskLevel(percentage: number, maxAllowed: number): RiskLevel {
     if (percentage > maxAllowed * 1.5) return 'CRITICAL'
     if (percentage > maxAllowed) return 'HIGH'
     if (percentage > maxAllowed * 0.8) return 'MEDIUM'
@@ -844,7 +845,7 @@ export class SectorBalanceService {
     return 'MAINTAIN'
   }
 
-  private determinePriority(distribution: SectorDistribution): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
+  private determinePriority(distribution: SectorDistribution): RiskLevel {
     if (distribution.status === 'CRITICAL') return 'CRITICAL'
     if (Math.abs(distribution.deviation) > 15) return 'HIGH'
     if (Math.abs(distribution.deviation) > 10) return 'MEDIUM'
