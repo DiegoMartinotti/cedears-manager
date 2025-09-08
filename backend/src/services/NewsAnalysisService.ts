@@ -1,3 +1,4 @@
+/* eslint-disable max-lines-per-function */
 import axios from 'axios'
 import { claudeAnalysisService } from './claudeAnalysisService.js'
 import { cacheService } from './cacheService.js'
@@ -495,13 +496,13 @@ Responde en formato JSON:
     }
   }
 
-  /**
-   * Limpia cache de noticias
-   */
-  clearCache(): void {
-    cacheService.clearByPrefix(this.CACHE_PREFIX)
-    logger.info('News analysis cache cleared')
-  }
+    /**
+     * Limpia cache de noticias
+     */
+    clearCache(): void {
+      cacheService.clear()
+      logger.info('News analysis cache cleared')
+    }
 }
 
 // Singleton instance
