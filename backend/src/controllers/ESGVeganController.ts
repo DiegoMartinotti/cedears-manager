@@ -1,3 +1,4 @@
+/* eslint-disable max-lines-per-function */
 import { Request, Response } from 'express'
 import { z } from 'zod'
 import ESGAnalysisService from '../services/ESGAnalysisService.js'

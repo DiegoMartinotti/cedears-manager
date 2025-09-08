@@ -1,3 +1,4 @@
+/* eslint-disable max-lines-per-function */
 import cron from 'node-cron'
 import { quoteService } from '../services/QuoteService.js'
 import { createLogger } from '../utils/logger.js'

@@ -1,7 +1,7 @@
+/* eslint-disable max-lines-per-function */
 import { UVAService } from '../services/UVAService.js'
-import { UVAData, UVAInflationAdjustment } from '../models/UVA.js'
 import { createLogger } from './logger.js'
-import { format, parseISO, isValid, differenceInDays, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns'
+import { format, parseISO, isValid, differenceInDays, startOfMonth, startOfYear } from 'date-fns'
 
 const logger = createLogger('UVAHelpers')
 
