@@ -12,16 +12,28 @@ import type {
   InstrumentSectorSummary,
   ConcentrationAlert,
   RebalancingSuggestion,
-  SectorBalanceAnalysis,
   PortfolioBalance,
   ConcentrationRisk,
   DiversificationMetrics,
   RebalanceRecommendation,
-  SuggestedAction,
-  BalanceHealthScore,
-  SectorStats,
-  SectorBalanceConfig
+  SuggestedAction
 } from '../types/sectorBalance.types.js'
+
+interface BaseMetrics {
+  totalPortfolioValue: number
+  sectorDistributions: SectorDistribution[]
+  activeAlerts: ConcentrationAlert[]
+  activeSuggestions: RebalancingSuggestion[]
+  diversificationScore: number
+}
+
+interface OverviewData extends BaseMetrics {
+  balancedSectorCount: number
+}
+
+type AlertOmitFields = 'id' | 'createdAt' | 'updatedAt'
+type SuggestionOmitFields = 'id' | 'createdAt'
+type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
 
 const logger = createLogger('SectorBalanceService')
 
@@ -44,36 +56,57 @@ export class SectorBalanceService {
     try {
       logger.info('Generating sector balance overview')
 
-      const [
-        totalPortfolioValue,
-        sectorDistributions,
-        activeAlerts,
-        activeSuggestions,
-        diversificationScore
-      ] = await Promise.all([
-        this.getTotalPortfolioValue(),
-        this.getSectorDistributions(),
-        this.sectorBalanceModel.findActiveAlerts(),
-        this.sectorBalanceModel.findActiveSuggestions(10),
-        this.calculateDiversificationScore()
-      ])
-
-      const balancedSectors = sectorDistributions.filter(s => s.status === 'BALANCED').length
-
-      return {
-        totalPortfolioValue,
-        sectorCount: sectorDistributions.length,
-        balancedSectorCount: balancedSectors,
-        alertCount: activeAlerts.length,
-        diversificationScore,
-        lastAnalysis: new Date().toISOString(),
-        sectorDistributions,
-        alerts: activeAlerts,
-        suggestions: activeSuggestions
-      }
+      const metrics = await this.fetchBaseMetrics()
+      const overviewData = this.aggregateSectorData(metrics)
+      return this.formatOverview(overviewData)
     } catch (error) {
       logger.error('Error generating sector balance overview:', error)
       throw error
+    }
+  }
+
+  private async fetchBaseMetrics(): Promise<BaseMetrics> {
+    const [
+      totalPortfolioValue,
+      sectorDistributions,
+      activeAlerts,
+      activeSuggestions,
+      diversificationScore
+    ] = await Promise.all([
+      this.getTotalPortfolioValue(),
+      this.getSectorDistributions(),
+      this.sectorBalanceModel.findActiveAlerts(),
+      this.sectorBalanceModel.findActiveSuggestions(10),
+      this.calculateDiversificationScore()
+    ])
+
+    return {
+      totalPortfolioValue,
+      sectorDistributions,
+      activeAlerts,
+      activeSuggestions,
+      diversificationScore
+    }
+  }
+
+  private aggregateSectorData(metrics: BaseMetrics): OverviewData {
+    const balancedSectorCount = metrics.sectorDistributions.filter(
+      s => s.status === 'BALANCED'
+    ).length
+    return { ...metrics, balancedSectorCount }
+  }
+
+  private formatOverview(data: OverviewData): SectorBalanceOverview {
+    return {
+      totalPortfolioValue: data.totalPortfolioValue,
+      sectorCount: data.sectorDistributions.length,
+      balancedSectorCount: data.balancedSectorCount,
+      alertCount: data.activeAlerts.length,
+      diversificationScore: data.diversificationScore,
+      lastAnalysis: new Date().toISOString(),
+      sectorDistributions: data.sectorDistributions,
+      alerts: data.activeAlerts,
+      suggestions: data.activeSuggestions
     }
   }
 
@@ -84,31 +117,67 @@ export class SectorBalanceService {
     try {
       logger.info('Analyzing portfolio balance')
 
-      const [
-        totalValue,
-        sectorDistributions,
-        concentrationRisk,
-        diversificationMetrics
-      ] = await Promise.all([
-        this.getTotalPortfolioValue(),
-        this.getSectorDistributions(),
-        this.assessConcentrationRisk(),
-        this.calculateDiversificationMetrics()
-      ])
-
-      const rebalanceNeeded = this.isRebalanceNeeded(sectorDistributions, concentrationRisk)
-
-      return {
-        totalValue,
-        sectorDistributions,
-        concentrationRisk,
-        diversificationMetrics,
-        rebalanceNeeded,
-        lastUpdated: new Date().toISOString()
-      }
+      const metrics = await this.fetchBalanceMetrics()
+      const rebalanceNeeded = this.aggregateBalanceData(
+        metrics.sectorDistributions,
+        metrics.concentrationRisk
+      )
+      return this.formatBalanceResult(metrics, rebalanceNeeded)
     } catch (error) {
       logger.error('Error analyzing portfolio balance:', error)
       throw error
+    }
+  }
+
+  private async fetchBalanceMetrics(): Promise<{
+    totalValue: number
+    sectorDistributions: SectorDistribution[]
+    concentrationRisk: ConcentrationRisk
+    diversificationMetrics: DiversificationMetrics
+  }> {
+    const [
+      totalValue,
+      sectorDistributions,
+      concentrationRisk,
+      diversificationMetrics
+    ] = await Promise.all([
+      this.getTotalPortfolioValue(),
+      this.getSectorDistributions(),
+      this.assessConcentrationRisk(),
+      this.calculateDiversificationMetrics()
+    ])
+
+    return {
+      totalValue,
+      sectorDistributions,
+      concentrationRisk,
+      diversificationMetrics
+    }
+  }
+
+  private aggregateBalanceData(
+    sectorDistributions: SectorDistribution[],
+    concentrationRisk: ConcentrationRisk
+  ): boolean {
+    return this.isRebalanceNeeded(sectorDistributions, concentrationRisk)
+  }
+
+  private formatBalanceResult(
+    metrics: {
+      totalValue: number
+      sectorDistributions: SectorDistribution[]
+      concentrationRisk: ConcentrationRisk
+      diversificationMetrics: DiversificationMetrics
+    },
+    rebalanceNeeded: boolean
+  ): PortfolioBalance {
+    return {
+      totalValue: metrics.totalValue,
+      sectorDistributions: metrics.sectorDistributions,
+      concentrationRisk: metrics.concentrationRisk,
+      diversificationMetrics: metrics.diversificationMetrics,
+      rebalanceNeeded,
+      lastUpdated: new Date().toISOString()
     }
   }
 
@@ -119,38 +188,61 @@ export class SectorBalanceService {
     try {
       logger.info('Generating rebalance recommendations')
 
-      const sectorDistributions = await this.getSectorDistributions()
-      const targets = await this.sectorBalanceModel.findAllTargets()
-      const recommendations: RebalanceRecommendation[] = []
-
-      for (const distribution of sectorDistributions) {
-        const target = targets.find(t => t.sector === distribution.sector)
-        if (!target) continue
-
-        const recommendation = await this.createRebalanceRecommendation(
-          distribution,
-          target.targetPercentage
-        )
-
-        if (recommendation) {
-          recommendations.push(recommendation)
-        }
-      }
-
-      // Sort by priority and impact
-      recommendations.sort((a, b) => {
-        if (a.priority !== b.priority) {
-          const priorityOrder = { 'CRITICAL': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 }
-          return priorityOrder[b.priority] - priorityOrder[a.priority]
-        }
-        return Math.abs(b.percentageChange) - Math.abs(a.percentageChange)
-      })
-
-      return recommendations.slice(0, 10) // Top 10 recommendations
+      const { sectorDistributions, targets } = await this.fetchRecommendationData()
+      const recommendations = await this.buildRecommendations(
+        sectorDistributions,
+        targets
+      )
+      return this.sortAndLimitRecommendations(recommendations)
     } catch (error) {
       logger.error('Error generating rebalance recommendations:', error)
       throw error
     }
+  }
+
+  private async fetchRecommendationData(): Promise<{
+    sectorDistributions: SectorDistribution[]
+    targets: any[]
+  }> {
+    const [sectorDistributions, targets] = await Promise.all([
+      this.getSectorDistributions(),
+      this.sectorBalanceModel.findAllTargets()
+    ])
+    return { sectorDistributions, targets }
+  }
+
+  private async buildRecommendations(
+    sectorDistributions: SectorDistribution[],
+    targets: any[]
+  ): Promise<RebalanceRecommendation[]> {
+    const recommendations: RebalanceRecommendation[] = []
+    for (const distribution of sectorDistributions) {
+      const target = targets.find((t: any) => t.sector === distribution.sector)
+      if (!target) continue
+
+      const recommendation = await this.createRebalanceRecommendation(
+        distribution,
+        target.targetPercentage
+      )
+
+      if (recommendation) {
+        recommendations.push(recommendation)
+      }
+    }
+    return recommendations
+  }
+
+  private sortAndLimitRecommendations(
+    recommendations: RebalanceRecommendation[]
+  ): RebalanceRecommendation[] {
+    recommendations.sort((a, b) => {
+      if (a.priority !== b.priority) {
+        const priorityOrder = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 }
+        return priorityOrder[b.priority] - priorityOrder[a.priority]
+      }
+      return Math.abs(b.percentageChange) - Math.abs(a.percentageChange)
+    })
+    return recommendations.slice(0, 10)
   }
 
   /**
@@ -164,70 +256,92 @@ export class SectorBalanceService {
     issues: string[]
   }> {
     try {
-      const analysisDate = new Date().toISOString().split('T')[0] // YYYY-MM-DD
-      const issues: string[] = []
-      let alertsGenerated = 0
-      let suggestionsCreated = 0
-
+      const analysisDate = new Date().toISOString().split('T')[0]
       logger.info(`Running sector analysis for ${analysisDate}`)
 
-      // 1. Get current sector distributions
       const distributions = await this.getSectorDistributions()
-      const sectorsAnalyzed = distributions.length
+      await this.createAnalysisRecords(analysisDate, distributions)
 
-      // 2. Create analysis records
-      for (const distribution of distributions) {
-        await this.sectorBalanceModel.createAnalysis({
-          analysisDate,
-          sector: distribution.sector,
-          currentPercentage: distribution.percentage,
-          targetPercentage: distribution.targetPercentage,
-          deviation: distribution.deviation,
-          recommendation: this.generateSectorRecommendation(distribution),
-          actionRequired: this.determineActionRequired(distribution),
-          priority: this.determinePriority(distribution),
-          totalValue: distribution.totalValue,
-          instrumentCount: distribution.instrumentCount
-        })
-      }
+      const alerts = await this.saveGeneratedAlerts(distributions)
+      const suggestions = await this.saveGeneratedSuggestions(distributions)
 
-      // 3. Generate alerts
-      const alerts = await this.generateConcentrationAlerts(distributions)
-      for (const alert of alerts) {
-        await this.sectorBalanceModel.createAlert(alert)
-        alertsGenerated++
-      }
-
-      // 4. Generate suggestions
-      const suggestions = await this.generateRebalancingSuggestions(distributions)
-      for (const suggestion of suggestions) {
-        await this.sectorBalanceModel.createSuggestion(suggestion)
-        suggestionsCreated++
-      }
-
-      // 5. Check for issues
-      if (sectorsAnalyzed < 3) {
-        issues.push('Portfolio has fewer than 3 sectors - insufficient diversification')
-      }
-
-      const criticalAlerts = alerts.filter(a => a.severity === 'CRITICAL').length
-      if (criticalAlerts > 0) {
-        issues.push(`${criticalAlerts} critical concentration alerts generated`)
-      }
-
-      logger.info(`Analysis completed: ${sectorsAnalyzed} sectors, ${alertsGenerated} alerts, ${suggestionsCreated} suggestions`)
-
-      return {
+      const issues = this.identifyAnalysisIssues(distributions.length, alerts)
+      return this.formatAnalysisSummary(
         analysisDate,
-        alertsGenerated,
-        suggestionsCreated,
-        sectorsAnalyzed,
+        {
+          alertsGenerated: alerts.length,
+          suggestionsCreated: suggestions.length,
+          sectorsAnalyzed: distributions.length
+        },
         issues
-      }
+      )
     } catch (error) {
       logger.error('Error running sector analysis:', error)
       throw error
     }
+  }
+
+  private async createAnalysisRecords(
+    analysisDate: string,
+    distributions: SectorDistribution[]
+  ): Promise<void> {
+    for (const distribution of distributions) {
+      await this.sectorBalanceModel.createAnalysis({
+        analysisDate,
+        sector: distribution.sector,
+        currentPercentage: distribution.percentage,
+        targetPercentage: distribution.targetPercentage,
+        deviation: distribution.deviation,
+        recommendation: this.generateSectorRecommendation(distribution),
+        actionRequired: this.determineActionRequired(distribution),
+        priority: this.determinePriority(distribution),
+        totalValue: distribution.totalValue,
+        instrumentCount: distribution.instrumentCount
+      })
+    }
+  }
+
+  private async saveGeneratedAlerts(
+    distributions: SectorDistribution[]
+  ): Promise<Omit<ConcentrationAlert, AlertOmitFields>[]> {
+    const alerts = await this.generateConcentrationAlerts(distributions)
+    for (const alert of alerts) {
+      await this.sectorBalanceModel.createAlert(alert)
+    }
+    return alerts
+  }
+
+  private async saveGeneratedSuggestions(
+    distributions: SectorDistribution[]
+  ): Promise<Omit<RebalancingSuggestion, SuggestionOmitFields>[]> {
+    const suggestions = await this.generateRebalancingSuggestions(distributions)
+    for (const suggestion of suggestions) {
+      await this.sectorBalanceModel.createSuggestion(suggestion)
+    }
+    return suggestions
+  }
+
+  private identifyAnalysisIssues(
+    sectorsAnalyzed: number,
+    alerts: Omit<ConcentrationAlert, AlertOmitFields>[]
+  ): string[] {
+    const issues: string[] = []
+    if (sectorsAnalyzed < 3) {
+      issues.push('Portfolio has fewer than 3 sectors - insufficient diversification')
+    }
+    const criticalAlerts = alerts.filter(a => a.severity === 'CRITICAL').length
+    if (criticalAlerts > 0) {
+      issues.push(`${criticalAlerts} critical concentration alerts generated`)
+    }
+    return issues
+  }
+
+  private formatAnalysisSummary(
+    analysisDate: string,
+    counts: { alertsGenerated: number; suggestionsCreated: number; sectorsAnalyzed: number },
+    issues: string[]
+  ) {
+    return { analysisDate, ...counts, issues }
   }
 
   // ============================================================================
@@ -239,83 +353,81 @@ export class SectorBalanceService {
    */
   async getSectorDistributions(): Promise<SectorDistribution[]> {
     try {
-      // Get all portfolio positions with current market values
       const positions = await this.portfolioPositionModel.findAll()
       const totalValue = await this.getTotalPortfolioValue()
-      
       if (totalValue === 0) {
         logger.warn('Portfolio has zero value')
         return []
       }
-
-      // Group by sector
-      const sectorMap = new Map<string, {
-        totalValue: number
-        instruments: InstrumentSectorSummary[]
-      }>()
-
-      for (const position of positions) {
-        const classification = await this.sectorClassificationModel.findByInstrumentId(position.instrumentId)
-        const instrument = await this.instrumentModel.findById(position.instrumentId)
-        const quote = await this.quoteModel.getLatestQuote(instrument?.symbol || '')
-
-        if (!classification || !instrument || !quote) {
-          logger.warn(`Missing data for position ${position.instrumentId}`)
-          continue
-        }
-
-        const currentValue = position.quantity * quote.close
-        const sector = classification.gicsSector
-
-        if (!sectorMap.has(sector)) {
-          sectorMap.set(sector, { totalValue: 0, instruments: [] })
-        }
-
-        const sectorData = sectorMap.get(sector)!
-        sectorData.totalValue += currentValue
-        sectorData.instruments.push({
-          id: instrument.id!,
-          symbol: instrument.symbol,
-          companyName: instrument.company_name,
-          currentValue,
-          percentage: (currentValue / totalValue) * 100,
-          sectorPercentage: 0, // Will be calculated after grouping
-          classification
-        })
-      }
-
-      // Convert to distribution objects
-      const distributions: SectorDistribution[] = []
-      const targets = await this.sectorBalanceModel.findAllTargets()
-
-      for (const [sector, data] of sectorMap.entries()) {
-        const percentage = (data.totalValue / totalValue) * 100
-        const target = targets.find(t => t.sector === sector)
-        const targetPercentage = target?.targetPercentage || 10.0
-        const deviation = percentage - targetPercentage
-
-        // Calculate sector percentages for instruments
-        for (const instrument of data.instruments) {
-          instrument.sectorPercentage = (instrument.currentValue / data.totalValue) * 100
-        }
-
-        distributions.push({
-          sector,
-          percentage,
-          totalValue: data.totalValue,
-          instrumentCount: data.instruments.length,
-          instruments: data.instruments.sort((a, b) => b.currentValue - a.currentValue),
-          targetPercentage,
-          deviation,
-          status: this.getSectorStatus(percentage, targetPercentage, target)
-        })
-      }
-
-      return distributions.sort((a, b) => b.percentage - a.percentage)
+      const sectorMap = await this.groupPositionsBySector(positions, totalValue)
+      return this.buildDistributions(sectorMap, totalValue)
     } catch (error) {
       logger.error('Error getting sector distributions:', error)
       return []
     }
+  }
+
+  private async groupPositionsBySector(
+    positions: any[],
+    totalValue: number
+  ): Promise<Map<string, { totalValue: number; instruments: InstrumentSectorSummary[] }>> {
+    const sectorMap = new Map<string, { totalValue: number; instruments: InstrumentSectorSummary[] }>()
+    for (const position of positions) {
+      const classification = await this.sectorClassificationModel.findByInstrumentId(position.instrumentId)
+      const instrument = await this.instrumentModel.findById(position.instrumentId)
+      const quote = await this.quoteModel.getLatestQuote(instrument?.symbol || '')
+      if (!classification || !instrument || !quote) {
+        logger.warn(`Missing data for position ${position.instrumentId}`)
+        continue
+      }
+      const currentValue = position.quantity * quote.close
+      const sector = classification.gicsSector
+      if (!sectorMap.has(sector)) {
+        sectorMap.set(sector, { totalValue: 0, instruments: [] })
+      }
+      const sectorData = sectorMap.get(sector)!
+      sectorData.totalValue += currentValue
+      sectorData.instruments.push({
+        id: instrument.id!,
+        symbol: instrument.symbol,
+        companyName: instrument.company_name,
+        currentValue,
+        percentage: (currentValue / totalValue) * 100,
+        sectorPercentage: 0,
+        classification
+      })
+    }
+    return sectorMap
+  }
+
+  private async buildDistributions(
+    sectorMap: Map<string, { totalValue: number; instruments: InstrumentSectorSummary[] }>,
+    totalValue: number
+  ): Promise<SectorDistribution[]> {
+    const distributions: SectorDistribution[] = []
+    const targets = await this.sectorBalanceModel.findAllTargets()
+    for (const [sector, data] of sectorMap.entries()) {
+      const percentage = (data.totalValue / totalValue) * 100
+      const target = targets.find(t => t.sector === sector)
+      const targetPercentage = target?.targetPercentage || 10.0
+      const deviation = percentage - targetPercentage
+
+      for (const instrument of data.instruments) {
+        instrument.sectorPercentage = (instrument.currentValue / data.totalValue) * 100
+      }
+
+      distributions.push({
+        sector,
+        percentage,
+        totalValue: data.totalValue,
+        instrumentCount: data.instruments.length,
+        instruments: data.instruments.sort((a, b) => b.currentValue - a.currentValue),
+        targetPercentage,
+        deviation,
+        status: this.getSectorStatus(percentage, targetPercentage, target)
+      })
+    }
+    return distributions.sort((a, b) => b.percentage - a.percentage)
   }
 
   /**
@@ -354,50 +466,16 @@ export class SectorBalanceService {
     try {
       const distributions = await this.getSectorDistributions()
       const config = DEFAULT_SECTOR_BALANCE_CONFIG
-
-      const topConcentrations = distributions
-        .slice(0, 5)
-        .map(dist => ({
-          sector: dist.sector,
-          percentage: dist.percentage,
-          risk: this.getRiskLevel(dist.percentage, config.maxConcentration)
-        }))
-
-      const maxConcentration = Math.max(...distributions.map(d => d.percentage))
-      const riskFactors: string[] = []
-
-      // Check various risk factors
-      if (maxConcentration > config.criticalThreshold) {
-        riskFactors.push(`Critical concentration in ${distributions[0].sector} (${maxConcentration.toFixed(1)}%)`)
-      }
-
-      if (distributions.length < config.minSectorCount) {
-        riskFactors.push(`Insufficient diversification (${distributions.length} sectors, minimum ${config.minSectorCount})`)
-      }
-
-      const overAllocated = distributions.filter(d => d.percentage > config.maxConcentration)
-      if (overAllocated.length > 0) {
-        riskFactors.push(`${overAllocated.length} sectors over-allocated`)
-      }
-
-      // Calculate overall risk score
-      let score = 0
-      if (maxConcentration > config.criticalThreshold) score += 40
-      else if (maxConcentration > config.warningThreshold) score += 25
-      
-      if (distributions.length < config.minSectorCount) score += 30
-      score += Math.min(20, overAllocated.length * 5)
-
-      const level = score > 70 ? 'CRITICAL' : 
-                   score > 50 ? 'HIGH' : 
-                   score > 25 ? 'MEDIUM' : 'LOW'
-
-      return {
-        level,
-        score,
-        topConcentrations,
-        riskFactors
-      }
+      const topConcentrations = this.buildTopConcentrations(distributions, config)
+      const { maxConcentration, overAllocated, riskFactors } =
+        this.evaluateRiskFactors(distributions, config)
+      const { score, level } = this.calculateRiskScore(
+        maxConcentration,
+        distributions.length,
+        overAllocated.length,
+        config
+      )
+      return { level, score, topConcentrations, riskFactors }
     } catch (error) {
       logger.error('Error assessing concentration risk:', error)
       return {
@@ -409,43 +487,86 @@ export class SectorBalanceService {
     }
   }
 
+  private buildTopConcentrations(
+    distributions: SectorDistribution[],
+    config: typeof DEFAULT_SECTOR_BALANCE_CONFIG
+  ) {
+    return distributions.slice(0, 5).map(dist => ({
+      sector: dist.sector,
+      percentage: dist.percentage,
+      risk: this.getRiskLevel(dist.percentage, config.maxConcentration)
+    }))
+  }
+
+  private evaluateRiskFactors(
+    distributions: SectorDistribution[],
+    config: typeof DEFAULT_SECTOR_BALANCE_CONFIG
+  ) {
+    const maxConcentration = Math.max(...distributions.map(d => d.percentage))
+    const riskFactors: string[] = []
+    if (maxConcentration > config.criticalThreshold) {
+      riskFactors.push(
+        `Critical concentration in ${distributions[0].sector} (${maxConcentration.toFixed(1)}%)`
+      )
+    }
+    if (distributions.length < config.minSectorCount) {
+      riskFactors.push(
+        `Insufficient diversification (${distributions.length} sectors, minimum ${config.minSectorCount})`
+      )
+    }
+    const overAllocated = distributions.filter(d => d.percentage > config.maxConcentration)
+    if (overAllocated.length > 0) {
+      riskFactors.push(`${overAllocated.length} sectors over-allocated`)
+    }
+    return { maxConcentration, riskFactors, overAllocated }
+  }
+
+  private calculateRiskScore(
+    maxConcentration: number,
+    sectorCount: number,
+    overAllocatedCount: number,
+    config: typeof DEFAULT_SECTOR_BALANCE_CONFIG
+  ) {
+    let score = 0
+    if (maxConcentration > config.criticalThreshold) score += 40
+    else if (maxConcentration > config.warningThreshold) score += 25
+    if (sectorCount < config.minSectorCount) score += 30
+    score += Math.min(20, overAllocatedCount * 5)
+    let level: RiskLevel
+    if (score > 70) {
+      level = 'CRITICAL'
+    } else if (score > 50) {
+      level = 'HIGH'
+    } else if (score > 25) {
+      level = 'MEDIUM'
+    } else {
+      level = 'LOW'
+    }
+    return { score, level }
+  }
+
   /**
    * Calculate diversification metrics
    */
   async calculateDiversificationMetrics(): Promise<DiversificationMetrics> {
     try {
       const distributions = await this.getSectorDistributions()
-      
       if (distributions.length === 0) {
-        return {
-          sectorCount: 0,
-          effectiveSectors: 0,
-          giniCoefficient: 1,
-          herfindahlIndex: 1,
-          diversificationRatio: 0,
-          score: 0
-        }
+        return this.defaultDiversificationMetrics()
       }
 
       const weights = distributions.map(d => d.percentage / 100)
-      
-      // Herfindahl-Hirschman Index
-      const herfindahlIndex = weights.reduce((sum, w) => sum + w * w, 0)
-      
-      // Effective number of sectors
-      const effectiveSectors = 1 / herfindahlIndex
-      
-      // Gini coefficient
-      const giniCoefficient = this.calculateGiniCoefficient(weights)
-      
-      // Diversification ratio (0-1, higher is better)
-      const diversificationRatio = effectiveSectors / distributions.length
-      
-      // Overall diversification score (0-100)
-      let score = 100
-      score *= (1 - herfindahlIndex) // Penalize concentration
-      score *= Math.min(1, distributions.length / DEFAULT_SECTOR_BALANCE_CONFIG.minSectorCount) // Reward sector count
-      score *= diversificationRatio // Reward even distribution
+      const {
+        herfindahlIndex,
+        effectiveSectors,
+        giniCoefficient,
+        diversificationRatio
+      } = this.computeDiversificationIndices(weights, distributions.length)
+      const score = this.computeDiversificationScore(
+        herfindahlIndex,
+        distributions.length,
+        diversificationRatio
+      )
 
       return {
         sectorCount: distributions.length,
@@ -457,14 +578,38 @@ export class SectorBalanceService {
       }
     } catch (error) {
       logger.error('Error calculating diversification metrics:', error)
-      return {
-        sectorCount: 0,
-        effectiveSectors: 0,
-        giniCoefficient: 1,
-        herfindahlIndex: 1,
-        diversificationRatio: 0,
-        score: 0
-      }
+      return this.defaultDiversificationMetrics()
+    }
+  }
+
+  private computeDiversificationIndices(weights: number[], count: number) {
+    const herfindahlIndex = weights.reduce((sum, w) => sum + w * w, 0)
+    const effectiveSectors = 1 / herfindahlIndex
+    const giniCoefficient = this.calculateGiniCoefficient(weights)
+    const diversificationRatio = effectiveSectors / count
+    return { herfindahlIndex, effectiveSectors, giniCoefficient, diversificationRatio }
+  }
+
+  private computeDiversificationScore(
+    herfindahlIndex: number,
+    sectorCount: number,
+    diversificationRatio: number
+  ) {
+    let score = 100
+    score *= 1 - herfindahlIndex
+    score *= Math.min(1, sectorCount / DEFAULT_SECTOR_BALANCE_CONFIG.minSectorCount)
+    score *= diversificationRatio
+    return score
+  }
+
+  private defaultDiversificationMetrics(): DiversificationMetrics {
+    return {
+      sectorCount: 0,
+      effectiveSectors: 0,
+      giniCoefficient: 1,
+      herfindahlIndex: 1,
+      diversificationRatio: 0,
+      score: 0
     }
   }
 
@@ -483,56 +628,70 @@ export class SectorBalanceService {
   /**
    * Generate concentration alerts
    */
-  private async generateConcentrationAlerts(distributions: SectorDistribution[]): Promise<Omit<ConcentrationAlert, 'id' | 'createdAt' | 'updatedAt'>[]> {
-    const alerts: Omit<ConcentrationAlert, 'id' | 'createdAt' | 'updatedAt'>[] = []
+  private async generateConcentrationAlerts(
+    distributions: SectorDistribution[]
+  ): Promise<Omit<ConcentrationAlert, AlertOmitFields>[]> {
     const config = DEFAULT_SECTOR_BALANCE_CONFIG
+    const alerts = distributions.flatMap(dist =>
+      this.evaluateDistributionAlerts(dist, config)
+    )
+    this.addPortfolioAlertIfNeeded(alerts, distributions, config)
+    return alerts
+  }
 
-    for (const dist of distributions) {
-      // Over-concentration alerts
-      if (dist.percentage > config.criticalThreshold) {
-        alerts.push({
-          sector: dist.sector,
-          alertType: 'OVER_CONCENTRATION',
-          severity: 'CRITICAL',
-          currentPercentage: dist.percentage,
-          thresholdPercentage: config.criticalThreshold,
-          message: `Critical over-concentration in ${dist.sector} sector (${dist.percentage.toFixed(1)}% vs ${config.criticalThreshold}% threshold)`,
-          actionRequired: `Reduce ${dist.sector} allocation by ${(dist.percentage - dist.targetPercentage).toFixed(1)}%`,
-          isActive: true,
-          isAcknowledged: false
-        })
-      } else if (dist.percentage > config.warningThreshold) {
-        alerts.push({
-          sector: dist.sector,
-          alertType: 'OVER_CONCENTRATION',
-          severity: 'MEDIUM',
-          currentPercentage: dist.percentage,
-          thresholdPercentage: config.warningThreshold,
-          message: `High concentration in ${dist.sector} sector (${dist.percentage.toFixed(1)}%)`,
-          actionRequired: `Monitor ${dist.sector} allocation and consider rebalancing`,
-          isActive: true,
-          isAcknowledged: false
-        })
-      }
-
-      // Large deviation alerts
-      if (Math.abs(dist.deviation) > config.rebalanceThreshold) {
-        const severity = Math.abs(dist.deviation) > 15 ? 'HIGH' : 'MEDIUM'
-        alerts.push({
-          sector: dist.sector,
-          alertType: 'SECTOR_DEVIATION',
-          severity,
-          currentPercentage: dist.percentage,
-          thresholdPercentage: dist.targetPercentage,
-          message: `${dist.sector} sector deviates ${dist.deviation > 0 ? 'above' : 'below'} target by ${Math.abs(dist.deviation).toFixed(1)}%`,
-          actionRequired: `Rebalance ${dist.sector} toward ${dist.targetPercentage}% target`,
-          isActive: true,
-          isAcknowledged: false
-        })
-      }
+  private evaluateDistributionAlerts(
+    dist: SectorDistribution,
+    config: typeof DEFAULT_SECTOR_BALANCE_CONFIG
+  ): Omit<ConcentrationAlert, AlertOmitFields>[] {
+    const alerts: Omit<ConcentrationAlert, AlertOmitFields>[] = []
+    if (dist.percentage > config.criticalThreshold) {
+      alerts.push({
+        sector: dist.sector,
+        alertType: 'OVER_CONCENTRATION',
+        severity: 'CRITICAL',
+        currentPercentage: dist.percentage,
+        thresholdPercentage: config.criticalThreshold,
+        message: `Critical over-concentration in ${dist.sector} sector (${dist.percentage.toFixed(1)}% vs ${config.criticalThreshold}% threshold)`,
+        actionRequired: `Reduce ${dist.sector} allocation by ${(dist.percentage - dist.targetPercentage).toFixed(1)}%`,
+        isActive: true,
+        isAcknowledged: false
+      })
+    } else if (dist.percentage > config.warningThreshold) {
+      alerts.push({
+        sector: dist.sector,
+        alertType: 'OVER_CONCENTRATION',
+        severity: 'MEDIUM',
+        currentPercentage: dist.percentage,
+        thresholdPercentage: config.warningThreshold,
+        message: `High concentration in ${dist.sector} sector (${dist.percentage.toFixed(1)}%)`,
+        actionRequired: `Monitor ${dist.sector} allocation and consider rebalancing`,
+        isActive: true,
+        isAcknowledged: false
+      })
     }
 
-    // Portfolio-level alerts
+    if (Math.abs(dist.deviation) > config.rebalanceThreshold) {
+      const severity = Math.abs(dist.deviation) > 15 ? 'HIGH' : 'MEDIUM'
+      alerts.push({
+        sector: dist.sector,
+        alertType: 'SECTOR_DEVIATION',
+        severity,
+        currentPercentage: dist.percentage,
+        thresholdPercentage: dist.targetPercentage,
+        message: `${dist.sector} sector deviates ${dist.deviation > 0 ? 'above' : 'below'} target by ${Math.abs(dist.deviation).toFixed(1)}%`,
+        actionRequired: `Rebalance ${dist.sector} toward ${dist.targetPercentage}% target`,
+        isActive: true,
+        isAcknowledged: false
+      })
+    }
+    return alerts
+  }
+
+  private addPortfolioAlertIfNeeded(
+    alerts: Omit<ConcentrationAlert, AlertOmitFields>[],
+    distributions: SectorDistribution[],
+    config: typeof DEFAULT_SECTOR_BALANCE_CONFIG
+  ) {
     if (distributions.length < config.minSectorCount) {
       alerts.push({
         sector: 'Portfolio',
@@ -546,45 +705,62 @@ export class SectorBalanceService {
         isAcknowledged: false
       })
     }
-
-    return alerts
   }
 
   /**
    * Generate rebalancing suggestions
    */
-  private async generateRebalancingSuggestions(distributions: SectorDistribution[]): Promise<Omit<RebalancingSuggestion, 'id' | 'createdAt'>[]> {
-    const suggestions: Omit<RebalancingSuggestion, 'id' | 'createdAt'>[] = []
-    const analysisDate = new Date().toISOString().split('T')[0]
-    const totalValue = await this.getTotalPortfolioValue()
+  private async generateRebalancingSuggestions(distributions: SectorDistribution[]): Promise<Omit<RebalancingSuggestion, SuggestionOmitFields>[]> {
+    const context = await this.prepareSuggestionContext()
+    const evaluations = await Promise.all(
+      distributions.map(dist => this.evaluateDistributionForSuggestions(dist, context))
+    )
+    const suggestions = evaluations.filter(
+      (s): s is Omit<RebalancingSuggestion, SuggestionOmitFields> => s !== null
+    )
+    return this.sortSuggestions(suggestions)
+  }
 
-    for (const dist of distributions) {
-      if (Math.abs(dist.deviation) > DEFAULT_SECTOR_BALANCE_CONFIG.rebalanceThreshold) {
-        const action = dist.deviation > 0 ? 'REDUCE' : 'INCREASE'
-        const amountToAdjust = (Math.abs(dist.deviation) / 100) * totalValue
-        
-        // Get suggested instruments for this action
-        const suggestedInstruments = action === 'REDUCE' 
-          ? dist.instruments.slice(0, 3).map(i => i.symbol) // Top holdings to reduce
-          : await this.getSuggestedInstrumentsForSector(dist.sector) // Instruments to add
-
-        suggestions.push({
-          analysisDate,
-          sector: dist.sector,
-          action,
-          currentAllocation: dist.percentage,
-          suggestedAllocation: dist.targetPercentage,
-          amountToAdjust,
-          suggestedInstruments,
-          reasoning: this.generateRebalancingReasoning(dist, action),
-          priority: this.getRebalancePriority(Math.abs(dist.deviation)),
-          impactScore: this.calculateImpactScore(dist),
-          isImplemented: false
-        })
-      }
+  private async prepareSuggestionContext(): Promise<{ analysisDate: string; totalValue: number }> {
+    return {
+      analysisDate: new Date().toISOString().split('T')[0],
+      totalValue: await this.getTotalPortfolioValue()
     }
+  }
 
-    return suggestions.sort((a, b) => a.priority - b.priority) // Lower priority number = higher priority
+  private async evaluateDistributionForSuggestions(
+    dist: SectorDistribution,
+    ctx: { analysisDate: string; totalValue: number }
+  ): Promise<Omit<RebalancingSuggestion, SuggestionOmitFields> | null> {
+    if (Math.abs(dist.deviation) <= DEFAULT_SECTOR_BALANCE_CONFIG.rebalanceThreshold) {
+      return null
+    }
+    const action = dist.deviation > 0 ? 'REDUCE' : 'INCREASE'
+    const amountToAdjust = (Math.abs(dist.deviation) / 100) * ctx.totalValue
+    const suggestedInstruments =
+      action === 'REDUCE'
+        ? dist.instruments.slice(0, 3).map(i => i.symbol)
+        : await this.getSuggestedInstrumentsForSector(dist.sector)
+
+    return {
+      analysisDate: ctx.analysisDate,
+      sector: dist.sector,
+      action,
+      currentAllocation: dist.percentage,
+      suggestedAllocation: dist.targetPercentage,
+      amountToAdjust,
+      suggestedInstruments,
+      reasoning: this.generateRebalancingReasoning(dist, action),
+      priority: this.getRebalancePriority(Math.abs(dist.deviation)),
+      impactScore: this.calculateImpactScore(dist),
+      isImplemented: false
+    }
+  }
+
+  private sortSuggestions(
+    suggestions: Omit<RebalancingSuggestion, SuggestionOmitFields>[]
+  ): Omit<RebalancingSuggestion, SuggestionOmitFields>[] {
+    return suggestions.sort((a, b) => a.priority - b.priority)
   }
 
   // ============================================================================
@@ -604,7 +780,7 @@ export class SectorBalanceService {
     return deviation > 0 ? 'OVER_ALLOCATED' : 'UNDER_ALLOCATED'
   }
 
-  private getRiskLevel(percentage: number, maxAllowed: number): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
+  private getRiskLevel(percentage: number, maxAllowed: number): RiskLevel {
     if (percentage > maxAllowed * 1.5) return 'CRITICAL'
     if (percentage > maxAllowed) return 'HIGH'
     if (percentage > maxAllowed * 0.8) return 'MEDIUM'
@@ -669,7 +845,7 @@ export class SectorBalanceService {
     return 'MAINTAIN'
   }
 
-  private determinePriority(distribution: SectorDistribution): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
+  private determinePriority(distribution: SectorDistribution): RiskLevel {
     if (distribution.status === 'CRITICAL') return 'CRITICAL'
     if (Math.abs(distribution.deviation) > 15) return 'HIGH'
     if (Math.abs(distribution.deviation) > 10) return 'MEDIUM'
