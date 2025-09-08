@@ -1,5 +1,5 @@
 import DatabaseConnection from '../database/connection.js'
-import { MonthlyReviewModel, MonthlyReviewData, CreateMonthlyReviewData, UpdateMonthlyReviewData, InstrumentCandidateData, RemovalCandidateData } from '../models/MonthlyReview.js'
+import { MonthlyReviewModel, MonthlyReviewData, CreateMonthlyReviewData, InstrumentCandidateData, RemovalCandidateData } from '../models/MonthlyReview.js'
 import { InstrumentModel } from '../models/Instrument.js'
 import { ESGAnalysisService } from './ESGAnalysisService.js'
 import { VeganAnalysisService } from './VeganAnalysisService.js'
@@ -43,6 +43,10 @@ export interface CEDEARMarketData {
   isVeganFriendly?: boolean
 }
 
+type CandidateRecommendation = 'STRONG_ADD' | 'ADD' | 'CONSIDER' | 'REJECT'
+type RemovalSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+type RemovalRecommendation = 'REMOVE_IMMEDIATELY' | 'REMOVE' | 'MONITOR' | 'KEEP'
+
 export class MonthlyReviewService {
   private db = DatabaseConnection.getInstance()
   private monthlyReviewModel: MonthlyReviewModel
@@ -68,31 +72,40 @@ export class MonthlyReviewService {
     const reviewDate = new Date().toISOString().split('T')[0]
     logger.info(`Starting monthly review for ${reviewDate}`)
 
-    // Check if review for this month already exists
+    const existingReview = this.findExistingReview(reviewDate)
+    if (existingReview) return existingReview
+
+    const review = this.createReviewSession(reviewDate)
+    await this.notifyReviewStarted(reviewDate, review.id)
+
+    return review
+  }
+
+  private findExistingReview(reviewDate: string): MonthlyReviewData | null {
     const existingReview = this.monthlyReviewModel.findByDate(reviewDate)
     if (existingReview && existingReview.status !== 'FAILED') {
       logger.info('Monthly review already exists for this date')
       return existingReview
     }
+    return null
+  }
 
-    // Create new review session
+  private createReviewSession(reviewDate: string): MonthlyReviewData {
     const reviewData: CreateMonthlyReviewData = {
       reviewDate,
       status: 'PENDING'
     }
+    return this.monthlyReviewModel.create(reviewData)
+  }
 
-    const review = this.monthlyReviewModel.create(reviewData)
-
-    // Send notification
+  private async notifyReviewStarted(reviewDate: string, reviewId: number): Promise<void> {
     await this.notificationService.createNotification({
       type: 'SYSTEM',
       priority: 'medium',
       title: 'Revisión Mensual Iniciada',
       message: `Se ha iniciado la revisión mensual automática de la watchlist para ${reviewDate}`,
-      data: { reviewId: review.id }
+      data: { reviewId }
     })
-
-    return review
   }
 
   /**
@@ -100,85 +113,94 @@ export class MonthlyReviewService {
    */
   async executeReview(reviewId: number): Promise<ScanResult> {
     logger.info(`Executing review ${reviewId}`)
+    this.markReviewInProgress(reviewId)
 
-    // Update review status
+    try {
+      const settings = await this.getReviewSettings()
+      const scanResult = await this.scanMarketForOpportunities(reviewId, settings)
+      const removalCandidates = await this.analyzeCurrentPortfolioForRemovals(reviewId, settings)
+
+      const finalResult = this.combineScanResults(scanResult, removalCandidates)
+      const claudeReport = await this.generateClaudeReport(finalResult)
+      const autoApproved = await this.autoApproveChanges(reviewId, settings)
+
+      await this.finalizeReview(reviewId, finalResult, autoApproved, claudeReport)
+
+      logger.info(`Review ${reviewId} completed successfully`)
+      return finalResult
+    } catch (error) {
+      await this.handleReviewFailure(reviewId, error)
+      throw error
+    }
+  }
+
+  private markReviewInProgress(reviewId: number): void {
     this.monthlyReviewModel.update(reviewId, {
       status: 'IN_PROGRESS',
       scanStartedAt: new Date().toISOString()
     })
+  }
 
-    try {
-      // Get settings
-      const settings = await this.getReviewSettings()
-      
-      // Scan market for new opportunities
-      const scanResult = await this.scanMarketForOpportunities(reviewId, settings)
-      
-      // Analyze current portfolio for removals
-      const removalCandidates = await this.analyzeCurrentPortfolioForRemovals(reviewId, settings)
-      
-      // Combine results
-      const finalResult: ScanResult = {
-        candidatesForAddition: scanResult.candidatesForAddition,
-        candidatesForRemoval: removalCandidates,
-        totalScanned: scanResult.totalScanned,
-        summary: {
-          strongAdd: scanResult.candidatesForAddition.filter(c => c.recommendation === 'STRONG_ADD').length,
-          considerAdd: scanResult.candidatesForAddition.filter(c => c.recommendation === 'ADD' || c.recommendation === 'CONSIDER').length,
-          removeImmediately: removalCandidates.filter(c => c.recommendation === 'REMOVE_IMMEDIATELY').length,
-          monitor: removalCandidates.filter(c => c.recommendation === 'MONITOR').length,
-          averageConfidence: (
-            [...scanResult.candidatesForAddition, ...removalCandidates]
-              .reduce((sum, c) => sum + c.confidenceScore, 0) / 
-            (scanResult.candidatesForAddition.length + removalCandidates.length)
-          ) || 0
-        }
+  private combineScanResults(
+    scanResult: { candidatesForAddition: InstrumentCandidateData[]; totalScanned: number },
+    removalCandidates: RemovalCandidateData[]
+  ): ScanResult {
+    return {
+      candidatesForAddition: scanResult.candidatesForAddition,
+      candidatesForRemoval: removalCandidates,
+      totalScanned: scanResult.totalScanned,
+      summary: {
+        strongAdd: scanResult.candidatesForAddition.filter(c => c.recommendation === 'STRONG_ADD').length,
+        considerAdd: scanResult.candidatesForAddition.filter(c => c.recommendation === 'ADD' || c.recommendation === 'CONSIDER').length,
+        removeImmediately: removalCandidates.filter(c => c.recommendation === 'REMOVE_IMMEDIATELY').length,
+        monitor: removalCandidates.filter(c => c.recommendation === 'MONITOR').length,
+        averageConfidence:
+          ([...scanResult.candidatesForAddition, ...removalCandidates].reduce((sum, c) => sum + c.confidenceScore, 0) /
+            (scanResult.candidatesForAddition.length + removalCandidates.length)) || 0
       }
-
-      // Generate Claude report
-      const claudeReport = await this.generateClaudeReport(finalResult)
-
-      // Auto-approve high confidence changes if enabled
-      let autoApproved = 0
-      if (settings.enableAutoApproval) {
-        autoApproved = await this.autoApproveHighConfidenceChanges(reviewId, settings.minConfidenceAutoApprove)
-      }
-
-      // Update review with results
-      this.monthlyReviewModel.update(reviewId, {
-        status: 'COMPLETED',
-        scanCompletedAt: new Date().toISOString(),
-        totalInstrumentsScanned: finalResult.totalScanned,
-        newInstrumentsFound: finalResult.candidatesForAddition.length,
-        removedInstruments: finalResult.candidatesForRemoval.length,
-        pendingApprovals: finalResult.candidatesForAddition.length + finalResult.candidatesForRemoval.length - autoApproved,
-        autoApproved,
-        summary: finalResult.summary,
-        claudeReport
-      })
-
-      // Send completion notification
-      await this.notificationService.createNotification({
-        type: 'SYSTEM',
-        priority: 'high',
-        title: 'Revisión Mensual Completada',
-        message: `Se encontraron ${finalResult.candidatesForAddition.length} candidatos para agregar y ${finalResult.candidatesForRemoval.length} para remover. ${autoApproved} cambios aprobados automáticamente.`,
-        data: { reviewId, scanResult: finalResult }
-      })
-
-      logger.info(`Review ${reviewId} completed successfully`)
-      return finalResult
-
-    } catch (error) {
-      logger.error(`Review ${reviewId} failed:`, error)
-      
-      this.monthlyReviewModel.update(reviewId, {
-        status: 'FAILED',
-        errors: { error: error instanceof Error ? error.message : 'Unknown error' }
-      })
-      
-      throw error
     }
+  }
+
+  private async autoApproveChanges(reviewId: number, settings: ReviewSettings): Promise<number> {
+    if (!settings.enableAutoApproval) return 0
+    return this.autoApproveHighConfidenceChanges(reviewId, settings.minConfidenceAutoApprove)
+  }
+
+  private async finalizeReview(
+    reviewId: number,
+    finalResult: ScanResult,
+    autoApproved: number,
+    claudeReport: any
+  ): Promise<void> {
+    this.monthlyReviewModel.update(reviewId, {
+      status: 'COMPLETED',
+      scanCompletedAt: new Date().toISOString(),
+      totalInstrumentsScanned: finalResult.totalScanned,
+      newInstrumentsFound: finalResult.candidatesForAddition.length,
+      removedInstruments: finalResult.candidatesForRemoval.length,
+      pendingApprovals:
+        finalResult.candidatesForAddition.length + finalResult.candidatesForRemoval.length - autoApproved,
+      autoApproved,
+      summary: finalResult.summary,
+      claudeReport
+    })
+
+    await this.notificationService.createNotification({
+      type: 'SYSTEM',
+      priority: 'high',
+      title: 'Revisión Mensual Completada',
+      message: `Se encontraron ${finalResult.candidatesForAddition.length} candidatos para agregar y ${finalResult.candidatesForRemoval.length} para remover. ${autoApproved} cambios aprobados automáticamente.`,
+      data: { reviewId, scanResult: finalResult }
+    })
+  }
+
+  private async handleReviewFailure(reviewId: number, error: unknown): Promise<void> {
+    logger.error(`Review ${reviewId} failed:`, error)
+
+    this.monthlyReviewModel.update(reviewId, {
+      status: 'FAILED',
+      errors: { error: error instanceof Error ? error.message : 'Unknown error' }
+    })
   }
 
   /**
@@ -186,64 +208,60 @@ export class MonthlyReviewService {
    */
   private async scanMarketForOpportunities(reviewId: number, settings: ReviewSettings): Promise<{ candidatesForAddition: InstrumentCandidateData[], totalScanned: number }> {
     logger.info('Scanning market for new opportunities')
-
-    // Get current watchlist
     const currentInstruments = this.instrumentModel.findAll({ isActive: true })
     const currentSymbols = new Set(currentInstruments.map(i => i.ticker))
-
-    // Simulate market data fetch (in real implementation, this would fetch from Yahoo Finance or similar)
     const marketData = await this.fetchCEDEARMarketData()
-    
     const candidates: InstrumentCandidateData[] = []
-    
+
     for (const data of marketData) {
-      // Skip if already in watchlist
-      if (currentSymbols.has(data.symbol)) continue
-
-      // Basic filtering
-      if (data.marketCap < settings.marketCapMinThreshold) continue
-      if (data.avgVolume < settings.volumeMinThreshold) continue
-
-      try {
-        // Analyze ESG and Vegan criteria
-        const esgScore = await this.calculateESGScore(data)
-        const veganScore = await this.calculateVeganScore(data)
-
-        // Score the candidate
-        const evaluation = await this.evaluateCandidate(data, esgScore, veganScore, settings)
-        
-        if (evaluation.recommendation !== 'REJECT') {
-          const candidate = this.monthlyReviewModel.createInstrumentCandidate({
-            symbol: data.symbol,
-            name: data.name,
-            sector: data.sector,
-            marketCap: data.marketCap,
-            avgVolume: data.avgVolume,
-            esgScore,
-            veganScore,
-            recommendation: evaluation.recommendation,
-            confidenceScore: evaluation.confidence,
-            reasons: JSON.stringify(evaluation.reasons),
-            claudeAnalysis: JSON.stringify(evaluation.claudeAnalysis),
-            reviewId,
-            status: 'PENDING'
-          })
-
-          candidates.push(candidate)
-        }
-      } catch (error) {
-        logger.warn(`Failed to analyze ${data.symbol}:`, error)
-      }
+      const candidate = await this.processMarketCandidate(data, currentSymbols, settings, reviewId)
+      if (candidate) candidates.push(candidate)
     }
 
-    // Sort by confidence score
     candidates.sort((a, b) => b.confidenceScore - a.confidenceScore)
-
     logger.info(`Found ${candidates.length} candidates from ${marketData.length} instruments scanned`)
-    
+
     return {
       candidatesForAddition: candidates,
       totalScanned: marketData.length
+    }
+  }
+
+  private async processMarketCandidate(
+    data: CEDEARMarketData,
+    currentSymbols: Set<string>,
+    settings: ReviewSettings,
+    reviewId: number
+  ): Promise<InstrumentCandidateData | null> {
+    if (currentSymbols.has(data.symbol)) return null
+    if (data.marketCap < settings.marketCapMinThreshold) return null
+    if (data.avgVolume < settings.volumeMinThreshold) return null
+
+    try {
+      const esgScore = await this.calculateESGScore(data)
+      const veganScore = await this.calculateVeganScore(data)
+      const evaluation = await this.evaluateCandidate(data, esgScore, veganScore, settings)
+
+      if (evaluation.recommendation === 'REJECT') return null
+
+      return this.monthlyReviewModel.createInstrumentCandidate({
+        symbol: data.symbol,
+        name: data.name,
+        sector: data.sector,
+        marketCap: data.marketCap,
+        avgVolume: data.avgVolume,
+        esgScore,
+        veganScore,
+        recommendation: evaluation.recommendation,
+        confidenceScore: evaluation.confidence,
+        reasons: JSON.stringify(evaluation.reasons),
+        claudeAnalysis: JSON.stringify(evaluation.claudeAnalysis),
+        reviewId,
+        status: 'PENDING'
+      })
+    } catch (error) {
+      logger.warn(`Failed to analyze ${data.symbol}:`, error)
+      return null
     }
   }
 
@@ -257,58 +275,59 @@ export class MonthlyReviewService {
     const removalCandidates: RemovalCandidateData[] = []
 
     for (const instrument of currentInstruments) {
-      try {
-        // Re-evaluate ESG and Vegan scores
-        const currentESGScore = await this.calculateESGScore({
-          symbol: instrument.ticker,
-          name: instrument.name || '',
-          sector: instrument.sector || '',
-          marketCap: instrument.marketCap || 0,
-          avgVolume: 0
-        })
-
-        const currentVeganScore = await this.calculateVeganScore({
-          symbol: instrument.ticker,
-          name: instrument.name || '',
-          sector: instrument.sector || '',
-          marketCap: instrument.marketCap || 0,
-          avgVolume: 0
-        })
-
-        // Check if criteria are still met
-        const shouldRemove = this.shouldRemoveInstrument(
-          instrument,
-          currentESGScore,
-          currentVeganScore,
-          settings
-        )
-
-        if (shouldRemove.remove) {
-          const candidate = this.monthlyReviewModel.createRemovalCandidate({
-            instrumentId: instrument.id!,
-            reason: shouldRemove.reason,
-            severity: shouldRemove.severity,
-            currentEsgScore: currentESGScore,
-            currentVeganScore: currentVeganScore,
-            previousEsgScore: instrument.esgScore,
-            previousVeganScore: instrument.veganScore,
-            recommendation: shouldRemove.recommendation,
-            confidenceScore: shouldRemove.confidence,
-            claudeAnalysis: JSON.stringify(shouldRemove.claudeAnalysis),
-            lostCriteria: JSON.stringify(shouldRemove.lostCriteria),
-            reviewId,
-            status: 'PENDING'
-          })
-
-          removalCandidates.push(candidate)
-        }
-      } catch (error) {
-        logger.warn(`Failed to analyze ${instrument.ticker} for removal:`, error)
-      }
+      const candidate = await this.processRemovalInstrument(instrument, settings, reviewId)
+      if (candidate) removalCandidates.push(candidate)
     }
 
     logger.info(`Found ${removalCandidates.length} removal candidates`)
     return removalCandidates
+  }
+
+  private async processRemovalInstrument(
+    instrument: any,
+    settings: ReviewSettings,
+    reviewId: number
+  ): Promise<RemovalCandidateData | null> {
+    try {
+      const baseData = {
+        symbol: instrument.ticker,
+        name: instrument.name || '',
+        sector: instrument.sector || '',
+        marketCap: instrument.marketCap || 0,
+        avgVolume: 0
+      }
+
+      const currentESGScore = await this.calculateESGScore(baseData)
+      const currentVeganScore = await this.calculateVeganScore(baseData)
+
+      const removal = await this.shouldRemoveInstrument(
+        instrument,
+        currentESGScore,
+        currentVeganScore,
+        settings
+      )
+
+      if (!removal.remove) return null
+
+      return this.monthlyReviewModel.createRemovalCandidate({
+        instrumentId: instrument.id!,
+        reason: removal.reason,
+        severity: removal.severity,
+        currentEsgScore: currentESGScore,
+        currentVeganScore: currentVeganScore,
+        previousEsgScore: instrument.esgScore,
+        previousVeganScore: instrument.veganScore,
+        recommendation: removal.recommendation,
+        confidenceScore: removal.confidence,
+        claudeAnalysis: JSON.stringify(removal.claudeAnalysis),
+        lostCriteria: JSON.stringify(removal.lostCriteria),
+        reviewId,
+        status: 'PENDING'
+      })
+    } catch (error) {
+      logger.warn(`Failed to analyze ${instrument.ticker} for removal:`, error)
+      return null
+    }
   }
 
   /**
@@ -411,70 +430,19 @@ export class MonthlyReviewService {
    * Evaluate a candidate for inclusion
    */
   private async evaluateCandidate(
-    data: CEDEARMarketData, 
-    esgScore: number, 
-    veganScore: number, 
+    data: CEDEARMarketData,
+    esgScore: number,
+    veganScore: number,
     settings: ReviewSettings
   ): Promise<{
-    recommendation: 'STRONG_ADD' | 'ADD' | 'CONSIDER' | 'REJECT'
+    recommendation: CandidateRecommendation
     confidence: number
     reasons: string[]
     claudeAnalysis: any
   }> {
-    const reasons: string[] = []
-    let baseScore = 50
-
-    // ESG evaluation
-    if (esgScore >= settings.esgMinScoreThreshold) {
-      baseScore += 20
-      reasons.push(`ESG score ${esgScore} meets threshold`)
-    } else {
-      baseScore -= 15
-      reasons.push(`ESG score ${esgScore} below threshold ${settings.esgMinScoreThreshold}`)
-    }
-
-    // Vegan evaluation
-    if (veganScore >= settings.veganMinScoreThreshold) {
-      baseScore += 20
-      reasons.push(`Vegan score ${veganScore} meets threshold`)
-    } else {
-      baseScore -= 10
-      reasons.push(`Vegan score ${veganScore} below threshold ${settings.veganMinScoreThreshold}`)
-    }
-
-    // Market cap evaluation
-    if (data.marketCap >= settings.marketCapMinThreshold * 2) {
-      baseScore += 10
-      reasons.push('Large market cap provides stability')
-    }
-
-    // Volume evaluation
-    if (data.avgVolume >= settings.volumeMinThreshold * 5) {
-      baseScore += 10
-      reasons.push('High liquidity')
-    }
-
-    // Determine recommendation
-    let recommendation: 'STRONG_ADD' | 'ADD' | 'CONSIDER' | 'REJECT'
-    if (baseScore >= 85) {
-      recommendation = 'STRONG_ADD'
-    } else if (baseScore >= 70) {
-      recommendation = 'ADD'
-    } else if (baseScore >= 55) {
-      recommendation = 'CONSIDER'
-    } else {
-      recommendation = 'REJECT'
-    }
-
-    // Get Claude analysis for high-potential candidates
-    let claudeAnalysis = null
-    if (recommendation !== 'REJECT') {
-      try {
-        claudeAnalysis = await this.claudeService.analyzeInstrument(data.symbol, 'investment_thesis')
-      } catch (error) {
-        logger.warn(`Failed to get Claude analysis for ${data.symbol}:`, error)
-      }
-    }
+    const { baseScore, reasons } = this.calculateCandidateBaseScore(data, esgScore, veganScore, settings)
+    const recommendation = this.determineRecommendation(baseScore)
+    const claudeAnalysis = await this.getCandidateAnalysis(data, recommendation)
 
     return {
       recommendation,
@@ -484,28 +452,126 @@ export class MonthlyReviewService {
     }
   }
 
+  private calculateCandidateBaseScore(
+    data: CEDEARMarketData,
+    esgScore: number,
+    veganScore: number,
+    settings: ReviewSettings
+  ): { baseScore: number; reasons: string[] } {
+    const reasons: string[] = []
+    let baseScore = 50
+
+    if (esgScore >= settings.esgMinScoreThreshold) {
+      baseScore += 20
+      reasons.push(`ESG score ${esgScore} meets threshold`)
+    } else {
+      baseScore -= 15
+      reasons.push(`ESG score ${esgScore} below threshold ${settings.esgMinScoreThreshold}`)
+    }
+
+    if (veganScore >= settings.veganMinScoreThreshold) {
+      baseScore += 20
+      reasons.push(`Vegan score ${veganScore} meets threshold`)
+    } else {
+      baseScore -= 10
+      reasons.push(`Vegan score ${veganScore} below threshold ${settings.veganMinScoreThreshold}`)
+    }
+
+    if (data.marketCap >= settings.marketCapMinThreshold * 2) {
+      baseScore += 10
+      reasons.push('Large market cap provides stability')
+    }
+
+    if (data.avgVolume >= settings.volumeMinThreshold * 5) {
+      baseScore += 10
+      reasons.push('High liquidity')
+    }
+
+    return { baseScore, reasons }
+  }
+
+  private determineRecommendation(baseScore: number): CandidateRecommendation {
+    if (baseScore >= 85) return 'STRONG_ADD'
+    if (baseScore >= 70) return 'ADD'
+    if (baseScore >= 55) return 'CONSIDER'
+    return 'REJECT'
+  }
+
+  private async getCandidateAnalysis(
+    data: CEDEARMarketData,
+    recommendation: CandidateRecommendation
+  ): Promise<any> {
+    if (recommendation === 'REJECT') return null
+    try {
+      return await this.claudeService.analyzeInstrument(data.symbol, 'investment_thesis')
+    } catch (error) {
+      logger.warn(`Failed to get Claude analysis for ${data.symbol}:`, error)
+      return null
+    }
+  }
+
+  private async getRemovalAnalysis(
+    instrument: any,
+    recommendation: RemovalRecommendation
+  ): Promise<any> {
+    if (recommendation === 'KEEP') return null
+    try {
+      return await this.claudeService.analyzeInstrument(instrument.ticker, 'divestment_thesis')
+    } catch (error) {
+      logger.warn(`Failed to get Claude removal analysis for ${instrument.ticker}:`, error)
+      return null
+    }
+  }
+
   /**
    * Check if an instrument should be removed
    */
-  private shouldRemoveInstrument(
+  private async shouldRemoveInstrument(
     instrument: any,
     currentESGScore: number,
     currentVeganScore: number,
     settings: ReviewSettings
-  ): {
+  ): Promise<{
     remove: boolean
     reason: string
-    severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
-    recommendation: 'REMOVE_IMMEDIATELY' | 'REMOVE' | 'MONITOR' | 'KEEP'
+    severity: RemovalSeverity
+    recommendation: RemovalRecommendation
     confidence: number
     lostCriteria: string[]
     claudeAnalysis: any
-  } {
+  }> {
+    const { lostCriteria, severity, confidence } = this.evaluateRemovalCriteria(
+      instrument,
+      currentESGScore,
+      currentVeganScore,
+      settings
+    )
+
+    const shouldRemove = lostCriteria.length > 0 && settings.removeOnCriteriaLoss
+    const recommendation = this.determineRemovalRecommendation(severity)
+    const claudeAnalysis = await this.getRemovalAnalysis(instrument, recommendation)
+
+    return {
+      remove: shouldRemove,
+      reason: lostCriteria.join('; ') || 'Criteria evaluation',
+      severity,
+      recommendation,
+      confidence: Math.min(confidence, 95),
+      lostCriteria,
+      claudeAnalysis
+    }
+  }
+
+  private evaluateRemovalCriteria(
+    instrument: any,
+    currentESGScore: number,
+    currentVeganScore: number,
+    settings: ReviewSettings
+  ): { lostCriteria: string[]; severity: RemovalSeverity; confidence: number } {
     const lostCriteria: string[] = []
-    let severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = 'LOW'
+    let severity: RemovalSeverity = 'LOW'
     let confidence = 70
 
-    // Check ESG criteria
     const esgLoss = (instrument.esgScore || 0) - currentESGScore
     if (esgLoss > 20) {
       lostCriteria.push('Significant ESG score decline')
@@ -517,7 +583,6 @@ export class MonthlyReviewService {
       confidence += 10
     }
 
-    // Check Vegan criteria
     const veganLoss = (instrument.veganScore || 0) - currentVeganScore
     if (veganLoss > 20) {
       lostCriteria.push('Significant Vegan score decline')
@@ -529,28 +594,16 @@ export class MonthlyReviewService {
       confidence += 10
     }
 
-    const shouldRemove = lostCriteria.length > 0 && settings.removeOnCriteriaLoss
-    
-    let recommendation: 'REMOVE_IMMEDIATELY' | 'REMOVE' | 'MONITOR' | 'KEEP'
-    if (severity === 'CRITICAL') {
-      recommendation = 'REMOVE_IMMEDIATELY'
-    } else if (severity === 'HIGH') {
-      recommendation = 'REMOVE'
-    } else if (severity === 'MEDIUM') {
-      recommendation = 'MONITOR'
-    } else {
-      recommendation = 'KEEP'
-    }
+    return { lostCriteria, severity, confidence }
+  }
 
-    return {
-      remove: shouldRemove,
-      reason: lostCriteria.join('; ') || 'Criteria evaluation',
-      severity,
-      recommendation,
-      confidence: Math.min(confidence, 95),
-      lostCriteria,
-      claudeAnalysis: null // TODO: Add Claude analysis for removal candidates
-    }
+  private determineRemovalRecommendation(
+    severity: RemovalSeverity
+  ): RemovalRecommendation {
+    if (severity === 'CRITICAL') return 'REMOVE_IMMEDIATELY'
+    if (severity === 'HIGH') return 'REMOVE'
+    if (severity === 'MEDIUM') return 'MONITOR'
+    return 'KEEP'
   }
 
   /**
