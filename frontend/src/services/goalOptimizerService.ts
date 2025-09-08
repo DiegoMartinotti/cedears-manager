@@ -144,6 +144,17 @@ export interface PersonalizedRecommendation {
   action_items: string[];
 }
 
+type NextActionType = 'gap' | 'contribution' | 'strategy' | 'milestone' | 'opportunity';
+type NextActionPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+
+interface NextAction {
+  type: NextActionType;
+  priority: NextActionPriority;
+  title: string;
+  description: string;
+  action: string;
+}
+
 class GoalOptimizerService {
   private baseUrl = '/api/goal-optimizer';
 
@@ -331,14 +342,8 @@ class GoalOptimizerService {
   }
 
   // Obtener próximas acciones prioritarias
-  getNextActions(summary: OptimizerSummary): Array<{
-    type: 'gap' | 'contribution' | 'strategy' | 'milestone' | 'opportunity';
-    priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-    title: string;
-    description: string;
-    action: string;
-  }> {
-    const actions: any[] = [];
+  getNextActions(summary: OptimizerSummary): NextAction[] {
+    const actions: NextAction[] = [];
 
     // Revisar gap crítico
     if (summary.gap_analysis && summary.gap_analysis.risk_level === 'HIGH') {
@@ -398,10 +403,13 @@ class GoalOptimizerService {
       });
     }
 
-    return actions.sort((a, b) => {
-      const priorityOrder = { 'URGENT': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 };
-      return priorityOrder[b.priority] - priorityOrder[a.priority];
-    });
+    const priorityOrder: Record<NextActionPriority, number> = {
+      URGENT: 4,
+      HIGH: 3,
+      MEDIUM: 2,
+      LOW: 1
+    };
+    return actions.sort((a, b) => priorityOrder[b.priority] - priorityOrder[a.priority]);
   }
 }
 

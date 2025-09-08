@@ -7,10 +7,10 @@ import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Tabs } from '../components/ui/Tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/Tabs';
 import { Badge } from '../components/ui/Badge';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
-import { Alert } from '../components/ui/Alert';
+import { Alert, AlertDescription } from '../components/ui/Alert';
 import { useGoalOptimizer } from '../hooks/useGoalOptimizer';
 
 // Componentes del optimizador
@@ -154,7 +154,7 @@ const OpportunityMatcher: React.FC<{ opportunities: GoalOpportunityMatch[] }> = 
                         </div>
                         
                         <div className="ml-4 space-y-2">
-                          <Button size="small" className="bg-red-600 hover:bg-red-700">
+                          <Button size="sm" className="bg-red-600 hover:bg-red-700">
                             Revisar
                           </Button>
                         </div>
@@ -196,7 +196,7 @@ const OpportunityMatcher: React.FC<{ opportunities: GoalOpportunityMatch[] }> = 
                           </div>
                         </div>
                         
-                        <Button size="small" variant="outline">
+                        <Button size="sm" variant="outline">
                           Revisar
                         </Button>
                       </div>
@@ -226,7 +226,7 @@ const OpportunityMatcher: React.FC<{ opportunities: GoalOpportunityMatch[] }> = 
                           Match {opportunity.match_score}%
                         </span>
                       </div>
-                      <Button size="small" variant="outline">
+                      <Button size="sm" variant="outline">
                         Ver Detalles
                       </Button>
                     </div>
@@ -263,8 +263,10 @@ export const GoalOptimizer: React.FC = () => {
   if (!goalId) {
     return (
       <div className="p-6">
-        <Alert type="error" title="Error">
-          ID de objetivo no proporcionado
+        <Alert variant="destructive">
+          <AlertDescription>
+            ID de objetivo no proporcionado
+          </AlertDescription>
         </Alert>
       </div>
     );
@@ -282,7 +284,7 @@ export const GoalOptimizer: React.FC = () => {
     return (
       <div className="flex items-center justify-center p-12">
         <div className="text-center">
-          <LoadingSpinner size="large" />
+          <LoadingSpinner size="lg" />
           <p className="mt-4 text-gray-600">Cargando optimizador de objetivos...</p>
         </div>
       </div>
@@ -292,8 +294,10 @@ export const GoalOptimizer: React.FC = () => {
   if (error) {
     return (
       <div className="p-6">
-        <Alert type="error" title="Error al cargar el optimizador">
-          {error}
+        <Alert variant="destructive">
+          <AlertDescription>
+            {error}
+          </AlertDescription>
           <div className="mt-4 space-x-2">
             <Button onClick={() => refreshAll()}>
               Reintentar
@@ -323,7 +327,7 @@ export const GoalOptimizer: React.FC = () => {
         <div className="flex items-center space-x-3">
           {isRefreshing && (
             <div className="flex items-center space-x-2 text-blue-600">
-              <LoadingSpinner size="small" />
+              <LoadingSpinner size="sm" />
               <span className="text-sm">Actualizando...</span>
             </div>
           )}
@@ -400,15 +404,15 @@ export const GoalOptimizer: React.FC = () => {
 
       {/* Tabs principales */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <Tabs.List className="grid w-full grid-cols-5">
-          <Tabs.Trigger value="overview">Resumen</Tabs.Trigger>
-          <Tabs.Trigger value="gap">Análisis Gap</Tabs.Trigger>
-          <Tabs.Trigger value="contributions">Contribuciones</Tabs.Trigger>
-          <Tabs.Trigger value="strategies">Estrategias</Tabs.Trigger>
-          <Tabs.Trigger value="opportunities">Oportunidades</Tabs.Trigger>
-        </Tabs.List>
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="overview">Resumen</TabsTrigger>
+          <TabsTrigger value="gap">Análisis Gap</TabsTrigger>
+          <TabsTrigger value="contributions">Contribuciones</TabsTrigger>
+          <TabsTrigger value="strategies">Estrategias</TabsTrigger>
+          <TabsTrigger value="opportunities">Oportunidades</TabsTrigger>
+        </TabsList>
 
-        <Tabs.Content value="overview">
+        <TabsContent value="overview">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Análisis de Gap resumido */}
             {gapAnalysis && (
@@ -467,36 +471,36 @@ export const GoalOptimizer: React.FC = () => {
               </Card>
             )}
           </div>
-        </Tabs.Content>
+        </TabsContent>
 
-        <Tabs.Content value="gap">
+        <TabsContent value="gap">
           <GapAnalysisPanel goalId={Number(goalId)} />
-        </Tabs.Content>
+        </TabsContent>
 
-        <Tabs.Content value="contributions">
-          <ContributionOptimizer 
+        <TabsContent value="contributions">
+          <ContributionOptimizer
             goalId={Number(goalId)}
             currentContribution={gapAnalysis?.current_monthly_contribution || 0}
             requiredContribution={gapAnalysis?.required_monthly_contribution || 0}
           />
-        </Tabs.Content>
+        </TabsContent>
 
-        <Tabs.Content value="strategies">
+        <TabsContent value="strategies">
           <div className="space-y-6">
-            <MilestoneTracker 
+            <MilestoneTracker
               goalId={Number(goalId)}
               currentCapital={gapAnalysis?.current_capital || 0}
               targetCapital={gapAnalysis?.target_capital || 0}
             />
             <AccelerationStrategies goalId={Number(goalId)} />
           </div>
-        </Tabs.Content>
+        </TabsContent>
 
-        <Tabs.Content value="opportunities">
-          <OpportunityMatcher 
+        <TabsContent value="opportunities">
+          <OpportunityMatcher
             opportunities={summary?.opportunity_matches || []}
           />
-        </Tabs.Content>
+        </TabsContent>
       </Tabs>
     </div>
   );
