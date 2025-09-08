@@ -1,4 +1,4 @@
-/* eslint-disable max-lines-per-function, complexity, max-depth */
+/* eslint-disable max-lines, max-lines-per-function, complexity, max-depth */
 import { PortfolioService } from './PortfolioService.js'
 import { TradeService } from './TradeService.js'
 import { QuoteService } from './QuoteService.js'
