@@ -242,7 +242,7 @@ export default function Opportunities() {
           
           <Select
             value={String(filters.minScore)}
-            onValueChange={(value) => handleFilterChange('minScore', Number(value))}
+            onChange={(e) => handleFilterChange('minScore', Number(e.target.value))}
           >
             <option value="50">Score mín: 50</option>
             <option value="60">Score mín: 60</option>
@@ -252,7 +252,7 @@ export default function Opportunities() {
           
           <Select
             value={filters.opportunityType}
-            onValueChange={(value) => handleFilterChange('opportunityType', value)}
+            onChange={(e) => handleFilterChange('opportunityType', e.target.value)}
           >
             <option value="ALL">Todos los tipos</option>
             <option value="BUY">Compra</option>
@@ -261,7 +261,7 @@ export default function Opportunities() {
           
           <Select
             value={filters.isESG === null ? 'ALL' : String(filters.isESG)}
-            onValueChange={(value) => handleFilterChange('isESG', value === 'ALL' ? null : value === 'true')}
+            onChange={(e) => handleFilterChange('isESG', e.target.value === 'ALL' ? null : e.target.value === 'true')}
           >
             <option value="ALL">Cualquier ESG</option>
             <option value="true">Solo ESG</option>
@@ -270,7 +270,7 @@ export default function Opportunities() {
           
           <Select
             value={filters.isVegan === null ? 'ALL' : String(filters.isVegan)}
-            onValueChange={(value) => handleFilterChange('isVegan', value === 'ALL' ? null : value === 'true')}
+            onChange={(e) => handleFilterChange('isVegan', e.target.value === 'ALL' ? null : e.target.value === 'true')}
           >
             <option value="ALL">Cualquier Vegan</option>
             <option value="true">Solo Vegan</option>

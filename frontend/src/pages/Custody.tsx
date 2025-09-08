@@ -66,8 +66,8 @@ export const CustodyPage: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center space-x-3">
-          <Badge 
-            variant={isExempt ? 'success' : 'warning'}
+          <Badge
+            variant={isExempt ? 'success' : 'destructive'}
             className="text-sm px-3 py-1"
           >
             {isExempt ? '✅ Exento' : '💰 Con Custodia'}
