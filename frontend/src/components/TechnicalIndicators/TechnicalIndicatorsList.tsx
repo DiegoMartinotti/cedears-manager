@@ -1,10 +1,11 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useLatestIndicators, useCalculateIndicators } from '../../hooks/useTechnicalIndicators'
 import { technicalIndicatorService } from '../../services/technicalIndicatorService'
 import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { RefreshCw, TrendingUp, TrendingDown, Minus, Activity, Target, BarChart3 } from 'lucide-react'
+import type { TechnicalIndicator } from '../../../../shared/src/types'
 
 interface TechnicalIndicatorsListProps {
   symbol: string
@@ -12,13 +13,19 @@ interface TechnicalIndicatorsListProps {
   compact?: boolean
 }
 
-export function TechnicalIndicatorsList({ 
-  symbol, 
-  showCalculateButton = true, 
-  compact = false 
+interface IndicatorWithExtras extends TechnicalIndicator {
+  period?: number
+  metadata?: Record<string, unknown>
+}
+
+export function TechnicalIndicatorsList({
+  symbol,
+  showCalculateButton = true,
+  compact = false
 }: TechnicalIndicatorsListProps) {
   const [calculating, setCalculating] = useState(false)
-  const { data: indicators, isLoading, error, refetch } = useLatestIndicators(symbol)
+  const { data, isLoading, error, refetch } = useLatestIndicators(symbol)
+  const indicators: IndicatorWithExtras[] = (data || []) as IndicatorWithExtras[]
   const calculateMutation = useCalculateIndicators()
 
   const handleCalculate = async () => {
