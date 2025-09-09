@@ -5,7 +5,7 @@ import { QuoteService } from './QuoteService.js'
 import { UVAService } from './UVAService.js'
 import { InstrumentService } from './InstrumentService.js'
 import { CommissionService } from './CommissionService.js'
-import {
+import type {
   DashboardSummary,
   PortfolioSummary,
   CurrentPosition,
@@ -17,7 +17,7 @@ import {
   AssetDistribution,
   SectorDistribution,
   ESGDistribution
-} from './DashboardTypes.js'
+} from '../../../shared/src/types'
 import { createLogger } from '../utils/logger.js'
 
 const logger = createLogger('DashboardService')
