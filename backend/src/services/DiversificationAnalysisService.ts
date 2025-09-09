@@ -146,7 +146,7 @@ export class DiversificationAnalysisService {
           avgInstrumentValue: distribution.totalValue / distribution.instrumentCount,
           largestPosition: Math.max(...distribution.instruments.map(i => i.currentValue)),
           smallestPosition: Math.min(...distribution.instruments.map(i => i.currentValue)),
-          volatility: this.calculateSectorVolatility(distribution),
+          volatility: this.calculateSectorVolatility(),
           performance: {
             daily: Math.random() * 4 - 2, // Mock data
             weekly: Math.random() * 8 - 4,
@@ -177,7 +177,7 @@ export class DiversificationAnalysisService {
       const sectorHistory = await this.analyzeSectorPerformance(12)
       
       const diversificationHistory = this.generateDiversificationHistory(startDate, endDate)
-      const majorChanges = this.identifyMajorChanges(startDate, endDate)
+      const majorChanges = this.identifyMajorChanges()
 
       return {
         startDate,
@@ -357,8 +357,7 @@ export class DiversificationAnalysisService {
     }
   }
 
-  private calculateSectorVolatility(distribution: any): number {
-    void distribution
+  private calculateSectorVolatility(): number {
     // Mock volatility calculation
     // In reality, this would be based on historical price movements
     return Math.round((Math.random() * 25 + 5) * 100) / 100
@@ -385,9 +384,7 @@ export class DiversificationAnalysisService {
     return history
   }
 
-  private identifyMajorChanges(startDate: string, endDate: string) {
-    void startDate
-    void endDate
+  private identifyMajorChanges() {
     // Mock major changes identification
     return [
       {
