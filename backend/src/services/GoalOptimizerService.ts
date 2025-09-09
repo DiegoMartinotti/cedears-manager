@@ -10,18 +10,10 @@ import {
   GoalContributionPlan,
   GoalIntermediateMilestone,
   GoalOptimizerSummary,
-  OptimizationRecommendation,
-  CreateGapAnalysisDto,
   CreateOptimizationStrategyDto,
   CreateContributionPlanDto,
   CreateMilestoneDto,
-  GapAnalysisDetails,
-  ImplementationStep,
-  StrategyRequirement,
-  StrategyRisk,
-  BonusContribution,
-  SeasonalAdjustment,
-  StressTestScenario
+  GapAnalysisDetails
 } from '../models/GoalOptimizer';
 import { GoalTrackerService } from './GoalTrackerService';
 import { PortfolioService } from './PortfolioService';
@@ -42,7 +34,7 @@ export class GoalOptimizerService {
   }
 
   // 28.1: Análisis de gap entre actual y objetivo
-  async performGapAnalysis(goalId: number, customData?: CreateGapAnalysisDto): Promise<GoalGapAnalysis> {
+  async performGapAnalysis(goalId: number): Promise<GoalGapAnalysis> {
     const goal = await this.goalTrackerService.getGoalById(goalId);
     if (!goal) {
       throw new Error('Objetivo no encontrado');
@@ -51,11 +43,8 @@ export class GoalOptimizerService {
     // Obtener capital actual del portafolio
     const currentCapital = await this.getCurrentCapital();
     
-    // Obtener última cotización UVA para ajustes por inflación
-    const latestUVA = await this.uvaService.getLatestUVA();
-    
     // Calcular métricas de gap
-    const gapMetrics = await this.calculateGapMetrics(goal, currentCapital, latestUVA);
+    const gapMetrics = await this.calculateGapMetrics(goal, currentCapital);
     
     // Análisis detallado
     const analysisDetails = await this.generateGapAnalysisDetails(goal, currentCapital, gapMetrics);
@@ -80,7 +69,7 @@ export class GoalOptimizerService {
     return this.saveGapAnalysis(gapAnalysisData);
   }
 
-  private async calculateGapMetrics(goal: FinancialGoal, currentCapital: number, latestUVA: any) {
+  private async calculateGapMetrics(goal: FinancialGoal, currentCapital: number) {
     const targetCapital = goal.target_amount || 0;
     const gapAmount = targetCapital - currentCapital;
     const gapPercentage = targetCapital > 0 ? (gapAmount / targetCapital) * 100 : 0;
@@ -289,6 +278,7 @@ export class GoalOptimizerService {
   }
 
   // 28.2: Generar estrategias de optimización
+  // eslint-disable-next-line max-lines-per-function
   async generateOptimizationStrategies(goalId: number): Promise<GoalOptimizationStrategy[]> {
     const gapAnalysis = await this.getLatestGapAnalysis(goalId);
     if (!gapAnalysis) {
@@ -394,6 +384,7 @@ export class GoalOptimizerService {
   }
 
   // 28.2: Generar planes de contribución optimizados
+  // eslint-disable-next-line max-lines-per-function
   async generateContributionPlans(goalId: number): Promise<GoalContributionPlan[]> {
     const goal = await this.goalTrackerService.getGoalById(goalId);
     const gapAnalysis = await this.getLatestGapAnalysis(goalId);
@@ -505,6 +496,7 @@ export class GoalOptimizerService {
   }
 
   // 28.3: Generar hitos intermedios
+  // eslint-disable-next-line max-lines-per-function
   async generateIntermediateMilestones(goalId: number): Promise<GoalIntermediateMilestone[]> {
     const goal = await this.goalTrackerService.getGoalById(goalId);
     if (!goal || !goal.target_amount) {

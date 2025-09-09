@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
-import { CompoundInterestEngine, ProjectionParameters, ProjectionResult, CompoundGrowthScenario } from './CompoundInterestEngine';
+import { CompoundInterestEngine, ProjectionParameters, ProjectionResult } from './CompoundInterestEngine';
 import { GoalTrackerService } from './GoalTrackerService';
-import { FinancialGoal, GoalProgress } from '../models/FinancialGoal';
+import { FinancialGoal } from '../models/FinancialGoal';
 import { UVAService } from './UVAService';
 import { PortfolioService } from './PortfolioService';
 
@@ -82,7 +82,7 @@ export class GoalProjectionService {
     const scenarios = await this.generateProjectionScenarios(goal.id, baseParams);
     
     // Calcular métricas de performance
-    const performanceMetrics = await this.calculatePerformanceMetrics(goalId, scenarios);
+    const performanceMetrics = await this.calculatePerformanceMetrics();
     
     return {
       goal,
@@ -96,8 +96,9 @@ export class GoalProjectionService {
   /**
    * Ajuste dinámico según rendimiento real (27.2)
    */
+  // eslint-disable-next-line max-lines-per-function
   private async performDynamicAdjustment(
-    goal: FinancialGoal, 
+    goal: FinancialGoal,
     historicalPerformance: number
   ): Promise<DynamicAdjustment> {
     const originalRate = goal.expected_return_rate;
@@ -142,7 +143,7 @@ export class GoalProjectionService {
       adjusted_return_rate: adjustedRate,
       adjustment_reason: adjustmentReason,
       historical_performance: historicalPerformance,
-      volatility_factor,
+      volatility_factor: volatilityFactor,
       market_conditions: marketConditions,
       confidence_score: Math.round(confidenceScore)
     };
@@ -151,8 +152,9 @@ export class GoalProjectionService {
   /**
    * Genera múltiples escenarios de proyección
    */
+  // eslint-disable-next-line max-lines-per-function
   private async generateProjectionScenarios(
-    goalId: number, 
+    goalId: number,
     baseParams: ProjectionParameters
   ): Promise<GoalProjection[]> {
     const projections: GoalProjection[] = [];
@@ -372,7 +374,7 @@ export class GoalProjectionService {
 
   private async calculateHistoricalPerformance(): Promise<number> {
     try {
-      const portfolio = await this.portfolioService.getCurrentPositions();
+      await this.portfolioService.getCurrentPositions();
       // Calcular performance promedio de los últimos 12 meses
       return 8.5; // Performance simulada del 8.5% anual
     } catch {
@@ -393,10 +395,7 @@ export class GoalProjectionService {
     return 'NEUTRAL';
   }
 
-  private async calculatePerformanceMetrics(
-    goalId: number, 
-    scenarios: GoalProjection[]
-  ): Promise<GoalProjectionSummary['performance_metrics']> {
+  private async calculatePerformanceMetrics(): Promise<GoalProjectionSummary['performance_metrics']> {
     return {
       actual_vs_projected: 2.3, // +2.3% vs proyección
       trend_direction: 'IMPROVING',
