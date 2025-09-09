@@ -36,6 +36,7 @@ export class CostReportService {
     this.portfolioService = new PortfolioService();
   }
 
+  // eslint-disable-next-line max-lines-per-function
   async generateCostDashboard(dateRange: { startDate: string; endDate: string }): Promise<CostDashboard> {
     try {
       logger.info('Generating cost dashboard', { dateRange });
@@ -58,17 +59,18 @@ export class CostReportService {
 
       const totalCosts = totalCommissions + totalCustodyFees;
       const trades = await this.tradeService.findAll();
-      const tradesInRange = trades.filter(trade => 
-        trade.tradeDate >= dateRange.startDate && trade.tradeDate <= dateRange.endDate
+      const tradesInRange = trades.filter(trade =>
+        trade.trade_date >= dateRange.startDate && trade.trade_date <= dateRange.endDate
       );
 
       const averageCommissionPerTrade = tradesInRange.length > 0 
         ? totalCommissions / tradesInRange.length 
         : 0;
 
-      const portfolioValue = await this.portfolioService.getTotalValue();
-      const costPercentageOfPortfolio = portfolioValue > 0 
-        ? (totalCosts / portfolioValue) * 100 
+      const portfolioSummary = await this.portfolioService.getPortfolioSummary();
+      const portfolioValue = portfolioSummary.market_value;
+      const costPercentageOfPortfolio = portfolioValue > 0
+        ? (totalCosts / portfolioValue) * 100
         : 0;
 
       return {
@@ -82,9 +84,10 @@ export class CostReportService {
         brokerComparison,
         costAlerts
       };
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error generating cost dashboard', { error, dateRange });
-      throw new Error(`Failed to generate cost dashboard: ${error.message}`);
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to generate cost dashboard: ${message}`);
     }
   }
 
@@ -113,9 +116,10 @@ export class CostReportService {
         benchmarkComparison,
         optimizationSuggestions
       };
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error generating impact analysis', { error, dateRange });
-      throw new Error(`Failed to generate impact analysis: ${error.message}`);
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to generate impact analysis: ${message}`);
     }
   }
 
@@ -146,19 +150,20 @@ export class CostReportService {
         profitabilityMetrics,
         alerts
       };
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error generating commission vs gain comparison', { error, dateRange });
-      throw new Error(`Failed to generate commission vs gain comparison: ${error.message}`);
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to generate commission vs gain comparison: ${message}`);
     }
   }
 
   private async calculateTotalCommissions(dateRange: { startDate: string; endDate: string }): Promise<number> {
     const trades = await this.tradeService.findAll();
-    const tradesInRange = trades.filter(trade => 
-      trade.tradeDate >= dateRange.startDate && trade.tradeDate <= dateRange.endDate
+    const tradesInRange = trades.filter(trade =>
+      trade.trade_date >= dateRange.startDate && trade.trade_date <= dateRange.endDate
     );
 
-    return tradesInRange.reduce((total, trade) => total + (trade.commissionAmount || 0), 0);
+    return tradesInRange.reduce((total, trade) => total + (trade.commission || 0), 0);
   }
 
   private async calculateTotalCustodyFees(dateRange: { startDate: string; endDate: string }): Promise<number> {
@@ -171,10 +176,11 @@ export class CostReportService {
     return custodyFees.reduce((total, fee) => total + fee.totalCharged, 0);
   }
 
+  // eslint-disable-next-line max-lines-per-function
   private async generateMonthlyTrend(dateRange: { startDate: string; endDate: string }): Promise<MonthlyCostSummary[]> {
     const trades = await this.tradeService.findAll();
-    const tradesInRange = trades.filter(trade => 
-      trade.tradeDate >= dateRange.startDate && trade.tradeDate <= dateRange.endDate
+    const tradesInRange = trades.filter(trade =>
+      trade.trade_date >= dateRange.startDate && trade.trade_date <= dateRange.endDate
     );
 
     const monthlyData: { [key: string]: MonthlyCostSummary } = {};
@@ -198,11 +204,11 @@ export class CostReportService {
 
     // Add trade data
     tradesInRange.forEach(trade => {
-      const tradeDate = new Date(trade.tradeDate);
+      const tradeDate = new Date(trade.trade_date);
       const monthKey = `${tradeDate.getFullYear()}-${String(tradeDate.getMonth() + 1).padStart(2, '0')}`;
       
       if (monthlyData[monthKey]) {
-        monthlyData[monthKey].commissions += trade.commissionAmount || 0;
+        monthlyData[monthKey].commissions += trade.commission || 0;
         monthlyData[monthKey].numberOfTrades += 1;
       }
     });
@@ -332,7 +338,8 @@ export class CostReportService {
     });
 
     // Check custody fee optimization
-    const portfolioValue = await this.portfolioService.getTotalValue();
+      const portfolioSummary = await this.portfolioService.getPortfolioSummary();
+      const portfolioValue = portfolioSummary.market_value;
     const custodyService = this.commissionService.getCustodyService();
     const custodyAnalysis = await custodyService.analyzePortfolioOptimization(portfolioValue);
 
@@ -349,15 +356,15 @@ export class CostReportService {
     return alerts;
   }
 
-  private async calculateOverallImpactMetrics(dateRange: { startDate: string; endDate: string }): Promise<OverallImpactMetrics> {
-    const portfolioValue = await this.portfolioService.getTotalValue();
-    const totalCommissions = await this.calculateTotalCommissions(dateRange);
-    const totalCustodyFees = await this.calculateTotalCustodyFees(dateRange);
-    const totalCosts = totalCommissions + totalCustodyFees;
+    private async calculateOverallImpactMetrics(dateRange: { startDate: string; endDate: string }): Promise<OverallImpactMetrics> {
+      const portfolioSummary = await this.portfolioService.getPortfolioSummary();
+      const portfolioValue = portfolioSummary.market_value;
+      const totalCommissions = await this.calculateTotalCommissions(dateRange);
+      const totalCustodyFees = await this.calculateTotalCustodyFees(dateRange);
+      const totalCosts = totalCommissions + totalCustodyFees;
 
-    // Calculate returns (simplified - in real implementation would need more complex calculation)
-    const trades = await this.tradeService.findAll();
-    const completedTrades = await this.tradeService.getCompletedTrades();
+      // Calculate returns (simplified - in real implementation would need more complex calculation)
+      const completedTrades = await this.tradeService.getCompletedTrades();
     
     const totalReturns = completedTrades.reduce((sum, trade) => sum + (trade.realizedGainLoss || 0), 0);
     const netReturns = totalReturns - totalCosts;
