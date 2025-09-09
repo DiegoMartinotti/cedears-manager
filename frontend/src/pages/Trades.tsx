@@ -8,7 +8,7 @@ import { Alert } from '../components/ui/Alert';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { useInstruments } from '../hooks/useInstruments';
 import { useCommissions } from '../hooks/useCommissions';
-import { TrendingUp, TrendingDown, Calculator, AlertTriangle, History, DollarSign } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calculator, History, DollarSign } from 'lucide-react';
 import { apiService } from '../services/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -283,8 +283,7 @@ export function Trades() {
 
               <div className="space-y-4">
                 <Alert
-                  variant={commissionPreview.totalCommission / totalAmount > 0.01 ? 'warning' : 'info'}
-                  icon={AlertTriangle}
+                  variant={commissionPreview.totalCommission / totalAmount > 0.01 ? 'warning' : 'default'}
                 >
                   {commissionPreview.totalCommission / totalAmount > 0.01
                     ? 'Las comisiones representan más del 1% del monto total'
@@ -305,7 +304,6 @@ export function Trades() {
                       return (
                         <Alert
                           variant="destructive"
-                          icon={AlertTriangle}
                         >
                           <div>
                             <p className="font-semibold">⚠️ Alerta: Alto impacto de comisiones</p>
