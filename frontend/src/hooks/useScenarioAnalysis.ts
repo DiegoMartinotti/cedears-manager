@@ -236,58 +236,62 @@ export const useScenarioAnalysis = () => {
   });
 
   // Create scenario mutation
-  const createScenarioMutation = useMutation({
-    mutationFn: scenarioService.createScenario,
+  const createScenarioMutation = useMutation<Scenario, Error, CreateScenarioData>({
+    mutationFn: (data: CreateScenarioData) => scenarioService.createScenario(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: scenarioQueryKeys.scenarios() });
     }
   });
 
   // Update scenario mutation
-  const updateScenarioMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: UpdateScenarioData }) => 
+  const updateScenarioMutation = useMutation<Scenario, Error, { id: number; data: UpdateScenarioData }>({
+    mutationFn: ({ id, data }: { id: number; data: UpdateScenarioData }) =>
       scenarioService.updateScenario(id, data),
-    onSuccess: (_, variables) => {
+    onSuccess: (_: Scenario, variables) => {
       queryClient.invalidateQueries({ queryKey: scenarioQueryKeys.scenarios() });
       queryClient.invalidateQueries({ queryKey: scenarioQueryKeys.scenario(variables.id) });
     }
   });
 
   // Delete scenario mutation
-  const deleteScenarioMutation = useMutation({
-    mutationFn: scenarioService.deleteScenario,
+  const deleteScenarioMutation = useMutation<void, Error, number>({
+    mutationFn: (id: number) => scenarioService.deleteScenario(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: scenarioQueryKeys.scenarios() });
     }
   });
 
   // Run what-if analysis mutation
-  const runWhatIfAnalysisMutation = useMutation({
-    mutationFn: scenarioService.runWhatIfAnalysis,
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ 
-        queryKey: scenarioQueryKeys.analysis(variables.scenarioId) 
+  const runWhatIfAnalysisMutation = useMutation<WhatIfAnalysisResult, Error, WhatIfAnalysisRequest>({
+    mutationFn: (request: WhatIfAnalysisRequest) => scenarioService.runWhatIfAnalysis(request),
+    onSuccess: (_: WhatIfAnalysisResult, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: scenarioQueryKeys.analysis(variables.scenarioId)
       });
-      queryClient.invalidateQueries({ 
-        queryKey: scenarioQueryKeys.results(variables.scenarioId) 
+      queryClient.invalidateQueries({
+        queryKey: scenarioQueryKeys.results(variables.scenarioId)
       });
     }
   });
 
   // Generate recommendations mutation
-  const generateRecommendationsMutation = useMutation({
-    mutationFn: ({ scenarioId, request }: { scenarioId: number; request: RecommendationRequest }) =>
+  const generateRecommendationsMutation = useMutation<
+    ScenarioRecommendations,
+    Error,
+    { scenarioId: number; request: RecommendationRequest }
+  >({
+    mutationFn: ({ scenarioId, request }) =>
       scenarioService.generateRecommendations(scenarioId, request),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ 
-        queryKey: scenarioQueryKeys.recommendations(variables.scenarioId) 
+    onSuccess: (_: ScenarioRecommendations, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: scenarioQueryKeys.recommendations(variables.scenarioId)
       });
     }
   });
 
   // Compare scenarios mutation
-  const compareScenariosMutation = useMutation({
-    mutationFn: ({ scenarioIds, userId }: { scenarioIds: number[]; userId: string }) =>
+  const compareScenariosMutation = useMutation<any, Error, { scenarioIds: number[]; userId: string }>({
+    mutationFn: ({ scenarioIds, userId }) =>
       scenarioService.compareScenarios(scenarioIds, userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: scenarioQueryKeys.comparisons() });
@@ -384,8 +388,8 @@ export const useScenario = (scenarioId: number) => {
   });
 
   // Create variable mutation
-  const createVariableMutation = useMutation({
-    mutationFn: scenarioService.createVariable,
+  const createVariableMutation = useMutation<{ id: number }, Error, Omit<ScenarioVariable, 'id' | 'created_at'>>({
+    mutationFn: (data: Omit<ScenarioVariable, 'id' | 'created_at'>) => scenarioService.createVariable(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: scenarioQueryKeys.variables(scenarioId) });
       queryClient.invalidateQueries({ queryKey: scenarioQueryKeys.scenario(scenarioId) });
@@ -393,17 +397,16 @@ export const useScenario = (scenarioId: number) => {
   });
 
   // Update variable mutation
-  const updateVariableMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<ScenarioVariable> }) =>
-      scenarioService.updateVariable(id, data),
+  const updateVariableMutation = useMutation<void, Error, { id: number; data: Partial<ScenarioVariable> }>({
+    mutationFn: ({ id, data }) => scenarioService.updateVariable(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: scenarioQueryKeys.variables(scenarioId) });
     }
   });
 
   // Delete variable mutation
-  const deleteVariableMutation = useMutation({
-    mutationFn: scenarioService.deleteVariable,
+  const deleteVariableMutation = useMutation<void, Error, number>({
+    mutationFn: (id: number) => scenarioService.deleteVariable(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: scenarioQueryKeys.variables(scenarioId) });
       queryClient.invalidateQueries({ queryKey: scenarioQueryKeys.scenario(scenarioId) });
@@ -597,15 +600,4 @@ export const useScenarioMutations = () => {
   };
 };
 
-// Export types for use in components
-export type {
-  Scenario,
-  ScenarioVariable,
-  WhatIfAnalysisRequest,
-  WhatIfAnalysisResult,
-  ScenarioRecommendations,
-  ScenarioTemplate,
-  CreateScenarioData,
-  UpdateScenarioData,
-  RecommendationRequest
-};
+// Types are exported above with their declarations

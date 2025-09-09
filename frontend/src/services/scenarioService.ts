@@ -471,56 +471,6 @@ class ScenarioService {
     };
   }
 
-  // Error handling helper
-  private handleApiError(error: any): never {
-    if (error.response?.data?.error) {
-      throw new Error(error.response.data.error);
-    } else if (error.message) {
-      throw new Error(error.message);
-    } else {
-      throw new Error('An unexpected error occurred');
-    }
-  }
-
-  // Data validation helper
-  private validateScenarioData(data: any): boolean {
-    if (!data.name || data.name.trim().length === 0) {
-      throw new Error('Scenario name is required');
-    }
-    if (!data.description || data.description.trim().length === 0) {
-      throw new Error('Scenario description is required');
-    }
-    if (!data.category || !['MACRO', 'MARKET', 'SECTOR', 'CUSTOM'].includes(data.category)) {
-      throw new Error('Valid scenario category is required');
-    }
-    if (!data.created_by || data.created_by.trim().length === 0) {
-      throw new Error('Creator information is required');
-    }
-    return true;
-  }
-
-  // Rate limiting helper
-  private async rateLimitedRequest<T>(requestFn: () => Promise<T>): Promise<T> {
-    const maxRetries = 3;
-    let retries = 0;
-    
-    while (retries < maxRetries) {
-      try {
-        return await requestFn();
-      } catch (error: any) {
-        if (error.response?.status === 429 && retries < maxRetries - 1) {
-          // Rate limited, wait and retry
-          const delay = Math.pow(2, retries) * 1000; // Exponential backoff
-          await new Promise(resolve => setTimeout(resolve, delay));
-          retries++;
-          continue;
-        }
-        throw error;
-      }
-    }
-    
-    throw new Error('Request failed after maximum retries');
-  }
 }
 
 export const scenarioService = new ScenarioService();

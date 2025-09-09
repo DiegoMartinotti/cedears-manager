@@ -8,10 +8,13 @@ import { Badge } from '../components/ui/Badge'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { useContextualAnalysis } from '../hooks/useContextualAnalysis'
 import { ContextualDashboard } from '../components/contextual/ContextualDashboard'
-import { NewsAnalysis } from '../components/contextual/NewsAnalysis'
-import { MarketSentiment } from '../components/contextual/MarketSentiment'
-import { EarningsReport } from '../components/contextual/EarningsReport'
-import { TrendPrediction } from '../components/contextual/TrendPrediction'
+
+// Temporary placeholders for pending contextual components
+type PlaceholderProps = { symbol: string; isLoading: boolean; [key: string]: any }
+const NewsAnalysis = (_: PlaceholderProps) => <div>Noticias no disponibles</div>
+const MarketSentiment = (_: PlaceholderProps) => <div>Sentiment no disponible</div>
+const EarningsReport = (_: PlaceholderProps) => <div>Reportes no disponibles</div>
+const TrendPrediction = (_: PlaceholderProps) => <div>Tendencias no disponibles</div>
 
 export function ContextualAnalysis() {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -123,7 +126,7 @@ export function ContextualAnalysis() {
             disabled={!searchSymbol.trim() || isLoading}
             className="whitespace-nowrap"
           >
-            {isLoading ? <LoadingSpinner size={16} /> : 'Analizar'}
+            {isLoading ? <LoadingSpinner size="sm" /> : 'Analizar'}
           </Button>
         </div>
       </div>
@@ -170,7 +173,7 @@ export function ContextualAnalysis() {
             <div className="mt-4 pt-4 border-t border-gray-200">
               <h3 className="text-sm font-medium text-gray-700 mb-2">Factores Clave:</h3>
               <div className="flex flex-wrap gap-2">
-                {analysisData.overallAssessment.keyFactors.map((factor, index) => (
+                {analysisData.overallAssessment.keyFactors.map((factor: string, index: number) => (
                   <Badge key={index} variant="outline" className="text-xs">
                     {factor}
                   </Badge>
