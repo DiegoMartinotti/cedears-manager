@@ -1,9 +1,9 @@
-import React from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion, type Transition } from 'framer-motion'
 import { useLocation } from 'react-router-dom'
+import type { FC, ReactNode } from 'react'
 
 interface PageTransitionProps {
-  children: React.ReactNode
+  children: ReactNode
   className?: string
 }
 
@@ -25,15 +25,15 @@ const pageVariants = {
   }
 }
 
-const pageTransition = {
+const pageTransition: Transition = {
   type: 'tween',
   ease: 'anticipate',
   duration: 0.4
 }
 
-export const PageTransition: React.FC<PageTransitionProps> = ({ 
-  children, 
-  className 
+export const PageTransition: FC<PageTransitionProps> = ({
+  children,
+  className
 }) => {
   const location = useLocation()
   
@@ -55,8 +55,8 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
 }
 
 // Transición específica para modales
-export const ModalTransition: React.FC<{
-  children: React.ReactNode
+export const ModalTransition: FC<{
+  children: ReactNode
   isOpen: boolean
 }> = ({ children, isOpen }) => {
   return (
@@ -88,8 +88,8 @@ export const ModalTransition: React.FC<{
 }
 
 // Transición para sidebar
-export const SidebarTransition: React.FC<{
-  children: React.ReactNode
+export const SidebarTransition: FC<{
+  children: ReactNode
   isCollapsed: boolean
 }> = ({ children, isCollapsed }) => {
   return (
