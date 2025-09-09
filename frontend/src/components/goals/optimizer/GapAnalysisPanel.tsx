@@ -48,10 +48,6 @@ export const GapAnalysisPanel: React.FC<GapAnalysisPanelProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // Cargar análisis existente al montar el componente
-  useEffect(() => {
-    loadExistingAnalysis();
-  }, [goalId, loadExistingAnalysis]);
   const loadExistingAnalysis = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -95,6 +91,11 @@ export const GapAnalysisPanel: React.FC<GapAnalysisPanelProps> = ({
       setIsLoading(false);
     }
   }, [goalId]);
+
+  // Cargar análisis existente al montar el componente
+  useEffect(() => {
+    loadExistingAnalysis();
+  }, [goalId, loadExistingAnalysis]);
 
   const performNewAnalysis = async () => {
     setIsAnalyzing(true);
@@ -160,7 +161,7 @@ export const GapAnalysisPanel: React.FC<GapAnalysisPanelProps> = ({
     return (
       <Card className="p-6">
         <div className="flex items-center justify-center space-x-2">
-          <LoadingSpinner size="small" />
+          <LoadingSpinner size="sm" />
           <span>Cargando análisis de gap...</span>
         </div>
       </Card>
@@ -170,10 +171,8 @@ export const GapAnalysisPanel: React.FC<GapAnalysisPanelProps> = ({
   if (error) {
     return (
       <Card className="p-6">
-        <Alert type="error" title="Error">
-          {error}
-        </Alert>
-        <Button 
+        <Alert variant="destructive">{error}</Alert>
+        <Button
           onClick={performNewAnalysis}
           className="mt-4"
         >
@@ -201,7 +200,7 @@ export const GapAnalysisPanel: React.FC<GapAnalysisPanelProps> = ({
           disabled={isAnalyzing}
           className="flex items-center space-x-2"
         >
-          {isAnalyzing && <LoadingSpinner size="small" />}
+          {isAnalyzing && <LoadingSpinner size="sm" />}
           <span>{isAnalyzing ? 'Analizando...' : 'Actualizar Análisis'}</span>
         </Button>
       </div>

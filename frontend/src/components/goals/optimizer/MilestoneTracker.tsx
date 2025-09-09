@@ -32,23 +32,17 @@ interface MilestoneTrackerProps {
   goalId: number;
   currentCapital: number;
   targetCapital: number;
-  onMilestoneUpdate?: (milestone: Milestone) => void;
 }
 
 export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
   goalId,
   currentCapital,
-  targetCapital,
-  onMilestoneUpdate
+  targetCapital
 }) => {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
-
-  useEffect(() => {
-    loadMilestones();
-  }, [goalId, loadMilestones]);
   const loadMilestones = useCallback(async () => {
     setIsLoading(true);
     
@@ -165,6 +159,10 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
     }
   }, [goalId, currentCapital, targetCapital]);
 
+  useEffect(() => {
+    loadMilestones();
+  }, [goalId, loadMilestones]);
+
   const generateNewMilestones = async () => {
     setIsGenerating(true);
     
@@ -176,32 +174,6 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
       console.error('Error generating milestones:', error);
     } finally {
       setIsGenerating(false);
-    }
-  };
-
-  const _updateMilestoneProgress = async (milestone: Milestone, progress: number) => {
-    try {
-      // En implementación real: llamada a API
-      // await fetch(`/api/goal-optimizer/milestones/${milestone.id}/progress`, {
-      //   method: 'PUT',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ current_progress: progress })
-      // });
-      
-      const updatedMilestone = {
-        ...milestone,
-        current_progress: progress,
-        progress_percentage: Math.min(100, (progress / (milestone.target_amount || 100)) * 100),
-        is_achieved: progress >= (milestone.target_amount || 100)
-      };
-      
-      setMilestones(prev => prev.map(m => m.id === milestone.id ? updatedMilestone : m));
-      
-      if (onMilestoneUpdate) {
-        onMilestoneUpdate(updatedMilestone);
-      }
-    } catch (error) {
-      console.error('Error updating milestone:', error);
     }
   };
 
@@ -257,7 +229,7 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
     return (
       <Card className="p-6">
         <div className="flex items-center justify-center space-x-2">
-          <LoadingSpinner size="small" />
+          <LoadingSpinner size="sm" />
           <span>Cargando hitos intermedios...</span>
         </div>
       </Card>
@@ -286,7 +258,7 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
             variant="outline"
             className="flex items-center space-x-2"
           >
-            {isGenerating && <LoadingSpinner size="small" />}
+            {isGenerating && <LoadingSpinner size="sm" />}
             <span>{isGenerating ? 'Generando...' : 'Regenerar Hitos'}</span>
           </Button>
         </div>

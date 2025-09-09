@@ -49,11 +49,6 @@ export const ContributionOptimizer: React.FC<ContributionOptimizerProps> = ({
   const [customAmount, setCustomAmount] = useState(currentContribution);
   const [showCustomPlan, setShowCustomPlan] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
-
-  useEffect(() => {
-    loadContributionPlans();
-  }, [goalId, loadContributionPlans]);
-
   const loadContributionPlans = useCallback(async () => {
     setIsLoading(true);
     
@@ -121,6 +116,10 @@ export const ContributionOptimizer: React.FC<ContributionOptimizerProps> = ({
       setIsLoading(false);
     }
   }, [goalId, currentContribution, requiredContribution]);
+
+  useEffect(() => {
+    loadContributionPlans();
+  }, [goalId, loadContributionPlans]);
 
   const calculateCustomPlan = async () => {
     if (customAmount <= currentContribution) {
@@ -209,7 +208,7 @@ export const ContributionOptimizer: React.FC<ContributionOptimizerProps> = ({
     return (
       <Card className="p-6">
         <div className="flex items-center justify-center space-x-2">
-          <LoadingSpinner size="small" />
+          <LoadingSpinner size="sm" />
           <span>Cargando planes de contribución...</span>
         </div>
       </Card>
@@ -278,7 +277,7 @@ export const ContributionOptimizer: React.FC<ContributionOptimizerProps> = ({
                 disabled={isCalculating || customAmount <= currentContribution}
                 className="flex items-center space-x-2"
               >
-                {isCalculating && <LoadingSpinner size="small" />}
+                {isCalculating && <LoadingSpinner size="sm" />}
                 <span>{isCalculating ? 'Calculando...' : 'Calcular'}</span>
               </Button>
             </div>
@@ -308,7 +307,7 @@ export const ContributionOptimizer: React.FC<ContributionOptimizerProps> = ({
                 <Button
                   onClick={() => activatePlan(selectedPlan)}
                   className="mt-3"
-                  size="small"
+                  size="sm"
                 >
                   Activar Plan Personalizado
                 </Button>
@@ -403,14 +402,14 @@ export const ContributionOptimizer: React.FC<ContributionOptimizerProps> = ({
                   {!plan.is_active ? (
                     <Button
                       onClick={() => activatePlan(plan)}
-                      size="small"
+                      size="sm"
                     >
                       Activar Plan
                     </Button>
                   ) : (
                     <Button
                       variant="outline"
-                      size="small"
+                      size="sm"
                       disabled
                     >
                       Plan Activo
