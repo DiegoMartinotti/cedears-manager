@@ -142,9 +142,9 @@ const SectorBalance: React.FC = () => {
       )}
 
       {activeTab === 'analytics' && (
-        <AnalyticsTab 
-          analyticsData={analyticsData}
-          isLoading={analyticsData.isLoading}
+        <AnalyticsTab
+          analyticsData={_analyticsData}
+          isLoading={_analyticsData.isLoading}
         />
       )}
 
