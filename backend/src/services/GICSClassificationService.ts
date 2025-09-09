@@ -1,9 +1,8 @@
-import { 
-  GICS_SECTORS, 
-  CEDEAR_SECTOR_MAPPINGS, 
-  findSectorByKeywords, 
+import {
+  GICS_SECTORS,
+  findSectorByKeywords,
   getSectorMappingByTicker,
-  getSectorByName 
+  getSectorByName
 } from '../constants/gicsSectors.js'
 import SectorClassificationModel from '../models/SectorClassification.js'
 import { Instrument } from '../models/Instrument.js'
@@ -520,7 +519,7 @@ export class GICSClassificationService {
    */
   async cleanupLowConfidence(minConfidence: number = 40): Promise<number> {
     try {
-      const deleted = await this.sectorClassificationModel.cleanupOutdated(90)
+      const deleted = await this.sectorClassificationModel.cleanupOutdated(minConfidence)
       logger.info(`Cleaned up ${deleted} low-confidence classifications`)
       return deleted
     } catch (error) {
