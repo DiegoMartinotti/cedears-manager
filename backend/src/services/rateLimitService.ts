@@ -1,4 +1,5 @@
 import { createLogger } from '../utils/logger.js'
+import type { Timeout } from 'node:timers'
 
 const logger = createLogger('rate-limit-service')
 
@@ -39,7 +40,7 @@ export class RateLimitService {
   private hourRequests: Array<{ timestamp: number; id: string }> = []
   private concurrentRequests: Set<string> = new Set()
   private stats: RateLimitStats
-  private cleanupInterval: NodeJS.Timeout | null = null
+  private cleanupInterval: Timeout | null = null
 
   constructor(config: Partial<RateLimitConfig> = {}) {
     this.config = {
@@ -69,6 +70,7 @@ export class RateLimitService {
   /**
    * Verifica si una solicitud puede proceder
    */
+  // eslint-disable-next-line max-lines-per-function
   checkLimit(requestId: string = this.generateRequestId()): RateLimitStatus {
     const now = Date.now()
     

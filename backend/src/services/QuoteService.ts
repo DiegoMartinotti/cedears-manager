@@ -4,7 +4,7 @@ import { Instrument } from '../models/Instrument.js'
 import { CacheService } from './cacheService.js'
 import { RateLimitService } from './rateLimitService.js'
 import { createLogger } from '../utils/logger.js'
-import { format, isWeekend, isAfter, isBefore, parseISO } from 'date-fns'
+import { format, isWeekend, isAfter, isBefore } from 'date-fns'
 
 const logger = createLogger('QuoteService')
 
@@ -78,6 +78,7 @@ export class QuoteService {
   /**
    * Obtiene cotización de un símbolo desde Yahoo Finance con cache
    */
+  // eslint-disable-next-line max-lines-per-function
   async getQuote(symbol: string, forceRefresh: boolean = false): Promise<QuoteUpdateResult> {
     try {
       const cacheKey = `quote:${symbol.toUpperCase()}`
@@ -146,6 +147,7 @@ export class QuoteService {
   /**
    * Obtiene cotizaciones de múltiples símbolos en lote
    */
+  // eslint-disable-next-line max-lines-per-function
   async getBatchQuotes(symbols: string[], forceRefresh: boolean = false): Promise<QuoteUpdateResult[]> {
     logger.info('Getting batch quotes', { symbols: symbols.length, forceRefresh })
 
