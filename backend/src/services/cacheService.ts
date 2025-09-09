@@ -24,7 +24,7 @@ export class CacheService {
   private defaultTTL: number
   private maxEntries: number
   private stats: CacheStats = { hits: 0, misses: 0, entries: 0, memoryUsage: 0 }
-  private cleanupInterval: NodeJS.Timeout | null = null
+  private cleanupInterval: ReturnType<typeof setTimeout> | null = null
 
   constructor(options: {
     defaultTTL?: number

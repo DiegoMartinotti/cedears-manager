@@ -1,5 +1,4 @@
 import { createLogger } from '../utils/logger.js'
-import { Trade, TradeData } from '../models/Trade.js'
 import { OperationCommissionService } from './commission/OperationCommissionService.js'
 import { CustodyCommissionService } from './commission/CustodyCommissionService.js'
 import { CommissionAnalysisService } from './commission/CommissionAnalysisService.js'
