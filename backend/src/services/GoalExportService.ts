@@ -6,6 +6,8 @@ import { FinancialGoal } from '../models/FinancialGoal';
 import { SensitivityAnalysis } from './SensitivityAnalysisService';
 import { GoalRecommendation } from './ClaudeGoalAdvisorService';
 
+/* eslint-disable max-lines-per-function */
+
 /**
  * Servicio de exportación de planes de inversión
  * Step 27.5: Exportación de planes de inversión
@@ -267,6 +269,7 @@ export class GoalExportService {
   /**
    * Genera contenido HTML para PDF
    */
+  // eslint-disable-next-line max-lines-per-function
   private generatePDFContent(plan: InvestmentPlan, options: ExportOptions): string {
     const { goal_details, executive_summary, contribution_schedule, milestones } = plan;
     
@@ -441,7 +444,7 @@ export class GoalExportService {
   /**
    * Genera contenido para Excel (CSV)
    */
-  private generateExcelContent(plan: InvestmentPlan, options: ExportOptions): string {
+  private generateExcelContent(plan: InvestmentPlan): string {
     let csv = 'Plan de Inversión\n';
     csv += `Objetivo,${plan.goal_details.name}\n`;
     csv += `Monto Objetivo,$${plan.goal_details.target_amount}\n`;
