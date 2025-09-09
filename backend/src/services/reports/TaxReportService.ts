@@ -1,3 +1,4 @@
+/* eslint-disable max-lines-per-function */
 import { TradeService } from '../TradeService.js';
 import { CommissionService } from '../CommissionService.js';
 import { UVAService } from '../UVAService.js';
@@ -29,11 +30,6 @@ export class TaxReportService {
   async generateAnnualReport(year: number): Promise<AnnualCostReport> {
     try {
       logger.info('Generating annual tax report', { year });
-
-      const dateRange = {
-        startDate: `${year}-01-01`,
-        endDate: `${year}-12-31`
-      };
 
       const [
         executiveSummary,

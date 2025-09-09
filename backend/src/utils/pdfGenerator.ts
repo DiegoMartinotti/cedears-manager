@@ -126,6 +126,7 @@ export class PDFGenerator {
     }
   }
 
+  // eslint-disable-next-line max-lines-per-function
   private generateMockPDF(): string {
     // This is a mock implementation
     // In a real scenario, this would use libraries like:
@@ -253,6 +254,7 @@ startxref
     return pdf;
   }
 
+  // eslint-disable-next-line max-lines-per-function
   static createAnnualReportPDF(reportData: any): PDFGenerator {
     const pdf = new PDFGenerator({
       title: `Reporte Anual ${reportData.year} - CEDEARs Manager`,
