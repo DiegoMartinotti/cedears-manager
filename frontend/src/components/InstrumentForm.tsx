@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, SubmitHandler, Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { InstrumentUI } from '@cedears-manager/shared/types'
@@ -109,8 +109,8 @@ export const InstrumentForm: React.FC<InstrumentFormProps> = ({
     setValue,
     reset,
     formState: { errors, isValid, isDirty },
-  } = useForm<InstrumentFormData>({
-    resolver: zodResolver(instrumentSchema),
+    } = useForm<InstrumentFormData>({
+      resolver: zodResolver(instrumentSchema) as Resolver<InstrumentFormData>,
     defaultValues: {
       symbol: '',
       companyName: '',
@@ -149,7 +149,7 @@ export const InstrumentForm: React.FC<InstrumentFormProps> = ({
   }, [instrument, reset])
 
   // Handle form submission
-  const onSubmit = async (data: InstrumentFormData) => {
+  const onSubmit: SubmitHandler<InstrumentFormData> = async (data) => {
     try {
       // Clean up data
       const cleanData = {

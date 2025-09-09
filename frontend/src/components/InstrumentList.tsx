@@ -379,13 +379,13 @@ export const InstrumentList: React.FC<InstrumentListProps> = ({
           />
         </div>
         
-        <div className="flex gap-2">
-          <Select
-            value={localFilters.sector || ''}
-            onValueChange={(value) => 
-              setLocalFilters(prev => ({ ...prev, sector: value || undefined }))
-            }
-          >
+          <div className="flex gap-2">
+            <Select
+              value={localFilters.sector || ''}
+              onChange={(e) =>
+                setLocalFilters(prev => ({ ...prev, sector: e.target.value || undefined }))
+              }
+            >
             <option value="">All Sectors</option>
             <option value="Technology">Technology</option>
             <option value="Healthcare">Healthcare</option>
@@ -464,13 +464,14 @@ export const InstrumentList: React.FC<InstrumentListProps> = ({
             </p>
           </div>
         ) : (
-          <List
-            height={height}
-            itemCount={itemCount}
-            itemSize={120} // Height of each row
-            itemData={rowData}
-            overscanCount={5} // Render extra items for smooth scrolling
-          >
+            <List
+              height={height}
+              width={800}
+              itemCount={itemCount}
+              itemSize={120} // Height of each row
+              itemData={rowData}
+              overscanCount={5} // Render extra items for smooth scrolling
+            >
             {InstrumentRow}
           </List>
         )}

@@ -13,8 +13,7 @@ import {
   Bell,
   Calendar,
   PieChart,
-  Shuffle,
-  Calculator2
+  Shuffle
 } from 'lucide-react'
 import NavigationItem from './NavigationItem'
 import { NavigationNotificationBadge } from './notifications/NotificationBadge'
@@ -77,10 +76,10 @@ export default function Sidebar() {
             icon={<Calculator />}
             label="Comisiones"
           />
-          
+
           <NavigationItem
             to="/break-even"
-            icon={<Calculator2 />}
+            icon={<Calculator />}
             label="Break-Even"
           />
           
