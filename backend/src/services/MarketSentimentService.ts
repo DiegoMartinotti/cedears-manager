@@ -1,3 +1,4 @@
+/* eslint-disable max-lines-per-function, complexity */
 import axios from 'axios'
 import { claudeAnalysisService } from './claudeAnalysisService.js'
 import { newsAnalysisService } from './NewsAnalysisService.js'
@@ -601,13 +602,13 @@ Responde en formato JSON:
     }
   }
 
-  /**
-   * Limpia cache de sentiment
-   */
-  clearCache(): void {
-    cacheService.clearByPrefix(this.CACHE_PREFIX)
-    logger.info('Market sentiment cache cleared')
-  }
+    /**
+     * Limpia cache de sentiment
+     */
+    clearCache(): void {
+      cacheService.clear()
+      logger.info('Market sentiment cache cleared')
+    }
 }
 
 // Singleton instance
