@@ -21,6 +21,7 @@ export class DiversificationAnalysisService {
   /**
    * Generate comprehensive portfolio health score
    */
+  // eslint-disable-next-line max-lines-per-function
   async generateHealthScore(): Promise<BalanceHealthScore> {
     try {
       logger.info('Generating portfolio health score')
@@ -357,6 +358,7 @@ export class DiversificationAnalysisService {
   }
 
   private calculateSectorVolatility(distribution: any): number {
+    void distribution
     // Mock volatility calculation
     // In reality, this would be based on historical price movements
     return Math.round((Math.random() * 25 + 5) * 100) / 100
@@ -384,6 +386,8 @@ export class DiversificationAnalysisService {
   }
 
   private identifyMajorChanges(startDate: string, endDate: string) {
+    void startDate
+    void endDate
     // Mock major changes identification
     return [
       {
