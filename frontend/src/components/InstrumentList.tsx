@@ -365,6 +365,41 @@ export const InstrumentList: React.FC<InstrumentListProps> = ({
     )
   }
 
+  let listContent: React.ReactNode
+  if (isLoading) {
+    listContent = (
+      <div className="p-8 text-center">
+        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+        <p className="text-gray-600">Loading instruments...</p>
+      </div>
+    )
+  } else if (itemCount === 0) {
+    listContent = (
+      <div className="p-8 text-center text-gray-500">
+        <Search className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+        <h3 className="text-lg font-semibold mb-2">No instruments found</h3>
+        <p className="text-sm">
+          {searchTerm
+            ? `No instruments match "${searchTerm}". Try adjusting your search or filters.`
+            : 'No instruments available. Add some instruments to get started.'}
+        </p>
+      </div>
+    )
+  } else {
+    listContent = (
+      <List
+        height={height}
+        width={800}
+        itemCount={itemCount}
+        itemSize={120} // Height of each row
+        itemData={rowData}
+        overscanCount={5} // Render extra items for smooth scrolling
+      >
+        {InstrumentRow}
+      </List>
+    )
+  }
+
   return (
     <div className={cn("space-y-4", className)}>
       {/* Search and Filters */}
@@ -379,13 +414,13 @@ export const InstrumentList: React.FC<InstrumentListProps> = ({
           />
         </div>
         
-        <div className="flex gap-2">
-          <Select
-            value={localFilters.sector || ''}
-            onValueChange={(value) => 
-              setLocalFilters(prev => ({ ...prev, sector: value || undefined }))
-            }
-          >
+          <div className="flex gap-2">
+            <Select
+              value={localFilters.sector || ''}
+              onChange={(e) =>
+                setLocalFilters(prev => ({ ...prev, sector: e.target.value || undefined }))
+              }
+            >
             <option value="">All Sectors</option>
             <option value="Technology">Technology</option>
             <option value="Healthcare">Healthcare</option>
@@ -447,33 +482,7 @@ export const InstrumentList: React.FC<InstrumentListProps> = ({
 
       {/* Virtualized List */}
       <Card className="overflow-hidden">
-        {isLoading ? (
-          <div className="p-8 text-center">
-            <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading instruments...</p>
-          </div>
-        ) : itemCount === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            <Search className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-            <h3 className="text-lg font-semibold mb-2">No instruments found</h3>
-            <p className="text-sm">
-              {searchTerm ? 
-                `No instruments match "${searchTerm}". Try adjusting your search or filters.` :
-                'No instruments available. Add some instruments to get started.'
-              }
-            </p>
-          </div>
-        ) : (
-          <List
-            height={height}
-            itemCount={itemCount}
-            itemSize={120} // Height of each row
-            itemData={rowData}
-            overscanCount={5} // Render extra items for smooth scrolling
-          >
-            {InstrumentRow}
-          </List>
-        )}
+        {listContent}
       </Card>
     </div>
   )
