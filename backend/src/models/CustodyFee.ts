@@ -29,7 +29,7 @@ export interface CustodyFeeFilters {
 }
 
 export class CustodyFee {
-  private db: ReturnType<typeof SimpleDatabaseConnection.getInstance>
+  private readonly db: ReturnType<typeof SimpleDatabaseConnection.getInstance>
 
   constructor() {
     this.db = SimpleDatabaseConnection.getInstance()
