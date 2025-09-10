@@ -1,4 +1,3 @@
-import React from 'react'
 import { TrendingUp, TrendingDown, AlertTriangle, Target, Brain, Clock } from 'lucide-react'
 import { Card } from '../ui/Card'
 import { Badge } from '../ui/Badge'
@@ -14,7 +13,7 @@ export function ContextualDashboard({ symbol, analysisData, isLoading }: Context
   if (isLoading && !analysisData) {
     return (
       <div className="flex items-center justify-center py-12">
-        <LoadingSpinner size={32} />
+        <LoadingSpinner size="lg" />
         <span className="ml-3 text-gray-600">Analizando {symbol}...</span>
       </div>
     )
