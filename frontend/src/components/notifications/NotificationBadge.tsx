@@ -1,4 +1,3 @@
-import React from 'react'
 import { Bell, BellRing } from 'lucide-react'
 import { useUnreadCount } from '../../hooks/useNotifications'
 import { NotificationBadgeProps } from '../../types/notification'
