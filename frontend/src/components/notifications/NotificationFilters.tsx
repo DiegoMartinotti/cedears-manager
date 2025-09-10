@@ -1,10 +1,11 @@
-import React from 'react'
 import { X } from 'lucide-react'
-import { 
-  NotificationFilters as NotificationFiltersType, 
+import {
+  NotificationFilters as NotificationFiltersType,
   NotificationFilterProps,
   NOTIFICATION_TYPE_CONFIG,
-  NOTIFICATION_PRIORITY_CONFIG 
+  NOTIFICATION_PRIORITY_CONFIG,
+  NotificationType,
+  NotificationPriority
 } from '../../types/notification'
 
 export default function NotificationFilters({ 
@@ -55,12 +56,12 @@ export default function NotificationFilters({
           <div className="flex flex-wrap gap-2">
             {Object.entries(filters).map(([key, value]) => {
               if (value === undefined) return null
-              
+
               let displayValue = String(value)
-              if (key === 'type' && NOTIFICATION_TYPE_CONFIG[value as any]) {
-                displayValue = NOTIFICATION_TYPE_CONFIG[value as any].label
-              } else if (key === 'priority' && NOTIFICATION_PRIORITY_CONFIG[value as any]) {
-                displayValue = NOTIFICATION_PRIORITY_CONFIG[value as any].label
+              if (key === 'type' && NOTIFICATION_TYPE_CONFIG[value as NotificationType]) {
+                displayValue = NOTIFICATION_TYPE_CONFIG[value as NotificationType].label
+              } else if (key === 'priority' && NOTIFICATION_PRIORITY_CONFIG[value as NotificationPriority]) {
+                displayValue = NOTIFICATION_PRIORITY_CONFIG[value as NotificationPriority].label
               } else if (key === 'isRead') {
                 displayValue = value ? 'Leídas' : 'No leídas'
               } else if (key === 'isArchived') {
@@ -74,7 +75,7 @@ export default function NotificationFilters({
                 >
                   {displayValue}
                   <button
-                    onClick={() => removeFilter(key as any)}
+                    onClick={() => removeFilter(key as keyof NotificationFiltersType)}
                     className="hover:bg-blue-200 rounded-full p-0.5"
                   >
                     <X className="w-3 h-3" />
@@ -92,15 +93,15 @@ export default function NotificationFilters({
             <label className="block text-xs font-medium text-gray-700 mb-2">
               Tipo de notificación
             </label>
-            <select
+              <select
               value={filters.type || ''}
-              onChange={(e) => updateFilter('type', e.target.value || undefined)}
+              onChange={(e) => updateFilter('type', e.target.value ? (e.target.value as NotificationType) : undefined)}
               className="w-full text-sm border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">Todos los tipos</option>
               {Object.entries(NOTIFICATION_TYPE_CONFIG).map(([key, config]) => (
                 <option key={key} value={key}>
-                  {config.label} {stats?.byType[key as any] ? `(${stats.byType[key as any]})` : ''}
+                  {config.label} {stats?.byType[key as NotificationType] ? `(${stats.byType[key as NotificationType]})` : ''}
                 </option>
               ))}
             </select>
@@ -111,15 +112,15 @@ export default function NotificationFilters({
             <label className="block text-xs font-medium text-gray-700 mb-2">
               Prioridad
             </label>
-            <select
+              <select
               value={filters.priority || ''}
-              onChange={(e) => updateFilter('priority', e.target.value || undefined)}
+              onChange={(e) => updateFilter('priority', e.target.value ? (e.target.value as NotificationPriority) : undefined)}
               className="w-full text-sm border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">Todas las prioridades</option>
               {Object.entries(NOTIFICATION_PRIORITY_CONFIG).map(([key, config]) => (
                 <option key={key} value={key}>
-                  {config.label} {stats?.byPriority[key as any] ? `(${stats.byPriority[key as any]})` : ''}
+                  {config.label} {stats?.byPriority[key as NotificationPriority] ? `(${stats.byPriority[key as NotificationPriority]})` : ''}
                 </option>
               ))}
             </select>

@@ -1,24 +1,25 @@
-import React, { useState } from 'react'
-import { 
-  Bell, 
-  Search, 
-  Filter, 
+import { useState } from 'react'
+import {
+  Bell,
+  Search,
+  Filter,
   MoreHorizontal,
   CheckCheck,
   X,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Check
 } from 'lucide-react'
-import { 
-  useNotifications, 
-  useNotificationActions, 
+import {
+  useNotifications,
+  useNotificationActions,
   useNotificationFilters,
   useNotificationSearch,
-  useNotificationSummary 
+  useNotificationSummary
 } from '../../hooks/useNotifications'
-import { NotificationData, NotificationFilters } from '../../types/notification'
+import { NotificationData, NotificationFilters as NotificationFiltersType, NotificationStats } from '../../types/notification'
 import NotificationItem from './NotificationItem'
-import NotificationFilters from './NotificationFilters'
+import NotificationFiltersComponent from './NotificationFilters'
 
 interface NotificationCenterProps {
   isOpen: boolean
@@ -167,15 +168,18 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
           {/* Filters */}
           {showFilters && (
             <div className="border-b border-gray-200">
-              <NotificationFilters
+              <NotificationFiltersComponent
                 filters={filters}
-                onFiltersChange={(newFilters) => {
+                onFiltersChange={(newFilters: NotificationFiltersType) => {
                   Object.entries(newFilters).forEach(([key, value]) => {
-                    updateFilter(key as keyof NotificationFilters, value)
+                    updateFilter(
+                      key as keyof NotificationFiltersType,
+                      value as NotificationFiltersType[keyof NotificationFiltersType]
+                    )
                   })
                   setCurrentPage(1)
                 }}
-                stats={summary?.stats}
+                stats={summary?.stats as NotificationStats}
               />
             </div>
           )}
