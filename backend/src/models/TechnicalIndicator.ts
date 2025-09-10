@@ -1,6 +1,5 @@
 import Database from 'better-sqlite3'
 import SimpleDatabaseConnection from '../database/simple-connection'
-import type { TechnicalIndicator as TechnicalIndicatorType } from '../../../shared/src/types'
 
 export interface TechnicalIndicatorData {
   id?: number

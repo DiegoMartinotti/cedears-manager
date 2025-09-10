@@ -277,8 +277,7 @@ export class UVA {
    */
   async getInflationRates(
     fromDate: string,
-    toDate: string,
-    periodType: 'monthly' | 'yearly' = 'monthly'
+    toDate: string
   ): Promise<{ date: string; rate: number; uvaValue: number }[]> {
     try {
       const baseQuery = `

@@ -29,10 +29,10 @@ export interface CustodyFeeFilters {
 }
 
 export class CustodyFee {
-  private db: SimpleDatabase
+  private readonly db: ReturnType<typeof SimpleDatabaseConnection.getInstance>
 
   constructor() {
-    this.db = SimpleDatabase.getInstance()
+    this.db = SimpleDatabaseConnection.getInstance()
   }
 
   /**
@@ -151,6 +151,7 @@ export class CustodyFee {
   /**
    * Obtener estadísticas de custodia
    */
+  // eslint-disable-next-line max-lines-per-function
   async getStatistics(filters: CustodyFeeFilters = {}): Promise<{
     totalRecords: number
     totalPaid: number
