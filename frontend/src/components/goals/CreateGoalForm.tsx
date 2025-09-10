@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, type FormEvent, type ChangeEvent } from 'react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Card } from '../ui/Card';
@@ -65,7 +65,7 @@ export function CreateGoalForm({ onSubmit, onCancel, loading = false }: CreateGo
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) {
@@ -147,7 +147,7 @@ export function CreateGoalForm({ onSubmit, onCancel, loading = false }: CreateGo
             </label>
             <Select
               value={formData.type}
-              onValueChange={(value) => handleInputChange('type', value)}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) => handleInputChange('type', e.target.value)}
             >
               {goalTypes.map((type) => (
                 <option key={type.value} value={type.value}>
@@ -184,7 +184,7 @@ export function CreateGoalForm({ onSubmit, onCancel, loading = false }: CreateGo
               </label>
               <Select
                 value={formData.currency}
-                onValueChange={(value) => handleInputChange('currency', value)}
+                onChange={(e: ChangeEvent<HTMLSelectElement>) => handleInputChange('currency', e.target.value)}
               >
                 {currencies.map((currency) => (
                   <option key={currency.value} value={currency.value}>

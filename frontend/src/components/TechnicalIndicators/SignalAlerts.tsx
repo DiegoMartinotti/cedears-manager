@@ -234,8 +234,8 @@ export function SignalAlerts({
                       </div>
                       <div className={compact ? 'text-sm' : ''}>
                         <span className="font-medium">{signal.indicator}</span>
-                        {signal.period && (
-                          <span className="text-xs text-gray-500 ml-1">({signal.period})</span>
+                        {'period' in signal && (
+                          <span className="text-xs text-gray-500 ml-1">({(signal as any).period})</span>
                         )}
                       </div>
                     </div>
