@@ -135,7 +135,7 @@ export const StrategyCard: React.FC<StrategyCardProps> = ({
             </Badge>
             <Button
               onClick={onToggleDetails}
-              size="small"
+              size="sm"
               variant="outline"
             >
               Ver Detalles
@@ -235,7 +235,7 @@ export const StrategyCard: React.FC<StrategyCardProps> = ({
               <div className={`flex items-center space-x-4 text-sm ${getSecondaryTextColor().replace('600', '700')}`}>
                 <Button
                   onClick={onToggleDetails}
-                  size="small"
+                    size="sm"
                   variant="outline"
                   className="text-xs"
                 >
@@ -243,7 +243,7 @@ export const StrategyCard: React.FC<StrategyCardProps> = ({
                 </Button>
                 <Button
                   onClick={onDeactivate}
-                  size="small"
+                    size="sm"
                   variant="outline"
                   className="text-xs text-red-600 border-red-300 hover:bg-red-50"
                 >
@@ -269,14 +269,14 @@ export const StrategyCard: React.FC<StrategyCardProps> = ({
           <div className="flex items-center space-x-2">
             <Button
               onClick={onToggleDetails}
-              size="small"
+              size="sm"
               variant="outline"
             >
               {showDetails ? 'Ocultar' : 'Ver'} Detalles
             </Button>
             <Button
               onClick={onActivate}
-              size="small"
+              size="sm"
               className="bg-blue-600 hover:bg-blue-700"
             >
               Activar
