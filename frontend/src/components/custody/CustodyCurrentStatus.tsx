@@ -115,7 +115,7 @@ export const CustodyCurrentStatus: React.FC<CustodyCurrentStatusProps> = ({
               </div>
               <div>
                 <p className="text-sm text-gray-600">Estado</p>
-                <Badge variant={isExempt ? 'success' : 'warning'}>
+                <Badge variant={isExempt ? 'success' : 'destructive'}>
                   {isExempt ? 'Exento' : 'Con Custodia'}
                 </Badge>
               </div>
