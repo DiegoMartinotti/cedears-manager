@@ -12,13 +12,19 @@ export function generateScenarios(symbol: string, prediction: any): {
   priceImpact: number
   timeToImpact: string
 }[] {
+  let baseImpact = 0
+  if (prediction.direction === 'BULLISH') {
+    baseImpact = 8
+  } else if (prediction.direction === 'BEARISH') {
+    baseImpact = -8
+  }
+
   return [
     {
       name: 'Base Case',
       probability: 60,
       description: 'Escenario más probable basado en tendencias actuales',
-      priceImpact: prediction.direction === 'BULLISH' ? 8 :
-                  prediction.direction === 'BEARISH' ? -8 : 0,
+      priceImpact: baseImpact,
       timeToImpact: '1-3 meses'
     },
     {

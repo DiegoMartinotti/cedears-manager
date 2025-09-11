@@ -1,4 +1,4 @@
-/* eslint-disable max-lines-per-function, complexity */
+/* eslint-disable max-lines-per-function */
 import { newsAnalysisService } from './NewsAnalysisService.js'
 import { marketSentimentService } from './MarketSentimentService.js'
 import { earningsAnalysisService } from './EarningsAnalysisService.js'
@@ -54,35 +54,18 @@ export class TrendPredictionService {
       const cacheKey = `${this.CACHE_PREFIX}:${symbol}:${timeframe}:${JSON.stringify(options)}`
 
       // Verificar cache
-      if (useCache) {
-        const cached = cacheService.get<TrendPrediction>(cacheKey)
-        if (cached) {
-          logger.info('Trend prediction served from cache', { symbol, timeframe, cacheKey })
-          return cached
-        }
+      const cached = useCache ? cacheService.get<TrendPrediction>(cacheKey) : undefined
+      if (cached) {
+        logger.info('Trend prediction served from cache', { symbol, timeframe, cacheKey })
+        return cached
       }
 
       // Recopilar datos de múltiples fuentes
-      const [
-        technicalData,
-        newsData,
-        sentimentData,
-        earningsData,
-        priceData
-      ] = await Promise.allSettled([
-        this.getTechnicalAnalysis(symbol),
-        includeNews ? this.getNewsAnalysis(symbol) : Promise.resolve(null),
-        includeSentiment ? this.getSentimentAnalysis(symbol) : Promise.resolve(null),
-        includeEarnings ? this.getEarningsAnalysis(symbol) : Promise.resolve(null),
-        this.getPriceData(symbol, timeframe)
-      ])
-
-      // Procesar resultados
-      const technical = technicalData.status === 'fulfilled' ? technicalData.value : null
-      const news = newsData.status === 'fulfilled' ? newsData.value : null
-      const sentiment = sentimentData.status === 'fulfilled' ? sentimentData.value : null
-      const earnings = earningsData.status === 'fulfilled' ? earningsData.value : null
-      const prices = priceData.status === 'fulfilled' ? priceData.value : null
+      const { technical, news, sentiment, earnings, prices } = await this.collectPredictionData(
+        symbol,
+        timeframe,
+        { includeNews, includeSentiment, includeEarnings }
+      )
 
       // Calcular scores individuales
       const technicalScore = this.calculateTechnicalScore(technical)
@@ -128,20 +111,15 @@ export class TrendPredictionService {
         : []
 
       // Análisis con Claude
-      let claudeAnalysis = undefined
-      if (analyzeWithClaude) {
-        try {
-          claudeAnalysis = await analyzeTrendWithClaude(symbol, timeframe, {
+      const claudeAnalysis = analyzeWithClaude
+        ? await this.runClaudeAnalysis(symbol, timeframe, {
             prediction,
             scores: { technicalScore, fundamentalScore, sentimentScore, newsScore, overallScore },
             keyFactors,
             scenarios,
             rawData: { technical, news, sentiment, earnings }
           })
-        } catch (error) {
-          logger.warn('Claude trend analysis failed', { symbol, error })
-        }
-      }
+        : undefined
 
       const result: TrendPrediction = {
         symbol,
@@ -183,6 +161,48 @@ export class TrendPredictionService {
       const executionTime = Date.now() - startTime
       logger.error('Trend prediction failed', { symbol, timeframe, error, executionTime })
       throw error
+    }
+  }
+
+  private async runClaudeAnalysis(
+    symbol: string,
+    timeframe: string,
+    data: {
+      prediction: any
+      scores: Record<string, number>
+      keyFactors: any
+      scenarios: any
+      rawData: Record<string, unknown>
+    }
+  ) {
+    try {
+      return await analyzeTrendWithClaude(symbol, timeframe, data)
+    } catch (error) {
+      logger.warn('Claude trend analysis failed', { symbol, error })
+      return undefined
+    }
+  }
+
+  private async collectPredictionData(
+    symbol: string,
+    timeframe: string,
+    opts: { includeNews: boolean; includeSentiment: boolean; includeEarnings: boolean }
+  ) {
+    const [technicalData, newsData, sentimentData, earningsData, priceData] =
+      await Promise.allSettled([
+        this.getTechnicalAnalysis(symbol),
+        opts.includeNews ? this.getNewsAnalysis(symbol) : Promise.resolve(null),
+        opts.includeSentiment ? this.getSentimentAnalysis(symbol) : Promise.resolve(null),
+        opts.includeEarnings ? this.getEarningsAnalysis(symbol) : Promise.resolve(null),
+        this.getPriceData(symbol, timeframe)
+      ])
+
+    return {
+      technical: technicalData.status === 'fulfilled' ? technicalData.value : null,
+      news: newsData.status === 'fulfilled' ? newsData.value : null,
+      sentiment: sentimentData.status === 'fulfilled' ? sentimentData.value : null,
+      earnings: earningsData.status === 'fulfilled' ? earningsData.value : null,
+      prices: priceData.status === 'fulfilled' ? priceData.value : null
     }
   }
 
@@ -380,8 +400,14 @@ export class TrendPredictionService {
    */
   private async getPriceData(symbol: string, timeframe: string): Promise<any> {
     try {
-      const days = timeframe === '1W' ? 7 : timeframe === '1M' ? 30 : 
-                  timeframe === '3M' ? 90 : timeframe === '6M' ? 180 : 365
+      const daysLookup: Record<string, number> = {
+        '1W': 7,
+        '1M': 30,
+        '3M': 90,
+        '6M': 180,
+        '1Y': 365
+      }
+      const days = daysLookup[timeframe] ?? 365
       
       const endDate = new Date()
       const startDate = new Date(endDate.getTime() - days * 24 * 60 * 60 * 1000)
