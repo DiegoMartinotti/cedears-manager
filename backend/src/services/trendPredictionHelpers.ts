@@ -54,43 +54,53 @@ export async function analyzeWithClaude(
   monitoringPoints: string[]
   confidence: number
 }> {
-  const prompt = `
-Analiza la predicción de tendencia para ${symbol} en timeframe ${timeframe}:
+  const keyFactorsText = data.keyFactors
+    .map((f: any) => '- ' + f.factor + ': ' + f.impact + ' (' + f.description + ')')
+    .join('\n')
 
-PREDICCIÓN ACTUAL:
-- Dirección: ${data.prediction.direction}
-- Confianza: ${data.prediction.confidence}%
-- Fuerza: ${data.prediction.strength}
+  const scenariosText = data.scenarios
+    .map((s: any) => '- ' + s.name + ' (' + s.probability + '%): ' + s.description)
+    .join('\n')
 
-SCORES COMPONENTES:
-- Técnico: ${data.scores.technicalScore}
-- Fundamental: ${data.scores.fundamentalScore}
-- Sentiment: ${data.scores.sentimentScore}
-- Noticias: ${data.scores.newsScore}
-- General: ${data.scores.overallScore}
-
-FACTORES CLAVE:
-${data.keyFactors.map((f: any) => `- ${f.factor}: ${f.impact} (${f.description})`).join('\n')}
-
-ESCENARIOS:
-${data.scenarios.map((s: any) => `- ${s.name} (${s.probability}%): ${s.description}`).join('\n')}
-
-Por favor proporciona:
-1. RAZONAMIENTO: Análisis detallado de la predicción (2-3 oraciones)
-2. INSIGHTS_CLAVE: 3-5 insights más importantes
-3. PUNTOS_MONITOREO: Qué métricas/eventos vigilar de cerca
-4. CONFIANZA: Tu nivel de confianza en esta predicción (0-100)
-
-Considera contexto macro, estacionalidad y eventos próximos.
-
-Responde en formato JSON:
-{
-  "reasoning": "Análisis detallado...",
-  "keyInsights": ["insight1", "insight2", "insight3"],
-  "monitoringPoints": ["punto1", "punto2", "punto3"],
-  "confidence": 85
-}
-`
+  const promptLines = [
+    'Analiza la predicción de tendencia para ' + symbol + ' en timeframe ' + timeframe + ':',
+    '',
+    'PREDICCIÓN ACTUAL:',
+    '- Dirección: ' + data.prediction.direction,
+    '- Confianza: ' + data.prediction.confidence + '%',
+    '- Fuerza: ' + data.prediction.strength,
+    '',
+    'SCORES COMPONENTES:',
+    '- Técnico: ' + data.scores.technicalScore,
+    '- Fundamental: ' + data.scores.fundamentalScore,
+    '- Sentiment: ' + data.scores.sentimentScore,
+    '- Noticias: ' + data.scores.newsScore,
+    '- General: ' + data.scores.overallScore,
+    '',
+    'FACTORES CLAVE:',
+    keyFactorsText,
+    '',
+    'ESCENARIOS:',
+    scenariosText,
+    '',
+    'Por favor proporciona:',
+    '1. RAZONAMIENTO: Análisis detallado de la predicción (2-3 oraciones)',
+    '2. INSIGHTS_CLAVE: 3-5 insights más importantes',
+    '3. PUNTOS_MONITOREO: Qué métricas/eventos vigilar de cerca',
+    '4. CONFIANZA: Tu nivel de confianza en esta predicción (0-100)',
+    '',
+    'Considera contexto macro, estacionalidad y eventos próximos.',
+    '',
+    'Responde en formato JSON:',
+    '{',
+    '  "reasoning": "Análisis detallado...",',
+    '  "keyInsights": ["insight1", "insight2", "insight3"],',
+    '  "monitoringPoints": ["punto1", "punto2", "punto3"],',
+    '  "confidence": 85',
+    '}',
+    ''
+  ]
+  const prompt = promptLines.join('\n')
 
   try {
     const response = await claudeAnalysisService.analyze({

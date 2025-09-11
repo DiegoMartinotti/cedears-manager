@@ -79,46 +79,48 @@ export async function analyzeWithClaude(
   outlook: string
   confidence: number
 }> {
-  const prompt = `
-Analiza los resultados de earnings de ${symbol}:
-
-DATOS DE EARNINGS:
-- EPS Reportado: $${earnings.reportedEPS}
-- EPS Estimado: $${earnings.estimatedEPS}
-- Sorpresa EPS: ${earnings.surprisePercentage}%
-- Revenue: $${earnings.revenue ? (earnings.revenue / 1000000).toFixed(0) + 'M' : 'N/A'}
-- Fecha: ${earnings.reportedDate}
-
-ANÁLISIS AUTOMÁTICO:
-- Assessment General: ${context.overallAssessment}
-- Análisis EPS: ${context.epsAnalysis.description}
-- Análisis Revenue: ${context.revenueAnalysis?.description || 'No disponible'}
-
-CONTEXTO HISTÓRICO:
-- Beats consecutivos: ${context.historicalContext.consecutiveBeats}
-- Misses consecutivos: ${context.historicalContext.consecutiveMisses}
-- Promedio sorpresas últimos trimestres: ${context.historicalContext.avgSurpriseLastQuarters}%
-
-Por favor proporciona:
-1. ANÁLISIS: Evaluación detallada de los resultados (2-3 oraciones)
-2. PUNTOS_CLAVE: 3-5 puntos más importantes de estos earnings
-3. RIESGOS: Principales riesgos identificados
-4. OPORTUNIDADES: Oportunidades que surgen de estos resultados
-5. OUTLOOK: Perspectiva para próximos trimestres
-6. CONFIANZA: Tu nivel de confianza en este análisis (0-100)
-
-Considera el contexto del sector y las condiciones macroeconómicas actuales.
-
-Responde en formato JSON:
-{
-  "analysis": "Análisis detallado...",
-  "keyPoints": ["punto1", "punto2", "punto3"],
-  "risks": ["riesgo1", "riesgo2"],
-  "opportunities": ["oportunidad1", "oportunidad2"],
-  "outlook": "Perspectiva próximos trimestres...",
-  "confidence": 85
-}
-`
+  const promptLines = [
+    'Analiza los resultados de earnings de ' + symbol + ':',
+    '',
+    'DATOS DE EARNINGS:',
+    '- EPS Reportado: $' + earnings.reportedEPS,
+    '- EPS Estimado: $' + earnings.estimatedEPS,
+    '- Sorpresa EPS: ' + earnings.surprisePercentage + '%',
+    '- Revenue: $' + (earnings.revenue ? (earnings.revenue / 1000000).toFixed(0) + 'M' : 'N/A'),
+    '- Fecha: ' + earnings.reportedDate,
+    '',
+    'ANÁLISIS AUTOMÁTICO:',
+    '- Assessment General: ' + context.overallAssessment,
+    '- Análisis EPS: ' + context.epsAnalysis.description,
+    '- Análisis Revenue: ' + (context.revenueAnalysis?.description || 'No disponible'),
+    '',
+    'CONTEXTO HISTÓRICO:',
+    '- Beats consecutivos: ' + context.historicalContext.consecutiveBeats,
+    '- Misses consecutivos: ' + context.historicalContext.consecutiveMisses,
+    '- Promedio sorpresas últimos trimestres: ' + context.historicalContext.avgSurpriseLastQuarters + '%',
+    '',
+    'Por favor proporciona:',
+    '1. ANÁLISIS: Evaluación detallada de los resultados (2-3 oraciones)',
+    '2. PUNTOS_CLAVE: 3-5 puntos más importantes de estos earnings',
+    '3. RIESGOS: Principales riesgos identificados',
+    '4. OPORTUNIDADES: Oportunidades que surgen de estos resultados',
+    '5. OUTLOOK: Perspectiva para próximos trimestres',
+    '6. CONFIANZA: Tu nivel de confianza en este análisis (0-100)',
+    '',
+    'Considera el contexto del sector y las condiciones macroeconómicas actuales.',
+    '',
+    'Responde en formato JSON:',
+    '{',
+    '  "analysis": "Análisis detallado...",',
+    '  "keyPoints": ["punto1", "punto2", "punto3"],',
+    '  "risks": ["riesgo1", "riesgo2"],',
+    '  "opportunities": ["oportunidad1", "oportunidad2"],',
+    '  "outlook": "Perspectiva próximos trimestres...",',
+    '  "confidence": 85',
+    '}',
+    ''
+  ]
+  const prompt = promptLines.join('\n')
 
   try {
     const response = await claudeAnalysisService.analyze({
