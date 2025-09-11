@@ -1,4 +1,3 @@
-/* eslint-disable max-lines-per-function */
 import { claudeAnalysisService } from './claudeAnalysisService.js'
 import { createLogger } from '../utils/logger.js'
 import { TrendPrediction } from './trendPredictionTypes.js'
@@ -44,38 +43,41 @@ export function generateScenarios(symbol: string, prediction: any): {
   ]
 }
 
-export async function analyzeWithClaude(
-  symbol: string,
-  timeframe: string,
-  data: any
-): Promise<{
+type TrendClaudeResult = {
   reasoning: string
   keyInsights: string[]
   monitoringPoints: string[]
   confidence: number
-}> {
+}
+
+const TREND_DEFAULT: TrendClaudeResult = {
+  reasoning: 'Análisis con Claude no disponible',
+  keyInsights: [],
+  monitoringPoints: [],
+  confidence: 50
+}
+
+function buildTrendPrompt(symbol: string, timeframe: string, data: any): string {
   const keyFactorsText = data.keyFactors
-    .map((f: any) => '- ' + f.factor + ': ' + f.impact + ' (' + f.description + ')')
+    .map((f: any) => `- ${f.factor}: ${f.impact} (${f.description})`)
     .join('\n')
-
   const scenariosText = data.scenarios
-    .map((s: any) => '- ' + s.name + ' (' + s.probability + '%): ' + s.description)
+    .map((s: any) => `- ${s.name} (${s.probability}%): ${s.description}`)
     .join('\n')
-
-  const promptLines = [
-    'Analiza la predicción de tendencia para ' + symbol + ' en timeframe ' + timeframe + ':',
+  const lines = [
+    `Analiza la predicción de tendencia para ${symbol} en timeframe ${timeframe}:`,
     '',
     'PREDICCIÓN ACTUAL:',
-    '- Dirección: ' + data.prediction.direction,
-    '- Confianza: ' + data.prediction.confidence + '%',
-    '- Fuerza: ' + data.prediction.strength,
+    `- Dirección: ${data.prediction.direction}`,
+    `- Confianza: ${data.prediction.confidence}%`,
+    `- Fuerza: ${data.prediction.strength}`,
     '',
     'SCORES COMPONENTES:',
-    '- Técnico: ' + data.scores.technicalScore,
-    '- Fundamental: ' + data.scores.fundamentalScore,
-    '- Sentiment: ' + data.scores.sentimentScore,
-    '- Noticias: ' + data.scores.newsScore,
-    '- General: ' + data.scores.overallScore,
+    `- Técnico: ${data.scores.technicalScore}`,
+    `- Fundamental: ${data.scores.fundamentalScore}`,
+    `- Sentiment: ${data.scores.sentimentScore}`,
+    `- Noticias: ${data.scores.newsScore}`,
+    `- General: ${data.scores.overallScore}`,
     '',
     'FACTORES CLAVE:',
     keyFactorsText,
@@ -100,8 +102,32 @@ export async function analyzeWithClaude(
     '}',
     ''
   ]
-  const prompt = promptLines.join('\n')
+  return lines.join('\n')
+}
 
+function parseTrendResponse(response: any): TrendClaudeResult {
+  if (response.success && response.analysis) {
+    try {
+      const result = JSON.parse(response.analysis)
+      return {
+        reasoning: result.reasoning || 'Análisis no disponible',
+        keyInsights: result.keyInsights || [],
+        monitoringPoints: result.monitoringPoints || [],
+        confidence: result.confidence || 70
+      }
+    } catch {
+      return TREND_DEFAULT
+    }
+  }
+  return TREND_DEFAULT
+}
+
+export async function analyzeWithClaude(
+  symbol: string,
+  timeframe: string,
+  data: any
+): Promise<TrendClaudeResult> {
+  const prompt = buildTrendPrompt(symbol, timeframe, data)
   try {
     const response = await claudeAnalysisService.analyze({
       prompt,
@@ -112,23 +138,7 @@ export async function analyzeWithClaude(
       cacheTTLMinutes: 60,
       retryAttempts: 2
     })
-
-    if (response.success && response.analysis) {
-      const result = JSON.parse(response.analysis)
-      return {
-        reasoning: result.reasoning || 'Análisis no disponible',
-        keyInsights: result.keyInsights || [],
-        monitoringPoints: result.monitoringPoints || [],
-        confidence: result.confidence || 70
-      }
-    }
-
-    return {
-      reasoning: 'Análisis con Claude no disponible',
-      keyInsights: [],
-      monitoringPoints: [],
-      confidence: 50
-    }
+    return parseTrendResponse(response)
   } catch (error) {
     logger.warn('Claude trend analysis failed', { symbol, error })
     return {

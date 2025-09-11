@@ -1,4 +1,3 @@
-/* eslint-disable max-lines-per-function */
 import yahooFinance from 'yahoo-finance2'
 import { rateLimitService } from './rateLimitService.js'
 import { createLogger } from '../utils/logger.js'
@@ -67,37 +66,26 @@ export async function getCompetitorComparison(): Promise<{
   ]
 }
 
-export async function analyzeWithClaude(
-  symbol: string,
-  earnings: EarningsData,
-  context: any
-): Promise<{
-  analysis: string
-  keyPoints: string[]
-  risks: string[]
-  opportunities: string[]
-  outlook: string
-  confidence: number
-}> {
-  const promptLines = [
-    'Analiza los resultados de earnings de ' + symbol + ':',
+function buildPrompt(symbol: string, earnings: EarningsData, context: any): string {
+  const lines = [
+    `Analiza los resultados de earnings de ${symbol}:`,
     '',
     'DATOS DE EARNINGS:',
-    '- EPS Reportado: $' + earnings.reportedEPS,
-    '- EPS Estimado: $' + earnings.estimatedEPS,
-    '- Sorpresa EPS: ' + earnings.surprisePercentage + '%',
-    '- Revenue: $' + (earnings.revenue ? (earnings.revenue / 1000000).toFixed(0) + 'M' : 'N/A'),
-    '- Fecha: ' + earnings.reportedDate,
+    `- EPS Reportado: $${earnings.reportedEPS}`,
+    `- EPS Estimado: $${earnings.estimatedEPS}`,
+    `- Sorpresa EPS: ${earnings.surprisePercentage}%`,
+    `- Revenue: $${earnings.revenue ? (earnings.revenue / 1000000).toFixed(0) + 'M' : 'N/A'}`,
+    `- Fecha: ${earnings.reportedDate}`,
     '',
     'ANÁLISIS AUTOMÁTICO:',
-    '- Assessment General: ' + context.overallAssessment,
-    '- Análisis EPS: ' + context.epsAnalysis.description,
-    '- Análisis Revenue: ' + (context.revenueAnalysis?.description || 'No disponible'),
+    `- Assessment General: ${context.overallAssessment}`,
+    `- Análisis EPS: ${context.epsAnalysis.description}`,
+    `- Análisis Revenue: ${context.revenueAnalysis?.description || 'No disponible'}`,
     '',
     'CONTEXTO HISTÓRICO:',
-    '- Beats consecutivos: ' + context.historicalContext.consecutiveBeats,
-    '- Misses consecutivos: ' + context.historicalContext.consecutiveMisses,
-    '- Promedio sorpresas últimos trimestres: ' + context.historicalContext.avgSurpriseLastQuarters + '%',
+    `- Beats consecutivos: ${context.historicalContext.consecutiveBeats}`,
+    `- Misses consecutivos: ${context.historicalContext.consecutiveMisses}`,
+    `- Promedio sorpresas últimos trimestres: ${context.historicalContext.avgSurpriseLastQuarters}%`,
     '',
     'Por favor proporciona:',
     '1. ANÁLISIS: Evaluación detallada de los resultados (2-3 oraciones)',
@@ -120,8 +108,52 @@ export async function analyzeWithClaude(
     '}',
     ''
   ]
-  const prompt = promptLines.join('\n')
+  return lines.join('\n')
+}
 
+type ClaudeEarningsResult = {
+  analysis: string
+  keyPoints: string[]
+  risks: string[]
+  opportunities: string[]
+  outlook: string
+  confidence: number
+}
+
+const DEFAULT_RESULT: ClaudeEarningsResult = {
+  analysis: 'Análisis con Claude no disponible',
+  keyPoints: [],
+  risks: [],
+  opportunities: [],
+  outlook: 'Outlook no disponible',
+  confidence: 50
+}
+
+function parseResponse(response: any): ClaudeEarningsResult {
+  if (response.success && response.analysis) {
+    try {
+      const result = JSON.parse(response.analysis)
+      return {
+        analysis: result.analysis || 'Análisis no disponible',
+        keyPoints: result.keyPoints || [],
+        risks: result.risks || [],
+        opportunities: result.opportunities || [],
+        outlook: result.outlook || 'Outlook no disponible',
+        confidence: result.confidence || 70
+      }
+    } catch {
+      return DEFAULT_RESULT
+    }
+  }
+  return DEFAULT_RESULT
+}
+
+export async function analyzeWithClaude(
+  symbol: string,
+  earnings: EarningsData,
+  context: any
+): Promise<ClaudeEarningsResult> {
+  const prompt = buildPrompt(symbol, earnings, context)
   try {
     const response = await claudeAnalysisService.analyze({
       prompt,
@@ -132,27 +164,7 @@ export async function analyzeWithClaude(
       cacheTTLMinutes: 120,
       retryAttempts: 2
     })
-
-    if (response.success && response.analysis) {
-      const result = JSON.parse(response.analysis)
-      return {
-        analysis: result.analysis || 'Análisis no disponible',
-        keyPoints: result.keyPoints || [],
-        risks: result.risks || [],
-        opportunities: result.opportunities || [],
-        outlook: result.outlook || 'Outlook no disponible',
-        confidence: result.confidence || 70
-      }
-    }
-
-    return {
-      analysis: 'Análisis con Claude no disponible',
-      keyPoints: [],
-      risks: [],
-      opportunities: [],
-      outlook: 'Outlook no disponible',
-      confidence: 50
-    }
+    return parseResponse(response)
   } catch (error) {
     logger.warn('Claude earnings analysis failed', { symbol, error })
     return {
