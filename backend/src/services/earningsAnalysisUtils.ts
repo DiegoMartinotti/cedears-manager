@@ -4,6 +4,7 @@ import { rateLimitService } from './rateLimitService.js'
 import { createLogger } from '../utils/logger.js'
 import { EarningsData } from './earningsAnalysisTypes.js'
 import { claudeAnalysisService } from './claudeAnalysisService.js'
+import { randomInt } from 'crypto'
 
 const logger = createLogger('earnings-analysis-service')
 
@@ -35,9 +36,14 @@ export async function fetchFromYahooFinance(symbol: string): Promise<EarningsDat
   }
 }
 
+function secureRandom(min: number, max: number): number {
+  const rand = randomInt(0, 1000000) / 1000000
+  return min + rand * (max - min)
+}
+
 export function generateFallbackData(symbol: string): EarningsData {
-  const estimatedEPS = 1.5 + Math.random() * 0.5
-  const actualEPS = estimatedEPS + (Math.random() - 0.5) * 0.3
+  const estimatedEPS = secureRandom(1.5, 2.0)
+  const actualEPS = estimatedEPS + secureRandom(-0.15, 0.15)
   return {
     symbol,
     fiscalDateEnding: '2024-03-31',
