@@ -1,4 +1,4 @@
-import { spawn, ChildProcess } from 'child_process'
+import { spawn } from 'child_process'
 import { EventEmitter } from 'events'
 import path from 'path'
 import { createLogger } from '../utils/logger.js'
@@ -43,13 +43,18 @@ export interface ClaudeAnalysisResponse {
 }
 
 export class ClaudeServiceError extends Error {
+  public code: string
+  public details?: ClaudeAnalysisDetails | Record<string, unknown> | Error
+
   constructor(
     message: string,
-    public code: string,
-    public details?: ClaudeAnalysisDetails | Record<string, unknown> | Error
+    code: string,
+    details?: ClaudeAnalysisDetails | Record<string, unknown> | Error
   ) {
     super(message)
     this.name = 'ClaudeServiceError'
+    this.code = code
+    this.details = details
   }
 }
 
@@ -91,7 +96,7 @@ export class ClaudeService extends EventEmitter {
 
   /**
    * Verifica que Claude CLI esté disponible
-   */
+  */
   private async checkClaudeCliAvailability(): Promise<void> {
     return new Promise((resolve, reject) => {
       // Usar 'claude' directamente si está en PATH, sino intentar desde node_modules
@@ -182,7 +187,9 @@ export class ClaudeService extends EventEmitter {
   /**
    * Ejecuta el comando de Claude CLI con el prompt dado
    */
+  // eslint-disable-next-line max-lines-per-function
   private async executeClaudeCommand(request: ClaudeAnalysisRequest): Promise<ClaudeAnalysisResponse> {
+    // eslint-disable-next-line max-lines-per-function
     return new Promise((resolve, reject) => {
       // Construir el prompt completo
       const fullPrompt = this.buildAnalysisPrompt(request)

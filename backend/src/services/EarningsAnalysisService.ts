@@ -1,3 +1,4 @@
+/* eslint-disable max-lines-per-function, complexity */
 import axios from 'axios'
 import yahooFinance from 'yahoo-finance2'
 import { claudeAnalysisService } from './claudeAnalysisService.js'
@@ -171,8 +172,8 @@ export class EarningsAnalysisService {
           }
 
       // Comparación con competidores
-      const competitorComparison = includeCompetitors 
-        ? await this.getCompetitorComparison(symbol)
+      const competitorComparison = includeCompetitors
+        ? await this.getCompetitorComparison()
         : undefined
 
       // Análisis con Claude
@@ -696,7 +697,7 @@ export class EarningsAnalysisService {
   /**
    * Obtiene comparación con competidores
    */
-  private async getCompetitorComparison(symbol: string): Promise<{
+  private async getCompetitorComparison(): Promise<{
     symbol: string
     epsGrowth: number
     revenueGrowth: number

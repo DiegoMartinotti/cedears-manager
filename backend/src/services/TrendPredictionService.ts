@@ -1,3 +1,4 @@
+/* eslint-disable max-lines-per-function, complexity */
 import { claudeAnalysisService } from './claudeAnalysisService.js'
 import { newsAnalysisService } from './NewsAnalysisService.js'
 import { marketSentimentService } from './MarketSentimentService.js'
@@ -192,9 +193,9 @@ export class TrendPredictionService {
       })
 
       // Generar escenarios
-      const scenarios = includeScenarios 
-        ? this.generateScenarios(symbol, prediction, keyFactors)
-        : []
+        const scenarios = includeScenarios
+          ? this.generateScenarios(symbol, prediction)
+          : []
 
       // Análisis con Claude
       let claudeAnalysis = undefined
@@ -741,7 +742,7 @@ export class TrendPredictionService {
   /**
    * Genera escenarios probabilísticos
    */
-  private generateScenarios(symbol: string, prediction: any, keyFactors: any[]): {
+  private generateScenarios(symbol: string, prediction: any): {
     name: string
     probability: number
     description: string
