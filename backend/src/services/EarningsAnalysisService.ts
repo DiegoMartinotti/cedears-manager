@@ -1,4 +1,4 @@
-/* eslint-disable max-lines-per-function, complexity */
+/* eslint-disable max-lines, max-lines-per-function, complexity */
 import axios from 'axios'
 import yahooFinance from 'yahoo-finance2'
 import { claudeAnalysisService } from './claudeAnalysisService.js'

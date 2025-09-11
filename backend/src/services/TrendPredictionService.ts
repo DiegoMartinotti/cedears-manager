@@ -1,4 +1,4 @@
-/* eslint-disable max-lines-per-function, complexity */
+/* eslint-disable max-lines, max-lines-per-function, complexity */
 import { claudeAnalysisService } from './claudeAnalysisService.js'
 import { newsAnalysisService } from './NewsAnalysisService.js'
 import { marketSentimentService } from './MarketSentimentService.js'
