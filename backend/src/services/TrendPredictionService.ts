@@ -1,5 +1,4 @@
-/* eslint-disable max-lines, max-lines-per-function, complexity */
-import { claudeAnalysisService } from './claudeAnalysisService.js'
+/* eslint-disable max-lines-per-function, complexity */
 import { newsAnalysisService } from './NewsAnalysisService.js'
 import { marketSentimentService } from './MarketSentimentService.js'
 import { earningsAnalysisService } from './EarningsAnalysisService.js'
@@ -7,88 +6,19 @@ import { Quote } from '../models/Quote.js'
 import { TechnicalIndicator } from '../models/TechnicalIndicator.js'
 import { cacheService } from './cacheService.js'
 import { createLogger } from '../utils/logger.js'
-
+import {
+  generateScenarios,
+  analyzeWithClaude as analyzeTrendWithClaude,
+  extractKeyThemes,
+  generatePortfolioRecommendations
+} from './trendPredictionHelpers.js'
+import {
+  TrendPrediction,
+  TrendPredictionOptions,
+  MultiSymbolTrendAnalysis,
+  PortfolioTrendAnalysis
+} from './trendPredictionTypes.js'
 const logger = createLogger('trend-prediction-service')
-
-export interface TrendPrediction {
-  symbol: string
-  timeframe: '1W' | '1M' | '3M' | '6M' | '1Y'
-  prediction: {
-    direction: 'BULLISH' | 'BEARISH' | 'SIDEWAYS'
-    confidence: number // 0-100
-    strength: 'WEAK' | 'MODERATE' | 'STRONG'
-    priceTarget?: {
-      low: number
-      high: number
-      target: number
-    }
-    probability: {
-      bullish: number
-      bearish: number
-      sideways: number
-    }
-  }
-  analysis: {
-    technicalScore: number // -100 to 100
-    fundamentalScore: number // -100 to 100
-    sentimentScore: number // -100 to 100
-    newsScore: number // -100 to 100
-    overallScore: number // -100 to 100
-    keyFactors: {
-      factor: string
-      impact: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL'
-      weight: number
-      description: string
-    }[]
-    risks: string[]
-    catalysts: string[]
-  }
-  scenarios: {
-    name: string
-    probability: number
-    description: string
-    priceImpact: number
-    timeToImpact: string
-  }[]
-  lastUpdated: Date
-  claudeAnalysis?: {
-    reasoning: string
-    keyInsights: string[]
-    monitoringPoints: string[]
-    confidence: number
-  }
-}
-
-export interface TrendPredictionOptions {
-  useCache?: boolean
-  cacheTTLMinutes?: number
-  includeScenarios?: boolean
-  analyzeWithClaude?: boolean
-  includeNews?: boolean
-  includeSentiment?: boolean
-  includeEarnings?: boolean
-}
-
-export interface MultiSymbolTrendAnalysis {
-  [symbol: string]: TrendPrediction
-}
-
-export interface PortfolioTrendAnalysis {
-  overallTrend: 'BULLISH' | 'BEARISH' | 'MIXED'
-  confidence: number
-  bullishSymbols: string[]
-  bearishSymbols: string[]
-  neutralSymbols: string[]
-  keyThemes: string[]
-  risks: string[]
-  opportunities: string[]
-  recommendedActions: {
-    action: 'BUY' | 'SELL' | 'HOLD' | 'REDUCE' | 'ADD'
-    symbol: string
-    reason: string
-    urgency: 'HIGH' | 'MEDIUM' | 'LOW'
-  }[]
-}
 
 export class TrendPredictionService {
   private readonly CACHE_PREFIX = 'trend_prediction'
@@ -194,14 +124,14 @@ export class TrendPredictionService {
 
       // Generar escenarios
       const scenarios = includeScenarios
-        ? this.generateScenarios(symbol, prediction)
+        ? generateScenarios(symbol, prediction)
         : []
 
       // Análisis con Claude
       let claudeAnalysis = undefined
       if (analyzeWithClaude) {
         try {
-          claudeAnalysis = await this.analyzeWithClaude(symbol, timeframe, {
+          claudeAnalysis = await analyzeTrendWithClaude(symbol, timeframe, {
             prediction,
             scores: { technicalScore, fundamentalScore, sentimentScore, newsScore, overallScore },
             keyFactors,
@@ -357,7 +287,7 @@ export class TrendPredictionService {
 
       // Extraer temas clave
       const allFactors = predictions.flatMap(p => p.analysis.keyFactors)
-      const keyThemes = this.extractKeyThemes(allFactors)
+      const keyThemes = extractKeyThemes(allFactors)
 
       // Identificar riesgos y oportunidades del portafolio
       const allRisks = predictions.flatMap(p => p.analysis.risks)
@@ -367,7 +297,7 @@ export class TrendPredictionService {
       const opportunities = [...new Set(allCatalysts)].slice(0, 5)
 
       // Generar recomendaciones
-      const recommendedActions = this.generatePortfolioRecommendations(predictions)
+      const recommendedActions = generatePortfolioRecommendations(predictions)
 
       return {
         overallTrend,
@@ -739,188 +669,9 @@ export class TrendPredictionService {
     return [...new Set(catalysts)].slice(0, 5)
   }
 
-  /**
-   * Genera escenarios probabilísticos
-   */
-  private generateScenarios(symbol: string, prediction: any): {
-    name: string
-    probability: number
-    description: string
-    priceImpact: number
-    timeToImpact: string
-  }[] {
-    return [
-      {
-        name: 'Base Case',
-        probability: 60,
-        description: 'Escenario más probable basado en tendencias actuales',
-        priceImpact: prediction.direction === 'BULLISH' ? 8 : 
-                    prediction.direction === 'BEARISH' ? -8 : 0,
-        timeToImpact: '1-3 meses'
-      },
-      {
-        name: 'Bull Case',
-        probability: 25,
-        description: 'Escenario optimista con catalizadores positivos',
-        priceImpact: 20,
-        timeToImpact: '3-6 meses'
-      },
-      {
-        name: 'Bear Case',
-        probability: 15,
-        description: 'Escenario pesimista con factores de riesgo',
-        priceImpact: -15,
-        timeToImpact: '1-2 meses'
-      }
-    ]
-  }
+
 
   /**
-   * Analiza con Claude
-   */
-  private async analyzeWithClaude(
-    symbol: string,
-    timeframe: string,
-    data: any
-  ): Promise<{
-    reasoning: string
-    keyInsights: string[]
-    monitoringPoints: string[]
-    confidence: number
-  }> {
-    const prompt = `
-Analiza la predicción de tendencia para ${symbol} en timeframe ${timeframe}:
-
-PREDICCIÓN ACTUAL:
-- Dirección: ${data.prediction.direction}
-- Confianza: ${data.prediction.confidence}%
-- Fuerza: ${data.prediction.strength}
-
-SCORES COMPONENTES:
-- Técnico: ${data.scores.technicalScore}
-- Fundamental: ${data.scores.fundamentalScore}
-- Sentiment: ${data.scores.sentimentScore}
-- Noticias: ${data.scores.newsScore}
-- General: ${data.scores.overallScore}
-
-FACTORES CLAVE:
-${data.keyFactors.map((f: any) => `- ${f.factor}: ${f.impact} (${f.description})`).join('\n')}
-
-ESCENARIOS:
-${data.scenarios.map((s: any) => `- ${s.name} (${s.probability}%): ${s.description}`).join('\n')}
-
-Por favor proporciona:
-1. RAZONAMIENTO: Análisis detallado de la predicción (2-3 oraciones)
-2. INSIGHTS_CLAVE: 3-5 insights más importantes
-3. PUNTOS_MONITOREO: Qué métricas/eventos vigilar de cerca
-4. CONFIANZA: Tu nivel de confianza en esta predicción (0-100)
-
-Considera contexto macro, estacionalidad y eventos próximos.
-
-Responde en formato JSON:
-{
-  "reasoning": "Análisis detallado...",
-  "keyInsights": ["insight1", "insight2", "insight3"],
-  "monitoringPoints": ["punto1", "punto2", "punto3"],
-  "confidence": 85
-}
-`
-
-    try {
-      const response = await claudeAnalysisService.analyze({
-        prompt,
-        instrumentCode: symbol,
-        context: `Predicción de tendencia ${timeframe} para ${symbol}`
-      }, {
-        useCache: true,
-        cacheTTLMinutes: 60,
-        retryAttempts: 2
-      })
-
-      if (response.success && response.analysis) {
-        const result = JSON.parse(response.analysis)
-        return {
-          reasoning: result.reasoning || 'Análisis no disponible',
-          keyInsights: result.keyInsights || [],
-          monitoringPoints: result.monitoringPoints || [],
-          confidence: result.confidence || 70
-        }
-      }
-
-      return {
-        reasoning: 'Análisis con Claude no disponible',
-        keyInsights: [],
-        monitoringPoints: [],
-        confidence: 50
-      }
-    } catch (error) {
-      logger.warn('Claude trend analysis failed', { symbol, error })
-      return {
-        reasoning: 'Error en análisis con Claude',
-        keyInsights: [],
-        monitoringPoints: [],
-        confidence: 30
-      }
-    }
-  }
-
-  /**
-   * Extrae temas clave del portafolio
-   */
-  private extractKeyThemes(allFactors: any[]): string[] {
-    const themes = new Map<string, number>()
-    
-    allFactors.forEach(factor => {
-      const theme = factor.factor
-      themes.set(theme, (themes.get(theme) || 0) + 1)
-    })
-
-    return Array.from(themes.entries())
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 5)
-      .map(([theme]) => theme)
-  }
-
-  /**
-   * Genera recomendaciones para el portafolio
-   */
-  private generatePortfolioRecommendations(predictions: TrendPrediction[]): {
-    action: 'BUY' | 'SELL' | 'HOLD' | 'REDUCE' | 'ADD'
-    symbol: string
-    reason: string
-    urgency: 'HIGH' | 'MEDIUM' | 'LOW'
-  }[] {
-    const recommendations = []
-
-    predictions.forEach(prediction => {
-      const { symbol, prediction: pred } = prediction
-      
-      if (pred.direction === 'BULLISH' && pred.confidence > 70) {
-        recommendations.push({
-          action: 'ADD' as const,
-          symbol,
-          reason: `Tendencia alcista fuerte con ${pred.confidence}% confianza`,
-          urgency: pred.strength === 'STRONG' ? 'HIGH' as const : 'MEDIUM' as const
-        })
-      } else if (pred.direction === 'BEARISH' && pred.confidence > 70) {
-        recommendations.push({
-          action: 'REDUCE' as const,
-          symbol,
-          reason: `Tendencia bajista con ${pred.confidence}% confianza`,
-          urgency: pred.strength === 'STRONG' ? 'HIGH' as const : 'MEDIUM' as const
-        })
-      } else if (pred.confidence < 50) {
-        recommendations.push({
-          action: 'HOLD' as const,
-          symbol,
-          reason: `Baja confianza en predicción (${pred.confidence}%)`,
-          urgency: 'LOW' as const
-        })
-      }
-    })
-
-    return recommendations.slice(0, 8) // Máximo 8 recomendaciones
-  }
 
   /**
    * Obtiene estadísticas del servicio
@@ -945,6 +696,5 @@ Responde en formato JSON:
     logger.info('Trend prediction cache cleared')
   }
 }
-
 // Singleton instance
 export const trendPredictionService = new TrendPredictionService()
