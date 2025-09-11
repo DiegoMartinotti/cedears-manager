@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState, ReactNode } from 'react'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -28,9 +28,9 @@ export default function Dashboard() {
   const dashboardData = useDashboardData({ enabled: true, refetchInterval: 60000 })
   const refreshDashboard = useRefreshDashboard()
   const { buySignals, sellSignals, isLoading: signalsLoading } = useSignalsOverview()
-  useQuoteChart(
-    selectedSymbol || '', 
-    chartTimeRange, 
+  const quoteChart = useQuoteChart(
+    selectedSymbol || '',
+    chartTimeRange,
     !!selectedSymbol
   )
 
@@ -110,14 +110,14 @@ export default function Dashboard() {
           />
           <MetricCard
             title="Señales Compra"
-            value={buySignals}
+            value={buySignals.length}
             icon={<TrendingUp className="h-4 w-4 text-green-500" />}
             trend="up"
             loading={signalsLoading}
           />
           <MetricCard
             title="Señales Venta"
-            value={sellSignals}
+            value={sellSignals.length}
             icon={<TrendingDown className="h-4 w-4 text-red-500" />}
             trend="down"
             loading={signalsLoading}
@@ -141,9 +141,11 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Cotizaciones</h3>
-            <QuotesList 
+            <QuotesList
+              quotes={quotes}
+              loading={quotesLoading}
+              error={quotesError ? (quotesError as Error).message : undefined}
               onSymbolClick={setSelectedSymbol}
-              selectedSymbol={selectedSymbol}
             />
           </div>
           
@@ -151,10 +153,16 @@ export default function Dashboard() {
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Gráfico - {selectedSymbol}</h3>
               <QuoteChart
+                data={quoteChart.data || []}
                 symbol={selectedSymbol}
                 timeRange={chartTimeRange}
-                onTimeRangeChange={setChartTimeRange}
+                onTimeRangeChange={(range: string) => {
+                  setChartTimeRange(range as any)
+                  quoteChart.changeTimeRange(range as any)
+                }}
                 height={400}
+                loading={quoteChart.isLoading}
+                error={quoteChart.error ? (quoteChart.error as Error).message : undefined}
               />
             </div>
           )}
@@ -163,7 +171,7 @@ export default function Dashboard() {
         {/* Señales técnicas */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <SignalAlerts />
-          <TechnicalIndicatorsList />
+          {selectedSymbol && <TechnicalIndicatorsList symbol={selectedSymbol} />}
         </div>
       </div>
     </ErrorBoundary>
@@ -180,7 +188,7 @@ const MetricCard = ({
 }: {
   title: string
   value: number
-  icon: React.ReactNode
+  icon: ReactNode
   trend: 'up' | 'down' | 'neutral'
   loading?: boolean
 }) => (

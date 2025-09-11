@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { 
   TrendingUp, 
   Search, 
@@ -66,7 +66,7 @@ export default function Opportunities() {
 
   const handleManualScan = async () => {
     try {
-      await runManualScan()
+      await runManualScan({})
     } catch (error) {
       console.error('Error running manual scan:', error)
     }

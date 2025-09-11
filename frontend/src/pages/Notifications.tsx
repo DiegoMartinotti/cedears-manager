@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Bell, Settings, RefreshCw } from 'lucide-react'
 import { 
@@ -16,7 +16,8 @@ export default function Notifications() {
   
   const { data: summary, isLoading, refetch } = useNotificationSummary()
   const { data: stats } = useNotificationStats()
-  const { markAllAsRead } = useNotificationActions()
+  const { markAllAsRead, isLoading: actionsLoading } = useNotificationActions()
+  const unreadCount = summary?.stats.unread ?? 0
 
   // Handle notification action events
   useEffect(() => {
@@ -47,7 +48,7 @@ export default function Notifications() {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await markAllAsRead.mutateAsync()
+      await markAllAsRead()
     } catch {
       // Error handled silently
     }
@@ -79,7 +80,7 @@ export default function Notifications() {
           </div>
           
           <div className="flex items-center gap-2">
-            <NotificationBadge size="lg" />
+            <NotificationBadge size="lg" count={unreadCount} />
           </div>
         </div>
       </div>
@@ -91,7 +92,7 @@ export default function Notifications() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total</p>
-                <p className="text-2xl font-bold text-gray-900">{summary.stats.total}</p>
+                <p className="text-2xl font-bold text-gray-900">{summary?.stats.total}</p>
               </div>
               <Bell className="w-8 h-8 text-gray-400" />
             </div>
@@ -101,7 +102,7 @@ export default function Notifications() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Sin leer</p>
-                <p className="text-2xl font-bold text-blue-600">{summary.stats.unread}</p>
+                <p className="text-2xl font-bold text-blue-600">{summary?.stats.unread}</p>
               </div>
               <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                 <Bell className="w-4 h-4 text-blue-600" />
@@ -114,7 +115,7 @@ export default function Notifications() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Alta prioridad</p>
                 <p className="text-2xl font-bold text-orange-600">
-                  {(summary.stats.byPriority.HIGH || 0) + (summary.stats.byPriority.CRITICAL || 0)}
+                  {(summary?.stats.byPriority.HIGH || 0) + (summary?.stats.byPriority.CRITICAL || 0)}
                 </p>
               </div>
               <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
@@ -127,7 +128,7 @@ export default function Notifications() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Recientes (24h)</p>
-                <p className="text-2xl font-bold text-green-600">{summary.stats.recentCount}</p>
+                <p className="text-2xl font-bold text-green-600">{summary?.stats.recentCount}</p>
               </div>
               <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
                 <Bell className="w-4 h-4 text-green-600" />
@@ -152,14 +153,14 @@ export default function Notifications() {
           
           <button
             onClick={handleMarkAllAsRead}
-            disabled={markAllAsRead.isPending || summary?.stats.unread === 0}
+            disabled={actionsLoading || unreadCount === 0}
             className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 disabled:opacity-50 transition-colors"
           >
             <Bell className="w-4 h-4" />
             Marcar todas como leídas
-            {summary?.stats.unread > 0 && (
+            {unreadCount > 0 && (
               <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">
-                {summary.stats.unread}
+                {unreadCount}
               </span>
             )}
           </button>
