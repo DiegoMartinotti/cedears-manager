@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { Grid3X3, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react'
 import { useBreakEvenMatrix } from '../../hooks/useBreakEven'
 

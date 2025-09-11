@@ -5,6 +5,7 @@ import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { Alert, AlertDescription } from '../ui/Alert'
+import type { TechnicalIndicator } from '../../../../shared/src/types'
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -22,6 +23,8 @@ interface SignalAlertsProps {
   minStrength?: number
   compact?: boolean
 }
+
+type SignalWithPeriod = TechnicalIndicator & { period?: number }
 
 export function SignalAlerts({ 
   showFilters = true, 
@@ -226,40 +229,43 @@ export function SignalAlerts({
               </div>
               
               <div className="space-y-2">
-                {symbolSignals.map((signal, index) => (
-                  <div key={`${signal.indicator}-${index}`} className="flex items-center justify-between py-1">
-                    <div className="flex items-center gap-2">
-                      <div className="text-gray-400">
-                        {getIndicatorIcon(signal.indicator)}
-                      </div>
-                      <div className={compact ? 'text-sm' : ''}>
-                        <span className="font-medium">{signal.indicator}</span>
-                        {signal.period !== undefined && (
-                          <span className="text-xs text-gray-500 ml-1">({signal.period})</span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <div className={`text-right ${compact ? 'text-sm' : ''}`}>
-                        <div className="font-mono text-sm">
-                          {formatValue(signal)}
+                {symbolSignals.map((signal, index) => {
+                  const typedSignal = signal as SignalWithPeriod
+                  return (
+                    <div key={`${signal.indicator}-${index}`} className="flex items-center justify-between py-1">
+                      <div className="flex items-center gap-2">
+                        <div className="text-gray-400">
+                          {getIndicatorIcon(signal.indicator)}
                         </div>
-                        <div className="text-xs text-gray-500">
-                          {signal.strength}% strength
+                        <div className={compact ? 'text-sm' : ''}>
+                          <span className="font-medium">{signal.indicator}</span>
+                          {typedSignal.period !== undefined && (
+                            <span className="text-xs text-gray-500 ml-1">({typedSignal.period})</span>
+                          )}
                         </div>
                       </div>
 
-                      <Badge 
-                        variant="secondary" 
-                        className={`${getSignalColorClass(signal.signal)} flex items-center gap-1`}
-                      >
-                        {getSignalIcon(signal.signal)}
-                        {signal.signal}
-                      </Badge>
+                      <div className="flex items-center gap-3">
+                        <div className={`text-right ${compact ? 'text-sm' : ''}`}>
+                          <div className="font-mono text-sm">
+                            {formatValue(signal)}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {signal.strength}% strength
+                          </div>
+                        </div>
+
+                        <Badge
+                          variant="secondary"
+                          className={`${getSignalColorClass(signal.signal)} flex items-center gap-1`}
+                        >
+                          {getSignalIcon(signal.signal)}
+                          {signal.signal}
+                        </Badge>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
 
               {/* Timestamp */}
