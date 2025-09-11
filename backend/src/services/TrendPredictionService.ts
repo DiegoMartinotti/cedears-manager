@@ -193,9 +193,9 @@ export class TrendPredictionService {
       })
 
       // Generar escenarios
-        const scenarios = includeScenarios
-          ? this.generateScenarios(symbol, prediction)
-          : []
+      const scenarios = includeScenarios
+        ? this.generateScenarios(symbol, prediction)
+        : []
 
       // Análisis con Claude
       let claudeAnalysis = undefined
