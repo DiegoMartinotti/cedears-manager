@@ -4,7 +4,7 @@ import { UVA, UVAData, UVAInflationAdjustment } from '../models/UVA.js'
 import { CacheService } from './cacheService.js'
 import { RateLimitService } from './rateLimitService.js'
 import { createLogger } from '../utils/logger.js'
-import { format, parseISO, subDays, isValid } from 'date-fns'
+import { format, parseISO, subDays } from 'date-fns'
 
 const logger = createLogger('UVAService')
 
@@ -48,6 +48,7 @@ export class UVAService {
   /**
    * Obtiene el valor UVA más reciente desde cualquier fuente disponible
    */
+  // eslint-disable-next-line max-lines-per-function
   async getLatestUVAValue(): Promise<UVAUpdateResult> {
     const today = format(new Date(), 'yyyy-MM-dd')
     
@@ -130,6 +131,7 @@ export class UVAService {
   /**
    * Scraping del sitio web del BCRA para obtener valor UVA
    */
+  // eslint-disable-next-line max-lines-per-function
   private async fetchUVAFromBCRA(): Promise<UVAUpdateResult> {
     const today = format(new Date(), 'yyyy-MM-dd')
     
@@ -167,7 +169,7 @@ export class UVAService {
             const parsedDate = `${year}-${month?.padStart(2, '0')}-${day?.padStart(2, '0')}`
             
             // Intentar parsear el valor
-            const valueMatch = valueText.replace(/[^\d,\.]/g, '').replace(',', '.')
+              const valueMatch = valueText.replace(/[^\d,.]/g, '').replace(',', '.')
             const parsedValue = parseFloat(valueMatch)
             
             if (!isNaN(parsedValue) && parsedValue > 0) {

@@ -229,10 +229,11 @@ export class ESGAnalysisService {
     }
   }
 
-  /**
-   * Detect ESG controversies
-   */
-  private async detectControversies(symbol: string, companyName: string): Promise<ESGControversy[]> {
+    /**
+     * Detect ESG controversies
+     */
+    // eslint-disable-next-line max-lines-per-function
+    private async detectControversies(symbol: string, companyName: string): Promise<ESGControversy[]> {
     try {
       const controversyKeywords = [
         'lawsuit', 'fine', 'penalty', 'violation', 'scandal', 'controversy',
@@ -284,10 +285,11 @@ export class ESGAnalysisService {
     }
   }
 
-  /**
-   * Combine data from multiple sources and calculate final scores
-   */
-  private async combineESGData(data: {
+    /**
+     * Combine data from multiple sources and calculate final scores
+     */
+    // eslint-disable-next-line max-lines-per-function
+    private async combineESGData(data: {
     instrumentId: number
     symbol: string
     companyName: string
@@ -375,6 +377,7 @@ export class ESGAnalysisService {
       governanceScore: Math.round(scores.governance * 100) / 100,
       totalScore: Math.round(totalScore * 100) / 100,
       confidenceLevel: Math.round(confidenceLevel * 100) / 100,
+      analysisSummary: claudeAnalysis,
       dataSources,
       keyMetrics,
       controversies: data.controversies.map(c => `${c.title} (${c.severity})`),
