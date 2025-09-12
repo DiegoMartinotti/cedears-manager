@@ -443,15 +443,23 @@ export class CostReportService {
     // Industry benchmark data (would be fetched from external source in real implementation)
     const industryAverageCostPercentage = 1.5; // 1.5% average
 
+    let relativePerformance: 'better' | 'average' | 'worse';
+    if (ourCostPercentage < industryAverageCostPercentage) {
+      relativePerformance = 'better';
+    } else if (ourCostPercentage > industryAverageCostPercentage * 1.2) {
+      relativePerformance = 'worse';
+    } else {
+      relativePerformance = 'average';
+    }
+
     return {
       benchmarkName: 'Industry Average (Argentina)',
       ourCostPercentage,
       industryAverageCostPercentage,
-      costEfficiencyScore: industryAverageCostPercentage > 0 
-        ? (industryAverageCostPercentage / Math.max(ourCostPercentage, 0.01)) * 100 
+      costEfficiencyScore: industryAverageCostPercentage > 0
+        ? (industryAverageCostPercentage / Math.max(ourCostPercentage, 0.01)) * 100
         : 100,
-      relativePerformance: ourCostPercentage < industryAverageCostPercentage ? 'better' : 
-                          ourCostPercentage > industryAverageCostPercentage * 1.2 ? 'worse' : 'average',
+      relativePerformance,
       potentialSavings: Math.max(0, (ourCostPercentage - industryAverageCostPercentage) * portfolioValue / 100)
     };
   }
