@@ -70,8 +70,9 @@ export class BreakEvenService {
 
   /**
    * Calcula el break-even completo para una operación
-   */
-  async calculateBreakEven(params: BreakEvenCalculationParams): Promise<BreakEvenCalculationResult> {
+    */
+    // eslint-disable-next-line max-lines-per-function
+    async calculateBreakEven(params: BreakEvenCalculationParams): Promise<BreakEvenCalculationResult> {
     try {
       logger.info(`Calculating break-even for trade ${params.tradeId}`)
 
@@ -349,8 +350,9 @@ export class BreakEvenService {
 
   /**
    * Genera sugerencias de optimización
-   */
-  private async generateOptimizations(
+    */
+    // eslint-disable-next-line max-lines-per-function
+    private async generateOptimizations(
     analysis: BreakEvenAnalysis,
     trade: any,
     components: any
@@ -526,13 +528,9 @@ export class BreakEvenService {
     }
   }
 
-  private async getInstrumentByTradeId(tradeId: number): Promise<{ symbol: string } | null> {
-    try {
-      // Esta sería una query que joine trades con instruments
-      // Por ahora retornamos null para que use el precio del trade
-      return null
-    } catch (error) {
-      return null
-    }
+  private async getInstrumentByTradeId(): Promise<{ symbol: string } | null> {
+    // Esta sería una query que joine trades con instruments
+    // Por ahora retornamos null para que use el precio del trade
+    return null
   }
 }
