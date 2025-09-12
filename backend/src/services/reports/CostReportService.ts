@@ -537,8 +537,14 @@ export class CostReportService {
       const grossAmount = trade.net_amount + (trade.commission || 0);
       const commissionPercentage = grossAmount > 0 ? ((trade.commission || 0) / grossAmount) * 100 : 0;
 
-      const warningLevel = commissionPercentage > 3 ? 'high'
-        : commissionPercentage > 1.5 ? 'medium' : 'none';
+      let warningLevel: 'high' | 'medium' | 'none';
+      if (commissionPercentage > 3) {
+        warningLevel = 'high';
+      } else if (commissionPercentage > 1.5) {
+        warningLevel = 'medium';
+      } else {
+        warningLevel = 'none';
+      }
 
       return {
         tradeId: trade.id!,
