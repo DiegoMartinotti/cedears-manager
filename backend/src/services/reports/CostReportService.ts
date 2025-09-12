@@ -590,7 +590,14 @@ export class CostReportService {
     const totalGains = profitableTrades.reduce((sum, trade) => sum + (trade.realizedGainLoss || 0), 0);
     const totalLosses = Math.abs(unprofitableTrades.reduce((sum, trade) => sum + (trade.realizedGainLoss || 0), 0));
     
-    const profitFactor = totalLosses > 0 ? totalGains / totalLosses : totalGains > 0 ? Number.POSITIVE_INFINITY : 0;
+    let profitFactor: number;
+    if (totalLosses > 0) {
+      profitFactor = totalGains / totalLosses;
+    } else if (totalGains > 0) {
+      profitFactor = Number.POSITIVE_INFINITY;
+    } else {
+      profitFactor = 0;
+    }
 
     const portfolioValue = await this.portfolioService.getTotalValue();
     const returnOnInvestment = portfolioValue > 0 ? ((totalGains - totalLosses) / portfolioValue) * 100 : 0;
