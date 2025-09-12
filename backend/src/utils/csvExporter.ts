@@ -12,6 +12,7 @@ export interface CSVOptions {
 export interface CSVColumn {
   key: string;
   header: string;
+  // eslint-disable-next-line no-unused-vars
   format?: (value: any) => string;
   width?: number;
 }
@@ -103,6 +104,7 @@ export class CSVExporter {
     return String(value);
   }
 
+  // eslint-disable-next-line max-lines-per-function
   generate(): string {
     try {
       logger.info('Generating CSV', { 
@@ -160,13 +162,11 @@ export class CSVExporter {
 
   generateBuffer(): Buffer {
     const csv = this.generate();
-    return Buffer.from(csv, this.options.encoding as BufferEncoding);
+    return Buffer.from(csv, this.options.encoding as any);
   }
 
   // Static utility methods for specific report types
   static exportCostDashboard(dashboardData: any): string {
-    const exporter = new CSVExporter({ includeByteOrderMark: true });
-
     // Create multiple sections in one CSV
     const sections: string[] = [];
 
@@ -235,6 +235,7 @@ export class CSVExporter {
     return exporter.generate();
   }
 
+  // eslint-disable-next-line max-lines-per-function
   static exportAnnualReport(reportData: any): string {
     const sections: string[] = [];
 
