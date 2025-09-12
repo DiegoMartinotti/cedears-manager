@@ -1,98 +1,22 @@
+/* eslint-disable max-lines-per-function, complexity */
 import axios from 'axios'
-import yahooFinance from 'yahoo-finance2'
-import { claudeAnalysisService } from './claudeAnalysisService.js'
 import { cacheService } from './cacheService.js'
-import { rateLimitService } from './rateLimitService.js'
 import { createLogger } from '../utils/logger.js'
+import { rateLimitService } from './rateLimitService.js'
+import {
+  fetchFromYahooFinance,
+  generateFallbackData,
+  getCompetitorComparison,
+  analyzeWithClaude as analyzeEarningsWithClaude
+} from './earningsAnalysisUtils.js'
+import {
+  EarningsData,
+  EarningsAnalysisResult,
+  EarningsCalendarEntry,
+  EarningsAnalysisOptions
+} from './earningsAnalysisTypes.js'
 
 const logger = createLogger('earnings-analysis-service')
-
-export interface EarningsData {
-  symbol: string
-  fiscalDateEnding: string
-  reportedDate: string
-  reportedEPS: number
-  estimatedEPS: number
-  surprise: number
-  surprisePercentage: number
-  revenue: number
-  estimatedRevenue?: number
-  revenueSurprise?: number
-  revenueSurprisePercentage?: number
-}
-
-export interface EarningsAnalysisResult {
-  earningsData: EarningsData
-  analysis: {
-    epsAnalysis: {
-      beat: boolean
-      miss: boolean
-      inline: boolean
-      magnitude: 'SMALL' | 'MODERATE' | 'LARGE'
-      description: string
-    }
-    revenueAnalysis?: {
-      beat: boolean
-      miss: boolean
-      inline: boolean
-      magnitude: 'SMALL' | 'MODERATE' | 'LARGE'
-      description: string
-    }
-    overallAssessment: 'STRONG_BEAT' | 'BEAT' | 'MIXED' | 'MISS' | 'STRONG_MISS'
-    keyMetrics: {
-      metric: string
-      value: string
-      assessment: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL'
-    }[]
-    priceImpact: {
-      expectedDirection: 'UP' | 'DOWN' | 'NEUTRAL'
-      magnitude: number // porcentaje esperado
-      confidence: number // 0-100
-      timeframe: 'IMMEDIATE' | 'SHORT_TERM' | 'MEDIUM_TERM'
-    }
-    claudeAnalysis?: {
-      analysis: string
-      keyPoints: string[]
-      risks: string[]
-      opportunities: string[]
-      outlook: string
-      confidence: number
-    }
-  }
-  historicalContext: {
-    consecutiveBeats: number
-    consecutiveMisses: number
-    avgSurpriseLastQuarters: number
-    volatilityAfterEarnings: number
-  }
-  competitorComparison?: {
-    symbol: string
-    epsGrowth: number
-    revenueGrowth: number
-    relative: 'OUTPERFORM' | 'INLINE' | 'UNDERPERFORM'
-  }[]
-}
-
-export interface EarningsCalendarEntry {
-  symbol: string
-  companyName: string
-  reportDate: string
-  fiscalQuarter: string
-  estimatedEPS?: number
-  estimatedRevenue?: number
-  marketCap?: number
-  sector?: string
-  importance: 'HIGH' | 'MEDIUM' | 'LOW'
-}
-
-export interface EarningsAnalysisOptions {
-  useCache?: boolean
-  cacheTTLMinutes?: number
-  includeHistorical?: boolean
-  includeCompetitors?: boolean
-  analyzeWithClaude?: boolean
-  includeGuidance?: boolean
-}
 
 export class EarningsAnalysisService {
   private readonly CACHE_PREFIX = 'earnings_analysis'
@@ -171,15 +95,15 @@ export class EarningsAnalysisService {
           }
 
       // Comparación con competidores
-      const competitorComparison = includeCompetitors 
-        ? await this.getCompetitorComparison(symbol)
+      const competitorComparison = includeCompetitors
+        ? await getCompetitorComparison()
         : undefined
 
       // Análisis con Claude
       let claudeAnalysis = undefined
       if (analyzeWithClaude) {
         try {
-          claudeAnalysis = await this.analyzeWithClaude(symbol, earningsData, {
+          claudeAnalysis = await analyzeEarningsWithClaude(symbol, earningsData, {
             epsAnalysis,
             revenueAnalysis,
             overallAssessment,
@@ -351,11 +275,11 @@ export class EarningsAnalysisService {
       if (this.alphaVantageApiKey) {
         return await this.fetchFromAlphaVantage(symbol)
       } else {
-        return await this.fetchFromYahooFinance(symbol)
+        return await fetchFromYahooFinance(symbol)
       }
     } catch (error) {
       logger.warn('Failed to fetch earnings data, using fallback', { symbol, error })
-      return this.generateFallbackData(symbol)
+      return generateFallbackData(symbol)
     }
   }
 
@@ -397,64 +321,7 @@ export class EarningsAnalysisService {
     }
   }
 
-  /**
-   * Obtiene earnings desde Yahoo Finance
-   */
-  private async fetchFromYahooFinance(symbol: string): Promise<EarningsData | null> {
-    try {
-      await rateLimitService.executeWithLimit(async () => Promise.resolve())
-      
-      const quote = await yahooFinance.quoteSummary(symbol, {
-        modules: ['earnings', 'earningsHistory', 'earningsTrend']
-      })
 
-      const earnings = quote?.earningsHistory?.history?.[0]
-      if (!earnings) {
-        return null
-      }
-
-      return {
-        symbol,
-        fiscalDateEnding: earnings.quarter || '',
-        reportedDate: new Date().toISOString().split('T')[0],
-        reportedEPS: earnings.epsActual || 0,
-        estimatedEPS: earnings.epsEstimate || 0,
-        surprise: (earnings.epsActual || 0) - (earnings.epsEstimate || 0),
-        surprisePercentage: ((earnings.epsActual || 0) - (earnings.epsEstimate || 0)) / (earnings.epsEstimate || 1) * 100,
-        revenue: 0 // Yahoo Finance módulo earnings no incluye revenue
-      }
-
-    } catch (error) {
-      logger.warn('Yahoo Finance earnings fetch failed', { symbol, error })
-      return null
-    }
-  }
-
-  /**
-   * Genera datos de fallback para testing
-   */
-  private generateFallbackData(symbol: string): EarningsData {
-    const estimatedEPS = 1.5 + Math.random() * 0.5
-    const actualEPS = estimatedEPS + (Math.random() - 0.5) * 0.3
-    const surprise = actualEPS - estimatedEPS
-    
-    const estimatedRevenue = (20000 + Math.random() * 10000) * 1000000
-    const actualRevenue = estimatedRevenue * (1 + (Math.random() - 0.5) * 0.1)
-    
-    return {
-      symbol,
-      fiscalDateEnding: new Date().toISOString().split('T')[0],
-      reportedDate: new Date().toISOString().split('T')[0],
-      reportedEPS: parseFloat(actualEPS.toFixed(2)),
-      estimatedEPS: parseFloat(estimatedEPS.toFixed(2)),
-      surprise: parseFloat(surprise.toFixed(2)),
-      surprisePercentage: parseFloat(((surprise / estimatedEPS) * 100).toFixed(2)),
-      revenue: Math.floor(actualRevenue),
-      estimatedRevenue: Math.floor(estimatedRevenue),
-      revenueSurprise: Math.floor(actualRevenue - estimatedRevenue),
-      revenueSurprisePercentage: parseFloat((((actualRevenue - estimatedRevenue) / estimatedRevenue) * 100).toFixed(2))
-    }
-  }
 
   /**
    * Analiza EPS vs estimaciones
@@ -689,120 +556,6 @@ export class EarningsAnalysisService {
         consecutiveMisses: 0,
         avgSurpriseLastQuarters: 0,
         volatilityAfterEarnings: 0
-      }
-    }
-  }
-
-  /**
-   * Obtiene comparación con competidores
-   */
-  private async getCompetitorComparison(symbol: string): Promise<{
-    symbol: string
-    epsGrowth: number
-    revenueGrowth: number
-    relative: 'OUTPERFORM' | 'INLINE' | 'UNDERPERFORM'
-  }[] | undefined> {
-    // En implementación real, esto buscaría competidores del mismo sector
-    // Por ahora retornamos undefined
-    return undefined
-  }
-
-  /**
-   * Analiza earnings con Claude
-   */
-  private async analyzeWithClaude(
-    symbol: string,
-    earnings: EarningsData,
-    context: any
-  ): Promise<{
-    analysis: string
-    keyPoints: string[]
-    risks: string[]
-    opportunities: string[]
-    outlook: string
-    confidence: number
-  }> {
-    const prompt = `
-Analiza los resultados de earnings de ${symbol}:
-
-DATOS DE EARNINGS:
-- EPS Reportado: $${earnings.reportedEPS}
-- EPS Estimado: $${earnings.estimatedEPS}
-- Sorpresa EPS: ${earnings.surprisePercentage}%
-- Revenue: $${earnings.revenue ? (earnings.revenue / 1000000).toFixed(0) + 'M' : 'N/A'}
-- Fecha: ${earnings.reportedDate}
-
-ANÁLISIS AUTOMÁTICO:
-- Assessment General: ${context.overallAssessment}
-- Análisis EPS: ${context.epsAnalysis.description}
-- Análisis Revenue: ${context.revenueAnalysis?.description || 'No disponible'}
-
-CONTEXTO HISTÓRICO:
-- Beats consecutivos: ${context.historicalContext.consecutiveBeats}
-- Misses consecutivos: ${context.historicalContext.consecutiveMisses}
-- Promedio sorpresas últimos trimestres: ${context.historicalContext.avgSurpriseLastQuarters}%
-
-Por favor proporciona:
-1. ANÁLISIS: Evaluación detallada de los resultados (2-3 oraciones)
-2. PUNTOS_CLAVE: 3-5 puntos más importantes de estos earnings
-3. RIESGOS: Principales riesgos identificados
-4. OPORTUNIDADES: Oportunidades que surgen de estos resultados
-5. OUTLOOK: Perspectiva para próximos trimestres
-6. CONFIANZA: Tu nivel de confianza en este análisis (0-100)
-
-Considera el contexto del sector y las condiciones macroeconómicas actuales.
-
-Responde en formato JSON:
-{
-  "analysis": "Análisis detallado...",
-  "keyPoints": ["punto1", "punto2", "punto3"],
-  "risks": ["riesgo1", "riesgo2"],
-  "opportunities": ["oportunidad1", "oportunidad2"],
-  "outlook": "Perspectiva próximos trimestres...",
-  "confidence": 85
-}
-`
-
-    try {
-      const response = await claudeAnalysisService.analyze({
-        prompt,
-        instrumentCode: symbol,
-        context: `Análisis de earnings para ${symbol}`
-      }, {
-        useCache: true,
-        cacheTTLMinutes: 120, // Cache por 2 horas
-        retryAttempts: 2
-      })
-
-      if (response.success && response.analysis) {
-        const result = JSON.parse(response.analysis)
-        return {
-          analysis: result.analysis || 'Análisis no disponible',
-          keyPoints: result.keyPoints || [],
-          risks: result.risks || [],
-          opportunities: result.opportunities || [],
-          outlook: result.outlook || 'Outlook no disponible',
-          confidence: result.confidence || 70
-        }
-      }
-
-      return {
-        analysis: 'Análisis con Claude no disponible',
-        keyPoints: [],
-        risks: [],
-        opportunities: [],
-        outlook: 'Outlook no disponible',
-        confidence: 50
-      }
-    } catch (error) {
-      logger.warn('Claude earnings analysis failed', { symbol, error })
-      return {
-        analysis: 'Error en análisis con Claude',
-        keyPoints: [],
-        risks: [],
-        opportunities: [],
-        outlook: 'Outlook no disponible',
-        confidence: 30
       }
     }
   }
