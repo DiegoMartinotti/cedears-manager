@@ -160,7 +160,6 @@ export class CostReport {
     try {
       return JSON.parse(report.reportData);
     } catch (error) {
-      console.error('Error parsing report data:', error);
       return null;
     }
   }
@@ -170,7 +169,6 @@ export class CostReport {
     try {
       return JSON.parse(report.parameters);
     } catch (error) {
-      console.error('Error parsing report parameters:', error);
       return {};
     }
   }

@@ -130,8 +130,16 @@ export class VeganEvaluationModel {
    * Find all Vegan evaluations with filters
    */
   findAll(filters: VeganFilters = {}): VeganEvaluation[] {
+    const { query, params } = this.buildFilterQuery(filters)
+    const stmt = this.db.prepare(query)
+    const results = stmt.all(...params) as any[]
+    return results.map(result => this.convertBooleans(result))
+  }
+
+  // eslint-disable-next-line max-lines-per-function, complexity
+  private buildFilterQuery(filters: VeganFilters): { query: string; params: any[] } {
     let query = `
-      SELECT v.*, i.symbol, i.company_name 
+      SELECT v.*, i.symbol, i.company_name
       FROM vegan_evaluations v
       LEFT JOIN instruments i ON v.instrument_id = i.id
       WHERE 1=1
@@ -193,9 +201,7 @@ export class VeganEvaluationModel {
 
     query += ' ORDER BY v.evaluation_date DESC'
 
-    const stmt = this.db.prepare(query)
-    const results = stmt.all(...params) as any[]
-    return results.map(result => this.convertBooleans(result))
+    return { query, params }
   }
 
   /**
@@ -278,6 +284,7 @@ export class VeganEvaluationModel {
   /**
    * Get Vegan statistics
    */
+  // eslint-disable-next-line max-lines-per-function
   getStatistics(): {
     totalEvaluations: number
     averageScore: number
