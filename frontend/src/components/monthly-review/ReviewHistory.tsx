@@ -57,7 +57,7 @@ const ReviewHistory: React.FC = () => {
       case 'FAILED':
         return 'destructive'
       case 'IN_PROGRESS':
-        return 'warning'
+        return 'secondary'
       case 'PENDING':
         return 'secondary'
       default:
@@ -203,19 +203,19 @@ const ReviewHistory: React.FC = () => {
                 <div className="border-t border-gray-200 p-4 bg-gray-50">
                   {getReviewDetails.isPending ? (
                     <LoadingSpinner />
-                  ) : reviewDetails?.data ? (
+                  ) : reviewDetails ? (
                     <div className="space-y-4">
                       {/* Summary Stats */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div className="text-center p-3 bg-white rounded border">
                           <div className="text-lg font-semibold text-green-600">
-                            {reviewDetails.data.candidates.additions.length}
+                            {reviewDetails.candidates.additions.length}
                           </div>
                           <div className="text-xs text-gray-600">Candidatos Agregar</div>
                         </div>
                         <div className="text-center p-3 bg-white rounded border">
                           <div className="text-lg font-semibold text-red-600">
-                            {reviewDetails.data.candidates.removals.length}
+                            {reviewDetails.candidates.removals.length}
                           </div>
                           <div className="text-xs text-gray-600">Candidatos Remover</div>
                         </div>
@@ -236,14 +236,14 @@ const ReviewHistory: React.FC = () => {
                       {/* Candidates Preview */}
                       <div className="grid md:grid-cols-2 gap-4">
                         {/* Addition Candidates */}
-                        {reviewDetails.data.candidates.additions.length > 0 && (
+                        {reviewDetails.candidates.additions.length > 0 && (
                           <div className="bg-white p-4 rounded border">
                             <h5 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
                               <CheckCircle className="w-4 h-4 text-green-600" />
                               Candidatos para Agregar
                             </h5>
                             <div className="space-y-1">
-                              {reviewDetails.data.candidates.additions.slice(0, 5).map((candidate) => (
+                              {reviewDetails.candidates.additions.slice(0, 5).map((candidate: any) => (
                                 <div key={candidate.id} className="flex items-center justify-between text-sm">
                                   <span className="font-medium">{candidate.symbol}</span>
                                   <div className="flex items-center gap-2">
@@ -256,9 +256,9 @@ const ReviewHistory: React.FC = () => {
                                   </div>
                                 </div>
                               ))}
-                              {reviewDetails.data.candidates.additions.length > 5 && (
+                              {reviewDetails.candidates.additions.length > 5 && (
                                 <div className="text-xs text-gray-500 text-center pt-1">
-                                  +{reviewDetails.data.candidates.additions.length - 5} más...
+                                  +{reviewDetails.candidates.additions.length - 5} más...
                                 </div>
                               )}
                             </div>
@@ -266,22 +266,22 @@ const ReviewHistory: React.FC = () => {
                         )}
 
                         {/* Removal Candidates */}
-                        {reviewDetails.data.candidates.removals.length > 0 && (
+                        {reviewDetails.candidates.removals.length > 0 && (
                           <div className="bg-white p-4 rounded border">
                             <h5 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
                               <XCircle className="w-4 h-4 text-red-600" />
                               Candidatos para Remover
                             </h5>
                             <div className="space-y-1">
-                              {reviewDetails.data.candidates.removals.slice(0, 5).map((candidate) => (
+                              {reviewDetails.candidates.removals.slice(0, 5).map((candidate: any) => (
                                 <div key={candidate.id} className="flex items-center justify-between text-sm">
                                   <span className="font-medium">{candidate.ticker || candidate.symbol}</span>
                                   <div className="flex items-center gap-2">
                                     <Badge 
                                       variant={
                                         candidate.severity === 'CRITICAL' ? 'destructive' :
-                                        candidate.severity === 'HIGH' ? 'warning' : 'secondary'
-                                      } 
+                                        candidate.severity === 'HIGH' ? 'destructive' : 'secondary'
+                                      }
                                       size="sm"
                                     >
                                       {candidate.severity}
@@ -292,9 +292,9 @@ const ReviewHistory: React.FC = () => {
                                   </div>
                                 </div>
                               ))}
-                              {reviewDetails.data.candidates.removals.length > 5 && (
+                              {reviewDetails.candidates.removals.length > 5 && (
                                 <div className="text-xs text-gray-500 text-center pt-1">
-                                  +{reviewDetails.data.candidates.removals.length - 5} más...
+                                  +{reviewDetails.candidates.removals.length - 5} más...
                                 </div>
                               )}
                             </div>

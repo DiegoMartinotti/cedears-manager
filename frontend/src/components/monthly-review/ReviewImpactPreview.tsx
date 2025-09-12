@@ -237,7 +237,7 @@ const ReviewImpactPreview: React.FC<ReviewImpactPreviewProps> = ({
               Remociones Pendientes ({candidates.removals.length})
             </h4>
             <div className="space-y-2">
-              {candidates.removals.slice(0, 5).map((candidate) => (
+              {candidates.removals.slice(0, 5).map((candidate: any) => (
                 <div key={candidate.id} className="flex items-center justify-between text-sm">
                   <span className="font-medium text-gray-900">
                     {candidate.ticker || candidate.symbol}
@@ -246,8 +246,8 @@ const ReviewImpactPreview: React.FC<ReviewImpactPreviewProps> = ({
                     <Badge 
                       variant={
                         candidate.severity === 'CRITICAL' ? 'destructive' :
-                        candidate.severity === 'HIGH' ? 'warning' : 'secondary'
-                      } 
+                        candidate.severity === 'HIGH' ? 'destructive' : 'secondary'
+                      }
                       size="sm"
                     >
                       {candidate.severity}

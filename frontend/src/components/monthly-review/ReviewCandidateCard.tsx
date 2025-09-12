@@ -61,7 +61,7 @@ const ReviewCandidateCard: React.FC<ReviewCandidateCardProps> = ({
         return 'destructive'
       case 'ADD':
       case 'REMOVE':
-        return 'warning'
+        return 'secondary'
       case 'CONSIDER':
       case 'MONITOR':
         return 'secondary'
@@ -77,7 +77,7 @@ const ReviewCandidateCard: React.FC<ReviewCandidateCardProps> = ({
       case 'CRITICAL':
         return 'destructive'
       case 'HIGH':
-        return 'warning'
+        return 'destructive'
       case 'MEDIUM':
         return 'secondary'
       case 'LOW':
@@ -207,7 +207,7 @@ const ReviewCandidateCard: React.FC<ReviewCandidateCardProps> = ({
           <div className="mt-3">
             <span className="text-xs font-medium text-gray-700">Razones:</span>
             <ul className="mt-1 space-y-1">
-              {parseReasons(candidate.reasons).slice(0, 3).map((reason, index) => (
+              {parseReasons(candidate.reasons).slice(0, 3).map((reason: string, index: number) => (
                 <li key={index} className="text-xs text-gray-600 flex items-start gap-1">
                   <span className="text-green-500 mt-0.5">•</span>
                   <span>{reason}</span>
@@ -260,7 +260,7 @@ const ReviewCandidateCard: React.FC<ReviewCandidateCardProps> = ({
             <div className="mt-3">
               <span className="text-xs font-medium text-gray-700">Criterios Perdidos:</span>
               <ul className="mt-1 space-y-1">
-                {parseLostCriteria(candidate.lostCriteria).map((criteria, index) => (
+                {parseLostCriteria(candidate.lostCriteria).map((criteria: string, index: number) => (
                   <li key={index} className="text-xs text-red-600 flex items-start gap-1">
                     <span className="text-red-500 mt-0.5">•</span>
                     <span>{criteria}</span>
