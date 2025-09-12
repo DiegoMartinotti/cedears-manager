@@ -3,7 +3,7 @@ import { UVAService } from '../services/UVAService.js'
 import { uvaUpdateJob } from '../jobs/uvaUpdateJob.js'
 import { createLogger } from '../utils/logger.js'
 import { z } from 'zod'
-import { format, isValid, parseISO } from 'date-fns'
+import { isValid, parseISO } from 'date-fns'
 
 const logger = createLogger('UVAController')
 
@@ -13,17 +13,6 @@ const dateParamSchema = z.object({
     const parsed = parseISO(date)
     return isValid(parsed)
   }, 'Invalid date format. Use YYYY-MM-DD')
-})
-
-const dateRangeSchema = z.object({
-  fromDate: z.string().refine((date) => {
-    const parsed = parseISO(date)
-    return isValid(parsed)
-  }, 'Invalid fromDate format. Use YYYY-MM-DD'),
-  toDate: z.string().refine((date) => {
-    const parsed = parseISO(date)
-    return isValid(parsed)
-  }, 'Invalid toDate format. Use YYYY-MM-DD')
 })
 
 const searchUVASchema = z.object({
