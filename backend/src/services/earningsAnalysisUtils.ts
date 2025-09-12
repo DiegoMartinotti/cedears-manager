@@ -130,22 +130,25 @@ const DEFAULT_RESULT: ClaudeEarningsResult = {
 }
 
 function parseResponse(response: any): ClaudeEarningsResult {
-  if (response.success && response.analysis) {
-    try {
-      const result = JSON.parse(response.analysis)
-      return {
-        analysis: result.analysis || 'Análisis no disponible',
-        keyPoints: result.keyPoints || [],
-        risks: result.risks || [],
-        opportunities: result.opportunities || [],
-        outlook: result.outlook || 'Outlook no disponible',
-        confidence: result.confidence || 70
-      }
-    } catch {
-      return DEFAULT_RESULT
-    }
+  if (!response.success || !response.analysis) {
+    return DEFAULT_RESULT
   }
-  return DEFAULT_RESULT
+
+  try {
+    const parsed = JSON.parse(response.analysis)
+    const {
+      analysis = 'Análisis no disponible',
+      keyPoints = [],
+      risks = [],
+      opportunities = [],
+      outlook = 'Outlook no disponible',
+      confidence = 70
+    } = parsed
+
+    return { analysis, keyPoints, risks, opportunities, outlook, confidence }
+  } catch {
+    return DEFAULT_RESULT
+  }
 }
 
 export async function analyzeWithClaude(
