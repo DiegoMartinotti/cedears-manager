@@ -130,72 +130,91 @@ export class VeganEvaluationModel {
    * Find all Vegan evaluations with filters
    */
   findAll(filters: VeganFilters = {}): VeganEvaluation[] {
-    let query = `
-      SELECT v.*, i.symbol, i.company_name 
+    const { query, params } = this.buildFilterQuery(filters)
+    const stmt = this.db.prepare(query)
+    const results = stmt.all(...params) as any[]
+    return results.map(result => this.convertBooleans(result))
+  }
+
+  private buildFilterQuery(filters: VeganFilters): { query: string; params: any[] } {
+    const baseQuery = `
+      SELECT v.*, i.symbol, i.company_name
       FROM vegan_evaluations v
       LEFT JOIN instruments i ON v.instrument_id = i.id
-      WHERE 1=1
     `
+
+    const conditions: string[] = []
     const params: any[] = []
 
     if (filters.instrumentId) {
-      query += ' AND v.instrument_id = ?'
+      conditions.push('v.instrument_id = ?')
       params.push(filters.instrumentId)
     }
 
+    this.addScoreFilter(conditions, params, filters)
+    this.addDateFilter(conditions, params, filters)
+    this.addBooleanFilter(conditions, params, filters, 'noAnimalTesting')
+    this.addBooleanFilter(conditions, params, filters, 'noAnimalProducts')
+    this.addBooleanFilter(conditions, params, filters, 'plantBasedFocus')
+    this.addBooleanFilter(conditions, params, filters, 'supplyChainVegan')
+
+    if (filters.hasCertification !== undefined) {
+      conditions.push(
+        filters.hasCertification
+          ? 'v.certification_status IS NOT NULL AND v.certification_status != ""'
+          : '(v.certification_status IS NULL OR v.certification_status = "")'
+      )
+    }
+
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
+    const query = `${baseQuery} ${whereClause} ORDER BY v.evaluation_date DESC`
+
+    return { query, params }
+  }
+
+  private addScoreFilter(conditions: string[], params: any[], filters: VeganFilters): void {
     if (filters.minScore !== undefined) {
-      query += ' AND v.vegan_score >= ?'
+      conditions.push('v.vegan_score >= ?')
       params.push(filters.minScore)
     }
 
     if (filters.maxScore !== undefined) {
-      query += ' AND v.vegan_score <= ?'
+      conditions.push('v.vegan_score <= ?')
       params.push(filters.maxScore)
     }
+  }
 
+  private addDateFilter(conditions: string[], params: any[], filters: VeganFilters): void {
     if (filters.dateFrom) {
-      query += ' AND v.evaluation_date >= ?'
+      conditions.push('v.evaluation_date >= ?')
       params.push(filters.dateFrom)
     }
 
     if (filters.dateTo) {
-      query += ' AND v.evaluation_date <= ?'
+      conditions.push('v.evaluation_date <= ?')
       params.push(filters.dateTo)
     }
+  }
 
-    if (filters.noAnimalTesting !== undefined) {
-      query += ' AND v.no_animal_testing = ?'
-      params.push(filters.noAnimalTesting ? 1 : 0)
+  private addBooleanFilter(
+    conditions: string[],
+    params: any[],
+    filters: VeganFilters,
+    field: 'noAnimalTesting' | 'noAnimalProducts' | 'plantBasedFocus' | 'supplyChainVegan'
+  ): void {
+    const value = filters[field]
+    if (value !== undefined) {
+      const columnMap = {
+        noAnimalTesting: 'no_animal_testing',
+        noAnimalProducts: 'no_animal_products',
+        plantBasedFocus: 'plant_based_focus',
+        supplyChainVegan: 'supply_chain_vegan'
+      } as const
+
+      const column = columnMap[field]
+      conditions.push(`v.${column} = ?`)
+      params.push(value ? 1 : 0)
     }
-
-    if (filters.noAnimalProducts !== undefined) {
-      query += ' AND v.no_animal_products = ?'
-      params.push(filters.noAnimalProducts ? 1 : 0)
-    }
-
-    if (filters.plantBasedFocus !== undefined) {
-      query += ' AND v.plant_based_focus = ?'
-      params.push(filters.plantBasedFocus ? 1 : 0)
-    }
-
-    if (filters.supplyChainVegan !== undefined) {
-      query += ' AND v.supply_chain_vegan = ?'
-      params.push(filters.supplyChainVegan ? 1 : 0)
-    }
-
-    if (filters.hasCertification !== undefined) {
-      if (filters.hasCertification) {
-        query += ' AND v.certification_status IS NOT NULL AND v.certification_status != ""'
-      } else {
-        query += ' AND (v.certification_status IS NULL OR v.certification_status = "")'
-      }
-    }
-
-    query += ' ORDER BY v.evaluation_date DESC'
-
-    const stmt = this.db.prepare(query)
-    const results = stmt.all(...params) as any[]
-    return results.map(result => this.convertBooleans(result))
   }
 
   /**
@@ -278,6 +297,7 @@ export class VeganEvaluationModel {
   /**
    * Get Vegan statistics
    */
+  // eslint-disable-next-line max-lines-per-function
   getStatistics(): {
     totalEvaluations: number
     averageScore: number

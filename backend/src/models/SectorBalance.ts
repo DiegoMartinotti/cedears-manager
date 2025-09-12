@@ -129,6 +129,7 @@ export class SectorBalanceModel {
     }
   }
 
+  // eslint-disable-next-line max-lines-per-function
   async updateTarget(id: number, data: Partial<SectorBalanceTarget>): Promise<SectorBalanceTarget | null> {
     try {
       const updates: string[] = []
@@ -591,11 +592,11 @@ export class SectorBalanceModel {
       const stmt = this.db.prepare(query)
       const results = stmt.all() as any[]
       
-      // Parse JSON arrays
-      return results.map(result => ({
-        ...result,
-        suggestedInstruments: JSON.parse(result.suggestedInstrumentsJson || '[]')
-      })).map(({ suggestedInstrumentsJson, ...rest }) => rest)
+      // Parse JSON arrays and remove helper field
+      return results.map(({ suggestedInstrumentsJson, ...rest }) => ({
+        ...rest,
+        suggestedInstruments: JSON.parse(suggestedInstrumentsJson || '[]')
+      }))
     } catch (error) {
       logger.error('Error finding active suggestions:', error)
       return []
