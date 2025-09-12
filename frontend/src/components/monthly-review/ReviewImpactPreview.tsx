@@ -237,27 +237,28 @@ const ReviewImpactPreview: React.FC<ReviewImpactPreviewProps> = ({
               Remociones Pendientes ({candidates.removals.length})
             </h4>
             <div className="space-y-2">
-              {candidates.removals.slice(0, 5).map((candidate: any) => (
-                <div key={candidate.id} className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-gray-900">
-                    {candidate.ticker || candidate.symbol}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Badge 
-                      variant={
-                        candidate.severity === 'CRITICAL' ? 'destructive' :
-                        candidate.severity === 'HIGH' ? 'destructive' : 'secondary'
-                      }
-                      size="sm"
-                    >
-                      {candidate.severity}
-                    </Badge>
-                    <span className="text-gray-600">
-                      {candidate.confidenceScore?.toFixed(0)}%
+              {candidates.removals.slice(0, 5).map((candidate: any) => {
+                const severityVariant =
+                  candidate.severity === 'CRITICAL' || candidate.severity === 'HIGH'
+                    ? 'destructive'
+                    : 'secondary'
+
+                return (
+                  <div key={candidate.id} className="flex items-center justify-between text-sm">
+                    <span className="font-medium text-gray-900">
+                      {candidate.ticker || candidate.symbol}
                     </span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={severityVariant} size="sm">
+                        {candidate.severity}
+                      </Badge>
+                      <span className="text-gray-600">
+                        {candidate.confidenceScore?.toFixed(0)}%
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
               {candidates.removals.length > 5 && (
                 <div className="text-sm text-gray-600 text-center pt-2">
                   +{candidates.removals.length - 5} más...
