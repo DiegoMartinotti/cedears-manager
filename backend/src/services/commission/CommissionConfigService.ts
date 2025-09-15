@@ -132,12 +132,12 @@ export class CommissionConfigService {
     }
 
     // Validar configuración de compra
-    if (!this.validateOperationConfig(config.buy, 'compra')) {
+    if (!this.validateOperationConfig(config.buy)) {
       errors.push('Configuración de compra inválida')
     }
 
     // Validar configuración de venta
-    if (!this.validateOperationConfig(config.sell, 'venta')) {
+    if (!this.validateOperationConfig(config.sell)) {
       errors.push('Configuración de venta inválida')
     }
 
@@ -205,7 +205,7 @@ export class CommissionConfigService {
   /**
    * Valida configuración de operación (compra/venta)
    */
-  private validateOperationConfig(config: any, type: string): boolean {
+  private validateOperationConfig(config: any): boolean {
     return (
       typeof config === 'object' &&
       typeof config.percentage === 'number' &&

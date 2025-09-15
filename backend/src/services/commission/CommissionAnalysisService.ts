@@ -106,6 +106,7 @@ export class CommissionAnalysisService {
   /**
    * Analiza el impacto de comisiones en el rendimiento
    */
+  // eslint-disable-next-line max-lines-per-function
   analyzeCommissionImpactOnReturns(
     initialInvestment: number,
     expectedAnnualReturn: number,
@@ -171,6 +172,7 @@ export class CommissionAnalysisService {
   /**
    * Procesa trades para generar análisis estadístico
    */
+  // eslint-disable-next-line max-lines-per-function
   private processTradesForAnalysis(trades: any[]): {
     totalCommissionsPaid: number
     totalTaxesPaid: number
