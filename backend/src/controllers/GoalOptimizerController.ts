@@ -159,12 +159,24 @@ export class GoalOptimizerController {
         });
       }
 
-      const customData: CreateGapAnalysisDto = req.body;
-      const gapAnalysis = await this.optimizerService.performGapAnalysis(goalId, customData);
+      const customData = (req.body ?? {}) as Partial<CreateGapAnalysisDto>;
+
+      if (customData.goal_id && customData.goal_id !== goalId) {
+        return res.status(400).json({
+          success: false,
+          error: 'El ID del cuerpo no coincide con el objetivo solicitado'
+        });
+      }
+
+      const gapAnalysis = await this.optimizerService.performGapAnalysis(goalId);
+
+      const responseAnalysis = customData.analysis_details
+        ? { ...gapAnalysis, analysis_details: customData.analysis_details }
+        : gapAnalysis;
 
       return res.json({
         success: true,
-        data: gapAnalysis,
+        data: responseAnalysis,
         message: 'Análisis de gap completado exitosamente'
       });
     } catch (error: any) {

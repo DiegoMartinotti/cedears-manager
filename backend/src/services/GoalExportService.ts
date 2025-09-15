@@ -105,7 +105,7 @@ export class GoalExportService {
       goal_id: goalId,
       plan_name: `Plan de Inversión - ${goal.name}`,
       plan_type: planType,
-      generated_date: new Date().toISOString().split('T')[0],
+      generated_date: this.toDateOnlyString(new Date()),
       goal_details: goal,
       projection_summary: projectionSummary,
       contribution_schedule: contributionSchedule,
@@ -222,10 +222,10 @@ export class GoalExportService {
     monthlyProjections.slice(0, 60).forEach((projection, index) => { // Máximo 5 años
       const contributionDate = new Date(startDate);
       contributionDate.setMonth(contributionDate.getMonth() + index + 1);
-      
+
       schedule.push({
         month: index + 1,
-        date: contributionDate.toISOString().split('T')[0],
+        date: this.toDateOnlyString(contributionDate),
         recommended_amount: projection.contribution,
         cumulative_amount: projection.cumulativeContributions,
         projected_value: projection.capitalEnding,
@@ -444,18 +444,34 @@ export class GoalExportService {
   /**
    * Genera contenido para Excel (CSV)
    */
-  private generateExcelContent(plan: InvestmentPlan): string {
+  private generateExcelContent(plan: InvestmentPlan, options: ExportOptions): string {
     let csv = 'Plan de Inversión\n';
     csv += `Objetivo,${plan.goal_details.name}\n`;
     csv += `Monto Objetivo,$${plan.goal_details.target_amount}\n`;
     csv += `Fecha Objetivo,${plan.goal_details.target_date}\n\n`;
-    
+
     csv += 'Calendario de Contribuciones\n';
     csv += 'Mes,Fecha,Aporte,Acumulado,Valor Proyectado\n';
-    
+
     plan.contribution_schedule.slice(0, 24).forEach(contribution => {
       csv += `${contribution.month},${contribution.date},$${contribution.recommended_amount},$${contribution.cumulative_amount},$${contribution.projected_value}\n`;
     });
+
+    if (options.include_sensitivity && plan.sensitivity_analysis) {
+      csv += '\nAnálisis de Sensibilidad\n';
+      csv += 'Parámetro,Variación,Valor Futuro\n';
+      plan.sensitivity_analysis.results.forEach(result => {
+        csv += `${result.parameter},${result.variation}%,$${result.futureValue}\n`;
+      });
+    }
+
+    if (options.include_recommendations && plan.recommendations && plan.recommendations.length > 0) {
+      csv += '\nRecomendaciones\n';
+      csv += 'Prioridad,Título,Descripción\n';
+      plan.recommendations.forEach(recommendation => {
+        csv += `${recommendation.priority},${recommendation.title},${recommendation.description}\n`;
+      });
+    }
 
     return csv;
   }
@@ -499,6 +515,12 @@ export class GoalExportService {
 
   private generateDisclaimer(): string {
     return `Este plan de inversión es una proyección basada en supuestos y datos históricos. Los rendimientos pasados no garantizan resultados futuros. Las inversiones conllevan riesgos y pueden resultar en pérdidas. Se recomienda consultar con un asesor financiero calificado antes de tomar decisiones de inversión. Las proyecciones pueden variar según las condiciones del mercado, la inflación y otros factores económicos.`;
+  }
+
+  private toDateOnlyString(date: Date): string {
+    const isoString = date.toISOString();
+    const [datePart] = isoString.split('T');
+    return datePart ?? isoString;
   }
 
   private getDefaultExportOptions(): ExportOptions {
