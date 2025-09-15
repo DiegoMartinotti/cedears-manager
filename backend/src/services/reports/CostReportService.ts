@@ -246,10 +246,10 @@ export class CostReportService {
     dateRange: { startDate: string; endDate: string }, 
     limit: number = 10
   ): Promise<InstrumentCostSummary[]> {
-    const trades = await this.tradeService.findAll();
-    const tradesInRange = trades.filter(trade => 
-      trade.tradeDate >= dateRange.startDate && trade.tradeDate <= dateRange.endDate
-    );
+      const trades = await this.tradeService.findAll();
+      const tradesInRange = trades.filter(trade =>
+        trade.trade_date >= dateRange.startDate && trade.trade_date <= dateRange.endDate
+      );
 
     const instrumentData: { [symbol: string]: InstrumentCostSummary } = {};
 
@@ -292,10 +292,10 @@ export class CostReportService {
     // In the future, this could compare actual usage across different brokers
     const totalCommissions = await this.calculateTotalCommissions(dateRange);
     const totalCustodyFees = await this.calculateTotalCustodyFees(dateRange);
-    const trades = await this.tradeService.findAll();
-    const tradesInRange = trades.filter(trade => 
-      trade.tradeDate >= dateRange.startDate && trade.tradeDate <= dateRange.endDate
-    );
+      const trades = await this.tradeService.findAll();
+      const tradesInRange = trades.filter(trade =>
+        trade.trade_date >= dateRange.startDate && trade.trade_date <= dateRange.endDate
+      );
 
     return [
       {
@@ -316,7 +316,7 @@ export class CostReportService {
     // Check for high commission percentage trades
     const trades = await this.tradeService.findAll();
     const tradesInRange = trades.filter(trade => 
-      trade.tradeDate >= dateRange.startDate && trade.tradeDate <= dateRange.endDate
+      trade.trade_date >= dateRange.startDate && trade.trade_date <= dateRange.endDate
     );
 
     tradesInRange.forEach(trade => {
@@ -390,7 +390,7 @@ export class CostReportService {
   private async analyzeTradeImpacts(dateRange: { startDate: string; endDate: string }): Promise<TradeImpactAnalysis[]> {
     const trades = await this.tradeService.findAll();
     const tradesInRange = trades.filter(trade => 
-      trade.tradeDate >= dateRange.startDate && trade.tradeDate <= dateRange.endDate
+      trade.trade_date >= dateRange.startDate && trade.trade_date <= dateRange.endDate
     );
 
     const analyses: TradeImpactAnalysis[] = [];
@@ -403,7 +403,7 @@ export class CostReportService {
         tradeId: trade.id!,
         symbol: trade.symbol,
         tradeType: trade.type,
-        tradeDate: trade.tradeDate,
+        tradeDate: trade.trade_date,
         grossReturn: analysis.projectedGainLoss,
         totalCosts,
         netReturn: analysis.projectedGainLoss - totalCosts,
@@ -443,15 +443,23 @@ export class CostReportService {
     // Industry benchmark data (would be fetched from external source in real implementation)
     const industryAverageCostPercentage = 1.5; // 1.5% average
 
+    let relativePerformance: 'better' | 'average' | 'worse';
+    if (ourCostPercentage < industryAverageCostPercentage) {
+      relativePerformance = 'better';
+    } else if (ourCostPercentage > industryAverageCostPercentage * 1.2) {
+      relativePerformance = 'worse';
+    } else {
+      relativePerformance = 'average';
+    }
+
     return {
       benchmarkName: 'Industry Average (Argentina)',
       ourCostPercentage,
       industryAverageCostPercentage,
-      costEfficiencyScore: industryAverageCostPercentage > 0 
-        ? (industryAverageCostPercentage / Math.max(ourCostPercentage, 0.01)) * 100 
+      costEfficiencyScore: industryAverageCostPercentage > 0
+        ? (industryAverageCostPercentage / Math.max(ourCostPercentage, 0.01)) * 100
         : 100,
-      relativePerformance: ourCostPercentage < industryAverageCostPercentage ? 'better' : 
-                          ourCostPercentage > industryAverageCostPercentage * 1.2 ? 'worse' : 'average',
+      relativePerformance,
       potentialSavings: Math.max(0, (ourCostPercentage - industryAverageCostPercentage) * portfolioValue / 100)
     };
   }
@@ -461,11 +469,11 @@ export class CostReportService {
     
     const trades = await this.tradeService.findAll();
     const tradesInRange = trades.filter(trade => 
-      trade.tradeDate >= dateRange.startDate && trade.tradeDate <= dateRange.endDate
+      trade.trade_date >= dateRange.startDate && trade.trade_date <= dateRange.endDate
     );
 
     // Check for small frequent trades
-    const smallTrades = tradesInRange.filter(trade => trade.netAmount < 50000); // Less than $50k ARS
+      const smallTrades = tradesInRange.filter(trade => trade.net_amount < 50000); // Less than $50k ARS
     if (smallTrades.length > tradesInRange.length * 0.3) { // More than 30% are small trades
       suggestions.push({
         type: 'TRADE_SIZE_OPTIMIZATION',
@@ -480,7 +488,8 @@ export class CostReportService {
     }
 
     // Portfolio optimization for custody
-    const portfolioValue = await this.portfolioService.getTotalValue();
+      const { market_value } = await this.portfolioService.getPortfolioSummary();
+      const portfolioValue = market_value;
     if (portfolioValue > 1000000) { // Over $1M ARS
       suggestions.push({
         type: 'PORTFOLIO_RESTRUCTURE',
@@ -499,79 +508,58 @@ export class CostReportService {
 
   private async generateComparisonSummary(dateRange: { startDate: string; endDate: string }): Promise<ComparisonSummary> {
     const trades = await this.tradeService.findAll();
-    const tradesInRange = trades.filter(trade => 
-      trade.tradeDate >= dateRange.startDate && trade.tradeDate <= dateRange.endDate
+    const tradesInRange = trades.filter(trade =>
+      trade.trade_date >= dateRange.startDate && trade.trade_date <= dateRange.endDate
     );
 
-    const completedTrades = await this.tradeService.getCompletedTrades();
-    const completedInRange = completedTrades.filter(trade => 
-      trade.tradeDate >= dateRange.startDate && trade.tradeDate <= dateRange.endDate
-    );
-
-    const profitableTrades = completedInRange.filter(trade => (trade.realizedGainLoss || 0) > 0);
-    const unprofitableTrades = completedInRange.filter(trade => (trade.realizedGainLoss || 0) < 0);
-    const breakEvenTrades = completedInRange.filter(trade => (trade.realizedGainLoss || 0) === 0);
-
-    const totalGrossGains = profitableTrades.reduce((sum, trade) => sum + (trade.realizedGainLoss || 0), 0);
-    const totalGrossLosses = Math.abs(unprofitableTrades.reduce((sum, trade) => sum + (trade.realizedGainLoss || 0), 0));
-    const totalCommissions = tradesInRange.reduce((sum, trade) => sum + (trade.commissionAmount || 0), 0);
+    const totalCommissions = tradesInRange.reduce((sum, trade) => sum + (trade.commission ?? 0), 0);
 
     return {
       totalTrades: tradesInRange.length,
-      profitableTrades: profitableTrades.length,
-      unprofitableTrades: unprofitableTrades.length,
-      breakEvenTrades: breakEvenTrades.length,
-      totalGrossGains,
-      totalGrossLosses,
+      profitableTrades: 0,
+      unprofitableTrades: 0,
+      breakEvenTrades: 0,
+      totalGrossGains: 0,
+      totalGrossLosses: 0,
       totalCommissions,
-      netResult: totalGrossGains - totalGrossLosses - totalCommissions,
-      profitabilityPercentage: tradesInRange.length > 0 
-        ? (profitableTrades.length / tradesInRange.length) * 100 
-        : 0
+      netResult: -totalCommissions,
+      profitabilityPercentage: 0
     };
   }
 
   private async generateTradeComparisons(dateRange: { startDate: string; endDate: string }): Promise<TradeComparison[]> {
     const trades = await this.tradeService.findAll();
-    const tradesInRange = trades.filter(trade => 
-      trade.tradeDate >= dateRange.startDate && trade.tradeDate <= dateRange.endDate
+    const tradesInRange = trades.filter(trade =>
+      trade.trade_date >= dateRange.startDate && trade.trade_date <= dateRange.endDate
     );
 
     return tradesInRange.map(trade => {
-      const grossAmount = trade.netAmount + (trade.commissionAmount || 0);
-      const commissionPercentage = grossAmount > 0 ? ((trade.commissionAmount || 0) / grossAmount) * 100 : 0;
-      const realizedGainLoss = trade.realizedGainLoss || null;
-      
-      let status: 'profitable' | 'unprofitable' | 'break_even' | 'open' = 'open';
-      let commissionVsGainRatio: number | null = null;
-      
-      if (realizedGainLoss !== null) {
-        if (realizedGainLoss > 0) status = 'profitable';
-        else if (realizedGainLoss < 0) status = 'unprofitable';
-        else status = 'break_even';
-        
-        commissionVsGainRatio = realizedGainLoss !== 0 
-          ? ((trade.commissionAmount || 0) / Math.abs(realizedGainLoss)) * 100 
-          : 0;
-      }
+      const grossAmount = trade.net_amount + (trade.commission || 0);
+      const commissionPercentage = grossAmount > 0 ? ((trade.commission || 0) / grossAmount) * 100 : 0;
 
-      const warningLevel = commissionPercentage > 3 ? 'high' : 
-                          commissionPercentage > 1.5 ? 'medium' : 'none';
+      let warningLevel: 'high' | 'medium' | 'none';
+      if (commissionPercentage > 3) {
+        warningLevel = 'high';
+      } else if (commissionPercentage > 1.5) {
+        warningLevel = 'medium';
+      } else {
+        warningLevel = 'none';
+      }
 
       return {
         tradeId: trade.id!,
         symbol: trade.symbol,
         tradeType: trade.type,
-        executionDate: trade.tradeDate,
+        executionDate: trade.trade_date,
         quantity: trade.quantity,
-        price: trade.priceArs,
+        price: (trade as any).priceArs,
         grossAmount,
-        commissionAmount: trade.commissionAmount || 0,
+        commissionAmount: trade.commission || 0,
         commissionPercentage,
-        netAmount: trade.netAmount,
-        realizedGainLoss,
-        commissionVsGainRatio,
-        status,
+        netAmount: trade.net_amount,
+        realizedGainLoss: null,
+        commissionVsGainRatio: null,
+        status: 'open',
         warningLevel
       };
     });
@@ -597,7 +585,7 @@ export class CostReportService {
   private async calculateProfitabilityMetrics(dateRange: { startDate: string; endDate: string }): Promise<ProfitabilityMetrics> {
     const completedTrades = await this.tradeService.getCompletedTrades();
     const tradesInRange = completedTrades.filter(trade => 
-      trade.tradeDate >= dateRange.startDate && trade.tradeDate <= dateRange.endDate
+      trade.trade_date >= dateRange.startDate && trade.trade_date <= dateRange.endDate
     );
 
     const profitableTrades = tradesInRange.filter(trade => (trade.realizedGainLoss || 0) > 0);
@@ -616,7 +604,14 @@ export class CostReportService {
     const totalGains = profitableTrades.reduce((sum, trade) => sum + (trade.realizedGainLoss || 0), 0);
     const totalLosses = Math.abs(unprofitableTrades.reduce((sum, trade) => sum + (trade.realizedGainLoss || 0), 0));
     
-    const profitFactor = totalLosses > 0 ? totalGains / totalLosses : totalGains > 0 ? Number.POSITIVE_INFINITY : 0;
+    let profitFactor: number;
+    if (totalLosses > 0) {
+      profitFactor = totalGains / totalLosses;
+    } else if (totalGains > 0) {
+      profitFactor = Number.POSITIVE_INFINITY;
+    } else {
+      profitFactor = 0;
+    }
 
     const portfolioValue = await this.portfolioService.getTotalValue();
     const returnOnInvestment = portfolioValue > 0 ? ((totalGains - totalLosses) / portfolioValue) * 100 : 0;

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { CostReportService } from '../services/reports/CostReportService';
 import { TaxReportService } from '../services/reports/TaxReportService';
 import { ExportService } from '../services/reports/ExportService';
+import type { ExportOptions } from '../types/reports';
 import { logger } from '../utils/logger';
 
 const getErrorMessage = (error: unknown): string =>
@@ -270,7 +271,10 @@ export class ReportsController {
       }
 
       logger.info('Starting report export', { reportType, options: exportOptions });
-      const exportResult = await this.exportService.exportReport(validation.data, reportType);
+      const exportResult = await this.exportService.exportReport(
+        validation.data as ExportOptions,
+        reportType
+      );
 
       res.status(202).json({
         success: true,
@@ -460,8 +464,8 @@ export class ReportsController {
   async getTaxExportData(req: Request, res: Response): Promise<void> {
     try {
       const { year } = req.params;
-      
-      const yearNum = parseInt(year);
+
+      const yearNum = parseInt(year ?? '', 10);
       if (isNaN(yearNum) || yearNum < 2020 || yearNum > new Date().getFullYear()) {
         res.status(400).json({
           error: 'Invalid year parameter'
