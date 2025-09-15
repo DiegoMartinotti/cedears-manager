@@ -2,6 +2,7 @@ import { TradeService } from '../TradeService';
 import { CommissionService } from '../CommissionService';
 import { UVAService } from '../UVAService';
 import { PortfolioService } from '../PortfolioService';
+import type { TradeWithInstrument } from '../../models/Trade.js';
 import { logger } from '../../utils/logger';
 import { 
   CostDashboard, 
@@ -22,6 +23,16 @@ import {
   ProfitabilityMetrics,
   ComparisonAlert
 } from '../../types/reports';
+
+interface CompletedTradeSummary {
+  symbol: string;
+  tradeDate: string;
+  buyAmount: number;
+  sellAmount: number;
+  holdingDays: number;
+  realizedGainLoss: number;
+  totalCommissions: number;
+}
 
 export class CostReportService {
   private tradeService: TradeService;
@@ -243,21 +254,23 @@ export class CostReportService {
   }
 
   private async getTopCostlyInstruments(
-    dateRange: { startDate: string; endDate: string }, 
+    dateRange: { startDate: string; endDate: string },
     limit: number = 10
   ): Promise<InstrumentCostSummary[]> {
-      const trades = await this.tradeService.findAll();
-      const tradesInRange = trades.filter(trade =>
-        trade.trade_date >= dateRange.startDate && trade.trade_date <= dateRange.endDate
-      );
+    const trades = await this.tradeService.findAllWithInstruments();
+    const tradesInRange = trades.filter(trade =>
+      trade.trade_date >= dateRange.startDate && trade.trade_date <= dateRange.endDate
+    );
 
-    const instrumentData: { [symbol: string]: InstrumentCostSummary } = {};
+    const instrumentData: Record<string, InstrumentCostSummary> = {};
 
     tradesInRange.forEach(trade => {
-      if (!instrumentData[trade.symbol]) {
-        instrumentData[trade.symbol] = {
-          symbol: trade.symbol,
-          name: trade.instrumentName || trade.symbol,
+      const symbol = trade.symbol ?? `INSTR-${trade.instrument_id}`;
+
+      if (!instrumentData[symbol]) {
+        instrumentData[symbol] = {
+          symbol,
+          name: trade.company_name ?? symbol,
           totalCommissions: 0,
           numberOfTrades: 0,
           averageCommissionPerTrade: 0,
@@ -266,8 +279,8 @@ export class CostReportService {
         };
       }
 
-      instrumentData[trade.symbol].totalCommissions += trade.commissionAmount || 0;
-      instrumentData[trade.symbol].numberOfTrades += 1;
+      instrumentData[symbol].totalCommissions += trade.commission ?? 0;
+      instrumentData[symbol].numberOfTrades += 1;
     });
 
     // Calculate averages and profitability
@@ -311,49 +324,97 @@ export class CostReportService {
   }
 
   private async generateCostAlerts(dateRange: { startDate: string; endDate: string }): Promise<CostAlert[]> {
-    const alerts: CostAlert[] = [];
-    
-    // Check for high commission percentage trades
-    const trades = await this.tradeService.findAll();
-    const tradesInRange = trades.filter(trade => 
-      trade.trade_date >= dateRange.startDate && trade.trade_date <= dateRange.endDate
-    );
+    const alerts = await this.createHighCommissionAlerts(dateRange);
+    const custodyAlert = await this.createCustodyOptimizationAlert();
 
-    tradesInRange.forEach(trade => {
-      const commissionPercentage = trade.netAmount > 0 
-        ? ((trade.commissionAmount || 0) / trade.netAmount) * 100 
-        : 0;
-
-      if (commissionPercentage > 2) { // More than 2% commission
-        alerts.push({
-          type: 'HIGH_COMMISSION_PERCENTAGE',
-          severity: commissionPercentage > 5 ? 'high' : 'medium',
-          message: `Operación ${trade.symbol} tiene comisión de ${commissionPercentage.toFixed(2)}%`,
-          instrumentSymbol: trade.symbol,
-          tradeId: trade.id,
-          recommendedAction: 'Considerar operaciones de mayor volumen para reducir impacto de comisiones',
-          potentialSavings: (trade.commissionAmount || 0) * 0.3 // Estimated 30% savings potential
-        });
-      }
-    });
-
-    // Check custody fee optimization
-      const portfolioSummary = await this.portfolioService.getPortfolioSummary();
-      const portfolioValue = portfolioSummary.market_value;
-    const custodyService = this.commissionService.getCustodyService();
-    const custodyAnalysis = await custodyService.analyzePortfolioOptimization(portfolioValue);
-
-    if (custodyAnalysis.recommendations.length > 0) {
-      alerts.push({
-        type: 'EXCESSIVE_CUSTODY',
-        severity: 'medium',
-        message: `Cartera puede optimizarse para reducir custodia mensual`,
-        recommendedAction: custodyAnalysis.recommendations[0] || 'Revisar tamaño de cartera',
-        potentialSavings: custodyAnalysis.potentialMonthlySavings * 12
-      });
+    if (custodyAlert) {
+      alerts.push(custodyAlert);
     }
 
     return alerts;
+  }
+
+  private async createHighCommissionAlerts(dateRange: { startDate: string; endDate: string }): Promise<CostAlert[]> {
+    const trades = await this.tradeService.findAllWithInstruments();
+    const tradesInRange = trades.filter(trade =>
+      trade.trade_date >= dateRange.startDate && trade.trade_date <= dateRange.endDate
+    );
+
+    const alerts: CostAlert[] = [];
+
+    for (const trade of tradesInRange) {
+      const { commissionAmount, commissionPercentage } = this.getCommissionImpact(trade);
+      const severity = this.getCommissionSeverity(commissionPercentage);
+
+      if (!severity) {
+        continue;
+      }
+
+      alerts.push(
+        this.buildHighCommissionAlert(trade, commissionAmount, commissionPercentage, severity)
+      );
+    }
+
+    return alerts;
+  }
+
+  private getCommissionImpact(trade: TradeWithInstrument): { commissionAmount: number; commissionPercentage: number } {
+    const commissionAmount = (trade.commission ?? 0) + (trade.taxes ?? 0);
+    const commissionPercentage = trade.net_amount > 0
+      ? (commissionAmount / trade.net_amount) * 100
+      : 0;
+
+    return { commissionAmount, commissionPercentage };
+  }
+
+  private getCommissionSeverity(
+    commissionPercentage: number
+  ): 'high' | 'medium' | null {
+    if (commissionPercentage <= 2) {
+      return null;
+    }
+
+    return commissionPercentage > 5 ? 'high' : 'medium';
+  }
+
+  private buildHighCommissionAlert(
+    trade: TradeWithInstrument,
+    commissionAmount: number,
+    commissionPercentage: number,
+    severity: 'high' | 'medium'
+  ): CostAlert {
+    return {
+      type: 'HIGH_COMMISSION_PERCENTAGE',
+      severity,
+      message: `Operación ${trade.symbol ?? trade.instrument_id} tiene comisión de ${commissionPercentage.toFixed(2)}%`,
+      instrumentSymbol: trade.symbol ?? undefined,
+      tradeId: trade.id,
+      recommendedAction: 'Considerar operaciones de mayor volumen para reducir impacto de comisiones',
+      potentialSavings: commissionAmount * 0.3
+    };
+  }
+
+  private async createCustodyOptimizationAlert(): Promise<CostAlert | null> {
+    const { market_value: portfolioValue } = await this.portfolioService.getPortfolioSummary();
+    if (portfolioValue <= 0) {
+      return null;
+    }
+
+    const custodyService = this.commissionService.getCustodyService();
+    const defaultConfig = this.commissionService.getDefaultConfiguration();
+    const custodyOptimization = custodyService.optimizePortfolioSize(portfolioValue, 12, defaultConfig);
+
+    if (custodyOptimization.savingsAnnual <= 0) {
+      return null;
+    }
+
+    return {
+      type: 'EXCESSIVE_CUSTODY',
+      severity: 'medium',
+      message: 'Cartera puede optimizarse para reducir custodia mensual',
+      recommendedAction: custodyOptimization.recommendation,
+      potentialSavings: custodyOptimization.savingsAnnual
+    };
   }
 
     private async calculateOverallImpactMetrics(dateRange: { startDate: string; endDate: string }): Promise<OverallImpactMetrics> {
@@ -364,9 +425,9 @@ export class CostReportService {
       const totalCosts = totalCommissions + totalCustodyFees;
 
       // Calculate returns (simplified - in real implementation would need more complex calculation)
-      const completedTrades = await this.tradeService.getCompletedTrades();
-    
-    const totalReturns = completedTrades.reduce((sum, trade) => sum + (trade.realizedGainLoss || 0), 0);
+    const completedTrades = await this.getCompletedTradesSummary();
+
+    const totalReturns = completedTrades.reduce((sum, trade) => sum + trade.realizedGainLoss, 0);
     const netReturns = totalReturns - totalCosts;
 
     const costAsPercentageOfReturns = totalReturns > 0 ? (totalCosts / Math.abs(totalReturns)) * 100 : 0;
@@ -388,36 +449,38 @@ export class CostReportService {
   }
 
   private async analyzeTradeImpacts(dateRange: { startDate: string; endDate: string }): Promise<TradeImpactAnalysis[]> {
-    const trades = await this.tradeService.findAll();
-    const tradesInRange = trades.filter(trade => 
+    const trades = await this.tradeService.findAllWithInstruments();
+    const tradesInRange = trades.filter(trade =>
       trade.trade_date >= dateRange.startDate && trade.trade_date <= dateRange.endDate
     );
 
-    const analyses: TradeImpactAnalysis[] = [];
+    return tradesInRange.map(trade => {
+      const commission = trade.commission ?? 0;
+      const taxes = trade.taxes ?? 0;
+      const totalCosts = commission + taxes;
+      const grossAmount = trade.total_amount;
+      const costPercentageOfReturn = grossAmount > 0
+        ? (totalCosts / grossAmount) * 100
+        : 0;
+      const breakEvenPrice = trade.quantity > 0
+        ? (trade.net_amount + totalCosts) / trade.quantity
+        : 0;
 
-    for (const trade of tradesInRange) {
-      const analysis = await this.tradeService.analyzeTrade(trade.id!);
-      const totalCosts = (trade.commissionAmount || 0) + (trade.commissionIva || 0);
-      
-      analyses.push({
+      return {
         tradeId: trade.id!,
-        symbol: trade.symbol,
+        symbol: trade.symbol ?? '',
         tradeType: trade.type,
         tradeDate: trade.trade_date,
-        grossReturn: analysis.projectedGainLoss,
+        grossReturn: grossAmount,
         totalCosts,
-        netReturn: analysis.projectedGainLoss - totalCosts,
-        costPercentageOfReturn: analysis.projectedGainLoss > 0 
-          ? (totalCosts / Math.abs(analysis.projectedGainLoss)) * 100 
-          : 0,
-        isUnprofitable: analysis.projectedGainLoss < totalCosts,
-        breakEvenPrice: analysis.breakEvenPrice,
-        currentPrice: analysis.currentPrice,
-        realizedGainLoss: trade.realizedGainLoss || null
-      });
-    }
-
-    return analyses;
+        netReturn: trade.net_amount,
+        costPercentageOfReturn,
+        isUnprofitable: trade.type === 'SELL' && trade.net_amount <= totalCosts,
+        breakEvenPrice,
+        currentPrice: trade.price,
+        realizedGainLoss: null
+      } satisfies TradeImpactAnalysis;
+    });
   }
 
   private async generateTemporalAnalysis(dateRange: { startDate: string; endDate: string }): Promise<TemporalImpactAnalysis[]> {
@@ -437,7 +500,7 @@ export class CostReportService {
 
   private async generateBenchmarkComparison(dateRange: { startDate: string; endDate: string }): Promise<BenchmarkComparison> {
     const totalCommissions = await this.calculateTotalCommissions(dateRange);
-    const portfolioValue = await this.portfolioService.getTotalValue();
+    const { market_value: portfolioValue } = await this.portfolioService.getPortfolioSummary();
     const ourCostPercentage = portfolioValue > 0 ? (totalCommissions / portfolioValue) * 100 : 0;
 
     // Industry benchmark data (would be fetched from external source in real implementation)
@@ -488,8 +551,8 @@ export class CostReportService {
     }
 
     // Portfolio optimization for custody
-      const { market_value } = await this.portfolioService.getPortfolioSummary();
-      const portfolioValue = market_value;
+    const { market_value } = await this.portfolioService.getPortfolioSummary();
+    const portfolioValue = market_value;
     if (portfolioValue > 1000000) { // Over $1M ARS
       suggestions.push({
         type: 'PORTFOLIO_RESTRUCTURE',
@@ -528,14 +591,15 @@ export class CostReportService {
   }
 
   private async generateTradeComparisons(dateRange: { startDate: string; endDate: string }): Promise<TradeComparison[]> {
-    const trades = await this.tradeService.findAll();
+    const trades = await this.tradeService.findAllWithInstruments();
     const tradesInRange = trades.filter(trade =>
       trade.trade_date >= dateRange.startDate && trade.trade_date <= dateRange.endDate
     );
 
     return tradesInRange.map(trade => {
-      const grossAmount = trade.net_amount + (trade.commission || 0);
-      const commissionPercentage = grossAmount > 0 ? ((trade.commission || 0) / grossAmount) * 100 : 0;
+      const commission = trade.commission ?? 0;
+      const grossAmount = trade.total_amount;
+      const commissionPercentage = grossAmount > 0 ? (commission / grossAmount) * 100 : 0;
 
       let warningLevel: 'high' | 'medium' | 'none';
       if (commissionPercentage > 3) {
@@ -548,13 +612,13 @@ export class CostReportService {
 
       return {
         tradeId: trade.id!,
-        symbol: trade.symbol,
+        symbol: trade.symbol ?? '',
         tradeType: trade.type,
         executionDate: trade.trade_date,
         quantity: trade.quantity,
-        price: (trade as any).priceArs,
+        price: trade.price,
         grossAmount,
-        commissionAmount: trade.commission || 0,
+        commissionAmount: commission,
         commissionPercentage,
         netAmount: trade.net_amount,
         realizedGainLoss: null,
@@ -583,9 +647,9 @@ export class CostReportService {
   }
 
   private async calculateProfitabilityMetrics(dateRange: { startDate: string; endDate: string }): Promise<ProfitabilityMetrics> {
-    const completedTrades = await this.tradeService.getCompletedTrades();
-    const tradesInRange = completedTrades.filter(trade => 
-      trade.trade_date >= dateRange.startDate && trade.trade_date <= dateRange.endDate
+    const completedTrades = await this.getCompletedTradesSummary();
+    const tradesInRange = completedTrades.filter(trade =>
+      trade.tradeDate >= dateRange.startDate && trade.tradeDate <= dateRange.endDate
     );
 
     const profitableTrades = tradesInRange.filter(trade => (trade.realizedGainLoss || 0) > 0);
@@ -613,12 +677,12 @@ export class CostReportService {
       profitFactor = 0;
     }
 
-    const portfolioValue = await this.portfolioService.getTotalValue();
+    const { market_value: portfolioValue } = await this.portfolioService.getPortfolioSummary();
     const returnOnInvestment = portfolioValue > 0 ? ((totalGains - totalLosses) / portfolioValue) * 100 : 0;
 
-    const totalCommissions = tradesInRange.reduce((sum, trade) => sum + (trade.commissionAmount || 0), 0);
-    const costAdjustedROI = portfolioValue > 0 
-      ? ((totalGains - totalLosses - totalCommissions) / portfolioValue) * 100 
+    const totalCommissions = tradesInRange.reduce((sum, trade) => sum + trade.totalCommissions, 0);
+    const costAdjustedROI = portfolioValue > 0
+      ? ((totalGains - totalLosses - totalCommissions) / portfolioValue) * 100
       : 0;
 
     return {
@@ -633,9 +697,75 @@ export class CostReportService {
     };
   }
 
+  private async getCompletedTradesSummary(): Promise<CompletedTradeSummary[]> {
+    const trades = await this.tradeService.findAllWithInstruments();
+    const tradesByInstrument = new Map<number, TradeWithInstrument[]>();
+
+    for (const trade of trades) {
+      const grouped = tradesByInstrument.get(trade.instrument_id) ?? [];
+      grouped.push(trade);
+      tradesByInstrument.set(trade.instrument_id, grouped);
+    }
+
+    const completed: CompletedTradeSummary[] = [];
+    for (const instrumentTrades of tradesByInstrument.values()) {
+      completed.push(...this.buildCompletedTradesForInstrument(instrumentTrades));
+    }
+
+    return completed;
+  }
+
+  private buildCompletedTradesForInstrument(trades: TradeWithInstrument[]): CompletedTradeSummary[] {
+    const buys = trades
+      .filter(t => t.type === 'BUY')
+      .sort((a, b) => new Date(a.trade_date).getTime() - new Date(b.trade_date).getTime());
+    const sells = trades
+      .filter(t => t.type === 'SELL')
+      .sort((a, b) => new Date(a.trade_date).getTime() - new Date(b.trade_date).getTime());
+
+    const results: CompletedTradeSummary[] = [];
+    let buyIndex = 0;
+    let sellIndex = 0;
+
+    while (buyIndex < buys.length && sellIndex < sells.length) {
+      const buy = buys[buyIndex];
+      const sell = sells[sellIndex];
+
+      if (!buy || !sell) {
+        break;
+      }
+      const holdingDays = this.calculateHoldingDays(buy.trade_date, sell.trade_date);
+
+      results.push({
+        symbol: buy.symbol ?? sell.symbol ?? '',
+        tradeDate: sell.trade_date,
+        buyAmount: buy.net_amount,
+        sellAmount: sell.net_amount,
+        holdingDays,
+        realizedGainLoss: sell.net_amount - buy.net_amount,
+        totalCommissions:
+          (buy.commission ?? 0) +
+          (buy.taxes ?? 0) +
+          (sell.commission ?? 0) +
+          (sell.taxes ?? 0)
+      });
+
+      buyIndex++;
+      sellIndex++;
+    }
+
+    return results;
+  }
+
+  private calculateHoldingDays(buyDate: string, sellDate: string): number {
+    const buyTime = new Date(buyDate).getTime();
+    const sellTime = new Date(sellDate).getTime();
+    return Math.max(0, Math.floor((sellTime - buyTime) / (1000 * 60 * 60 * 24)));
+  }
+
   private async generateComparisonAlerts(dateRange: { startDate: string; endDate: string }): Promise<ComparisonAlert[]> {
     const alerts: ComparisonAlert[] = [];
-    
+
     const tradeComparisons = await this.generateTradeComparisons(dateRange);
     const highCommissionTrades = tradeComparisons.filter(trade => trade.commissionPercentage > 2);
     
