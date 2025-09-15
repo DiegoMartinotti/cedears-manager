@@ -280,8 +280,9 @@ export const Commissions: React.FC = () => {
             
             <form onSubmit={handleCalculatorSubmit} className="space-y-4">
               <div className="flex flex-col space-y-2">
-                <label className="text-sm font-medium">Tipo de operación</label>
+                <label htmlFor="calculator-operation-type" className="text-sm font-medium">Tipo de operación</label>
                 <Select
+                  id="calculator-operation-type"
                   value={calculatorForm.operationType}
                   onChange={(e) => setCalculatorForm(prev => ({ ...prev, operationType: e.target.value as 'BUY' | 'SELL' }))}
                 >
@@ -291,8 +292,9 @@ export const Commissions: React.FC = () => {
               </div>
 
               <div className="flex flex-col space-y-2">
-                <label className="text-sm font-medium">Monto de la operación (ARS)</label>
+                <label htmlFor="calculator-amount" className="text-sm font-medium">Monto de la operación (ARS)</label>
                 <Input
+                  id="calculator-amount"
                   type="number"
                   min="0"
                   step="0.01"
@@ -304,8 +306,9 @@ export const Commissions: React.FC = () => {
               </div>
 
               <div className="flex flex-col space-y-2">
-                <label className="text-sm font-medium">Valor actual de cartera (ARS) - Opcional</label>
+                <label htmlFor="calculator-portfolio-value" className="text-sm font-medium">Valor actual de cartera (ARS) - Opcional</label>
                 <Input
+                  id="calculator-portfolio-value"
                   type="number"
                   min="0"
                   step="0.01"
@@ -316,8 +319,9 @@ export const Commissions: React.FC = () => {
               </div>
 
               <div className="flex flex-col space-y-2">
-                <label className="text-sm font-medium">Broker - Opcional</label>
+                <label htmlFor="calculator-broker" className="text-sm font-medium">Broker - Opcional</label>
                 <Select
+                  id="calculator-broker"
                   value={calculatorForm.selectedBroker}
                   onChange={(e) => setCalculatorForm(prev => ({ ...prev, selectedBroker: e.target.value }))}
                 >
@@ -353,8 +357,9 @@ export const Commissions: React.FC = () => {
               
               <div className="space-y-4">
                 <div className="flex flex-col space-y-2">
-                  <label className="text-sm font-medium">Porcentaje máximo de comisión (%)</label>
+                  <label htmlFor="minimum-threshold" className="text-sm font-medium">Porcentaje máximo de comisión (%)</label>
                   <Input
+                    id="minimum-threshold"
                     type="number"
                     min="0.1"
                     max="10"
@@ -479,8 +484,9 @@ export const Commissions: React.FC = () => {
             
             <form onSubmit={handleComparisonSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="flex flex-col space-y-2">
-                <label className="text-sm font-medium">Tipo de operación</label>
+                <label htmlFor="comparison-operation-type" className="text-sm font-medium">Tipo de operación</label>
                 <Select
+                  id="comparison-operation-type"
                   value={comparisonForm.operationType}
                   onChange={(e) => setComparisonForm(prev => ({ ...prev, operationType: e.target.value as 'BUY' | 'SELL' }))}
                 >
@@ -490,8 +496,9 @@ export const Commissions: React.FC = () => {
               </div>
 
               <div className="flex flex-col space-y-2">
-                <label className="text-sm font-medium">Monto operación (ARS)</label>
+                <label htmlFor="comparison-amount" className="text-sm font-medium">Monto operación (ARS)</label>
                 <Input
+                  id="comparison-amount"
                   type="number"
                   min="0"
                   step="0.01"
@@ -503,8 +510,9 @@ export const Commissions: React.FC = () => {
               </div>
 
               <div className="flex flex-col space-y-2">
-                <label className="text-sm font-medium">Valor de cartera (ARS)</label>
+                <label htmlFor="comparison-portfolio-value" className="text-sm font-medium">Valor de cartera (ARS)</label>
                 <Input
+                  id="comparison-portfolio-value"
                   type="number"
                   min="0"
                   step="0.01"
