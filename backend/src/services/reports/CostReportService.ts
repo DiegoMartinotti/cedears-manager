@@ -697,8 +697,12 @@ export class CostReportService {
     let sellIndex = 0;
 
     while (buyIndex < buys.length && sellIndex < sells.length) {
-      const buy = buys[buyIndex]!;
-      const sell = sells[sellIndex]!;
+      const buy = buys[buyIndex];
+      const sell = sells[sellIndex];
+
+      if (!buy || !sell) {
+        break;
+      }
       const holdingDays = this.calculateHoldingDays(buy.trade_date, sell.trade_date);
 
       results.push({
