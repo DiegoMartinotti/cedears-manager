@@ -10,7 +10,7 @@ interface GoalAlert {
   id: number;
   alert_type: string;
   threshold_value: number;
-  threshold_type: 'PERCENTAGE' | 'DAYS' | string;
+  threshold_type: 'PERCENTAGE' | 'DAYS';
   is_enabled: boolean;
   trigger_count: number;
   message_template: string;
