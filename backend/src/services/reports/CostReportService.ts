@@ -340,27 +340,58 @@ export class CostReportService {
       trade.trade_date >= dateRange.startDate && trade.trade_date <= dateRange.endDate
     );
 
-    return tradesInRange.reduce<CostAlert[]>((acc, trade) => {
-      const netAmount = trade.net_amount;
-      const commissionAmount = (trade.commission ?? 0) + (trade.taxes ?? 0);
-      const commissionPercentage = netAmount > 0
-        ? (commissionAmount / netAmount) * 100
-        : 0;
+    const alerts: CostAlert[] = [];
 
-      if (commissionPercentage > 2) {
-        acc.push({
-          type: 'HIGH_COMMISSION_PERCENTAGE',
-          severity: commissionPercentage > 5 ? 'high' : 'medium',
-          message: `Operación ${trade.symbol ?? trade.instrument_id} tiene comisión de ${commissionPercentage.toFixed(2)}%`,
-          instrumentSymbol: trade.symbol ?? undefined,
-          tradeId: trade.id,
-          recommendedAction: 'Considerar operaciones de mayor volumen para reducir impacto de comisiones',
-          potentialSavings: commissionAmount * 0.3
-        });
+    for (const trade of tradesInRange) {
+      const { commissionAmount, commissionPercentage } = this.getCommissionImpact(trade);
+      const severity = this.getCommissionSeverity(commissionPercentage);
+
+      if (!severity) {
+        continue;
       }
 
-      return acc;
-    }, []);
+      alerts.push(
+        this.buildHighCommissionAlert(trade, commissionAmount, commissionPercentage, severity)
+      );
+    }
+
+    return alerts;
+  }
+
+  private getCommissionImpact(trade: TradeWithInstrument): { commissionAmount: number; commissionPercentage: number } {
+    const commissionAmount = (trade.commission ?? 0) + (trade.taxes ?? 0);
+    const commissionPercentage = trade.net_amount > 0
+      ? (commissionAmount / trade.net_amount) * 100
+      : 0;
+
+    return { commissionAmount, commissionPercentage };
+  }
+
+  private getCommissionSeverity(
+    commissionPercentage: number
+  ): 'high' | 'medium' | null {
+    if (commissionPercentage <= 2) {
+      return null;
+    }
+
+    return commissionPercentage > 5 ? 'high' : 'medium';
+  }
+
+  private buildHighCommissionAlert(
+    trade: TradeWithInstrument,
+    commissionAmount: number,
+    commissionPercentage: number,
+    severity: 'high' | 'medium'
+  ): CostAlert {
+    return {
+      type: 'HIGH_COMMISSION_PERCENTAGE',
+      severity,
+      message: `Operación ${trade.symbol ?? trade.instrument_id} tiene comisión de ${commissionPercentage.toFixed(2)}%`,
+      instrumentSymbol: trade.symbol ?? undefined,
+      tradeId: trade.id,
+      recommendedAction: 'Considerar operaciones de mayor volumen para reducir impacto de comisiones',
+      potentialSavings: commissionAmount * 0.3
+    };
   }
 
   private async createCustodyOptimizationAlert(): Promise<CostAlert | null> {
