@@ -244,7 +244,7 @@ export const AccelerationStrategies: React.FC<AccelerationStrategiesProps> = ({
     return (
       <Card className="p-6">
         <div className="flex items-center justify-center space-x-2">
-          <LoadingSpinner size="small" />
+          <LoadingSpinner size="sm" />
           <span>Cargando estrategias de aceleración...</span>
         </div>
       </Card>
@@ -273,7 +273,7 @@ export const AccelerationStrategies: React.FC<AccelerationStrategiesProps> = ({
             variant="outline"
             className="flex items-center space-x-2"
           >
-            {isGenerating && <LoadingSpinner size="small" />}
+            {isGenerating && <LoadingSpinner size="sm" />}
             <span>{isGenerating ? 'Generando...' : 'Actualizar Estrategias'}</span>
           </Button>
         </div>

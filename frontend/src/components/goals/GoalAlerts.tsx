@@ -4,7 +4,18 @@ import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { Switch } from '../ui/Switch';
 import { Alert } from '../ui/Alert';
-import { GoalAlert, GoalDashboardData } from '../../services/goalService';
+import { GoalDashboardData } from '../../services/goalService';
+
+interface GoalAlert {
+  id: number;
+  alert_type: string;
+  threshold_value: number;
+  threshold_type: 'PERCENTAGE' | 'DAYS' | string;
+  is_enabled: boolean;
+  trigger_count: number;
+  message_template: string;
+  last_triggered?: string;
+}
 
 interface GoalAlertsProps {
   dashboard: GoalDashboardData | null;
