@@ -31,7 +31,7 @@ const AnalysisMetrics: React.FC<{ analysisResult: CommissionAnalysis }> = ({ ana
       <Card className="p-4">
         <h4 className="font-medium text-gray-700 mb-2">Total Comisiones</h4>
         <p className="text-2xl font-bold text-red-600">
-          {formatCurrency(analysisResult.totalCommissions)}
+          {formatCurrency(analysisResult.totalCommissionsPaid)}
         </p>
       </Card>
 
@@ -89,9 +89,9 @@ const MonthlyBreakdownTable: React.FC<{ analysisResult: CommissionAnalysis }> = 
             {analysisResult.monthlyBreakdown.map((month, index) => (
               <tr key={index} className="border-b">
                 <td className="p-2">{month.month}</td>
-                <td className="text-right p-2">{formatCurrency(month.totalCommissions)}</td>
-                <td className="text-right p-2">{formatCurrency(month.totalTaxes)}</td>
-                <td className="text-right p-2 font-semibold">{formatCurrency(month.totalCommissions + month.totalTaxes)}</td>
+                <td className="text-right p-2">{formatCurrency(month.commissions)}</td>
+                <td className="text-right p-2">{formatCurrency(month.taxes)}</td>
+                <td className="text-right p-2 font-semibold">{formatCurrency(month.commissions + month.taxes)}</td>
               </tr>
             ))}
           </tbody>
@@ -101,6 +101,7 @@ const MonthlyBreakdownTable: React.FC<{ analysisResult: CommissionAnalysis }> = 
   )
 }
 
+// eslint-disable-next-line max-lines-per-function
 export const Commissions: React.FC = () => {
   const {
     configs,
@@ -278,54 +279,61 @@ export const Commissions: React.FC = () => {
             <h3 className="text-lg font-semibold mb-4">Calculadora de Comisiones</h3>
             
             <form onSubmit={handleCalculatorSubmit} className="space-y-4">
-              <Select
-                label="Tipo de operación"
-                value={calculatorForm.operationType}
-                onChange={(value) => setCalculatorForm(prev => ({ ...prev, operationType: value as 'BUY' | 'SELL' }))}
-              >
-                <option value="BUY">Compra</option>
-                <option value="SELL">Venta</option>
-              </Select>
+              <div className="flex flex-col space-y-2">
+                <label className="text-sm font-medium">Tipo de operación</label>
+                <Select
+                  value={calculatorForm.operationType}
+                  onChange={(e) => setCalculatorForm(prev => ({ ...prev, operationType: e.target.value as 'BUY' | 'SELL' }))}
+                >
+                  <option value="BUY">Compra</option>
+                  <option value="SELL">Venta</option>
+                </Select>
+              </div>
 
-              <Input
-                label="Monto de la operación (ARS)"
-                type="number"
-                min="0"
-                step="0.01"
-                value={calculatorForm.amount}
-                onChange={(e) => setCalculatorForm(prev => ({ ...prev, amount: e.target.value }))}
-                placeholder="50000"
-                required
-              />
+              <div className="flex flex-col space-y-2">
+                <label className="text-sm font-medium">Monto de la operación (ARS)</label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={calculatorForm.amount}
+                  onChange={(e) => setCalculatorForm(prev => ({ ...prev, amount: e.target.value }))}
+                  placeholder="50000"
+                  required
+                />
+              </div>
 
-              <Input
-                label="Valor actual de cartera (ARS) - Opcional"
-                type="number"
-                min="0"
-                step="0.01"
-                value={calculatorForm.portfolioValue}
-                onChange={(e) => setCalculatorForm(prev => ({ ...prev, portfolioValue: e.target.value }))}
-                placeholder="1000000"
-              />
+              <div className="flex flex-col space-y-2">
+                <label className="text-sm font-medium">Valor actual de cartera (ARS) - Opcional</label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={calculatorForm.portfolioValue}
+                  onChange={(e) => setCalculatorForm(prev => ({ ...prev, portfolioValue: e.target.value }))}
+                  placeholder="1000000"
+                />
+              </div>
 
-              <Select
-                label="Broker - Opcional"
-                value={calculatorForm.selectedBroker}
-                onChange={(value) => setCalculatorForm(prev => ({ ...prev, selectedBroker: value }))}
-                placeholder="Usar configuración activa"
-              >
-                <option value="">Configuración activa</option>
-                {configs.map(config => (
-                  <option key={config.broker} value={config.broker}>
-                    {config.name}
-                  </option>
-                ))}
-              </Select>
+              <div className="flex flex-col space-y-2">
+                <label className="text-sm font-medium">Broker - Opcional</label>
+                <Select
+                  value={calculatorForm.selectedBroker}
+                  onChange={(e) => setCalculatorForm(prev => ({ ...prev, selectedBroker: e.target.value }))}
+                >
+                  <option value="">Configuración activa</option>
+                  {configs.map(config => (
+                    <option key={config.broker} value={config.broker}>
+                      {config.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
 
               <Button
                 type="submit"
                 disabled={isCalculating || !calculatorForm.amount}
-                variant="primary"
+                variant="default"
                 className="w-full"
               >
                 {isCalculating ? (
@@ -344,16 +352,18 @@ export const Commissions: React.FC = () => {
               <h4 className="font-medium text-gray-700 mb-4">Monto Mínimo Recomendado</h4>
               
               <div className="space-y-4">
-                <Input
-                  label="Porcentaje máximo de comisión (%)"
-                  type="number"
-                  min="0.1"
-                  max="10"
-                  step="0.1"
-                  value={minimumInvestmentForm.threshold}
-                  onChange={(e) => setMinimumInvestmentForm(prev => ({ ...prev, threshold: e.target.value }))}
-                  placeholder="2.5"
-                />
+                <div className="flex flex-col space-y-2">
+                  <label className="text-sm font-medium">Porcentaje máximo de comisión (%)</label>
+                  <Input
+                    type="number"
+                    min="0.1"
+                    max="10"
+                    step="0.1"
+                    value={minimumInvestmentForm.threshold}
+                    onChange={(e) => setMinimumInvestmentForm(prev => ({ ...prev, threshold: e.target.value }))}
+                    placeholder="2.5"
+                  />
+                </div>
 
                 <Button
                   onClick={handleMinimumInvestmentCalculate}
@@ -431,7 +441,7 @@ export const Commissions: React.FC = () => {
                         {calculationResult.custody.isExempt ? (
                           <Badge variant="success">Exento</Badge>
                         ) : (
-                          <Badge variant="warning">Aplica</Badge>
+                          <Badge variant="destructive">Aplica</Badge>
                         )}
                       </p>
                     </div>
