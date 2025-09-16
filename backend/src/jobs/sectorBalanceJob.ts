@@ -7,6 +7,33 @@ import { createLogger } from '../utils/logger.js'
 
 const logger = createLogger('SectorBalanceJob')
 
+type SectorAnalysisSummary = Awaited<ReturnType<SectorBalanceService['runSectorAnalysis']>>
+type HealthScoreSummary = Awaited<ReturnType<DiversificationAnalysisService['generateHealthScore']>>
+type RiskAnalysisSummary = Awaited<ReturnType<DiversificationAnalysisService['performRiskAnalysis']>>
+type PortfolioEvolutionSummary = Awaited<ReturnType<DiversificationAnalysisService['analyzePortfolioEvolution']>>
+type SectorStatsSummary = Awaited<ReturnType<DiversificationAnalysisService['calculateSectorStats']>>
+
+type MonthlyAnalysisContext = {
+  analysisResult: SectorAnalysisSummary
+  healthScore: HealthScoreSummary
+  riskAnalysis: RiskAnalysisSummary
+  evolution: PortfolioEvolutionSummary
+  sectorStats: SectorStatsSummary
+  period: { startDate: string; endDate: string }
+}
+
+type MaintenanceSummary = {
+  cleanupResult: number
+  serviceHealth: {
+    sectorBalance: boolean
+    classification: boolean
+    diversification: boolean
+  }
+  timestamp: string
+  cleanupCutoff: string
+  alertCutoff: string
+}
+
 export class SectorBalanceJob {
   private sectorBalanceService = new SectorBalanceService()
   private classificationService = new GICSClassificationService()
@@ -70,78 +97,18 @@ export class SectorBalanceJob {
 
     this.isRunning = true
     const startTime = Date.now()
-    
+
     logger.info('Starting daily sector balance analysis')
 
     try {
-      // 1. Run sector analysis
       const analysisResult = await this.sectorBalanceService.runSectorAnalysis()
-      
-      // 2. Generate health score
       const healthScore = await this.diversificationService.generateHealthScore()
-      
-      // 3. Check for critical alerts
-      const criticalAlerts = analysisResult.issues.filter(issue => 
-        issue.includes('critical') || issue.includes('CRITICAL')
-      )
 
-      // 4. Send notifications for critical issues
-      if (criticalAlerts.length > 0) {
-        await this.notificationService.create({
-          type: 'PORTFOLIO_UPDATE',
-          priority: 3, // HIGH
-          title: 'Critical Portfolio Balance Issues Detected',
-          message: `Daily analysis found ${criticalAlerts.length} critical issues requiring immediate attention.`,
-          data: {
-            analysisDate: analysisResult.analysisDate,
-            criticalAlerts,
-            healthScore: healthScore.overall,
-            sectorsAnalyzed: analysisResult.sectorsAnalyzed
-          }
-        })
-      }
-
-      // 5. Send daily summary notification
-      await this.notificationService.create({
-        type: 'PORTFOLIO_UPDATE',
-        priority: 1, // LOW
-        title: 'Daily Sector Analysis Complete',
-        message: `Portfolio analysis completed: ${analysisResult.sectorsAnalyzed} sectors analyzed, ${analysisResult.alertsGenerated} alerts generated, Health Score: ${healthScore.overall}/100`,
-        data: {
-          analysisDate: analysisResult.analysisDate,
-          sectorsAnalyzed: analysisResult.sectorsAnalyzed,
-          alertsGenerated: analysisResult.alertsGenerated,
-          suggestionsCreated: analysisResult.suggestionsCreated,
-          healthScore: healthScore.overall,
-          issues: analysisResult.issues
-        }
-      })
-
-      const executionTime = Date.now() - startTime
-      logger.info(`Daily sector analysis completed successfully in ${executionTime}ms`, {
-        sectorsAnalyzed: analysisResult.sectorsAnalyzed,
-        alertsGenerated: analysisResult.alertsGenerated,
-        suggestionsCreated: analysisResult.suggestionsCreated,
-        healthScore: healthScore.overall,
-        issues: analysisResult.issues.length
-      })
-
+      await this.notifyCriticalAlerts(analysisResult, healthScore)
+      await this.sendDailySummary(analysisResult, healthScore)
+      this.logDailyAnalysis(startTime, analysisResult, healthScore)
     } catch (error) {
-      const executionTime = Date.now() - startTime
-      logger.error('Daily sector analysis failed:', error)
-      
-      // Send error notification
-      await this.notificationService.create({
-        type: 'SYSTEM',
-        priority: 3, // HIGH
-        title: 'Sector Analysis Job Failed',
-        message: `Daily sector analysis failed after ${executionTime}ms. Manual review required.`,
-        data: {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          timestamp: new Date().toISOString(),
-          executionTime
-        }
-      })
+      await this.handleDailyAnalysisFailure(Date.now() - startTime, error)
     } finally {
       this.isRunning = false
     }
@@ -216,66 +183,12 @@ export class SectorBalanceJob {
     logger.info('Starting monthly comprehensive sector analysis')
 
     try {
-      // 1. Full sector analysis
-      const analysisResult = await this.sectorBalanceService.runSectorAnalysis()
-      
-      // 2. Portfolio evolution analysis (last 12 months)
-      const startDate = new Date()
-      startDate.setFullYear(startDate.getFullYear() - 1)
-      const endDate = new Date()
-      
-      const evolution = await this.diversificationService.analyzePortfolioEvolution(
-        startDate.toISOString().split('T')[0],
-        endDate.toISOString().split('T')[0]
-      )
-      
-      // 3. Comprehensive risk analysis
-      const riskAnalysis = await this.diversificationService.performRiskAnalysis()
-      
-      // 4. Health score with detailed factors
-      const healthScore = await this.diversificationService.generateHealthScore()
-      
-      // 5. Sector statistics
-      const sectorStats = await this.diversificationService.calculateSectorStats()
-      
-      // 6. Generate comprehensive monthly report notification
-      await this.notificationService.create({
-        type: 'PORTFOLIO_UPDATE',
-        priority: 2, // MEDIUM
-        title: 'Monthly Portfolio Analysis Complete',
-        message: `Comprehensive monthly analysis completed. Portfolio Health Score: ${healthScore.overall}/100. Concentration Risk: ${riskAnalysis.concentrationRisk.level}`,
-        data: {
-          analysisDate: analysisResult.analysisDate,
-          healthScore: healthScore,
-          riskAnalysis: {
-            concentrationRisk: riskAnalysis.concentrationRisk.level,
-            correlationRisk: riskAnalysis.correlationRisk,
-            liquidityRisk: riskAnalysis.liquidityRisk,
-            sectorRisks: riskAnalysis.sectorSpecificRisks.filter(r => r.riskLevel === 'HIGH' || r.riskLevel === 'CRITICAL').length
-          },
-          portfolioMetrics: {
-            sectorsAnalyzed: analysisResult.sectorsAnalyzed,
-            alertsGenerated: analysisResult.alertsGenerated,
-            suggestionsCreated: analysisResult.suggestionsCreated,
-            majorChanges: evolution.majorChanges.length
-          },
-          topPerformingSectors: sectorStats
-            .sort((a, b) => b.performance.monthly - a.performance.monthly)
-            .slice(0, 3)
-            .map(s => ({ sector: s.sector, performance: s.performance.monthly }))
-        }
-      })
-
-      logger.info('Monthly comprehensive analysis completed successfully', {
-        healthScore: healthScore.overall,
-        concentrationRisk: riskAnalysis.concentrationRisk.level,
-        sectorsAnalyzed: analysisResult.sectorsAnalyzed,
-        majorChanges: evolution.majorChanges.length
-      })
-
+      const context = await this.buildMonthlyAnalysisContext()
+      await this.notifyMonthlyAnalysis(context)
+      this.logMonthlyAnalysis(context)
     } catch (error) {
       logger.error('Monthly comprehensive analysis failed:', error)
-      
+
       await this.notificationService.create({
         type: 'SYSTEM',
         priority: 3, // HIGH
@@ -300,56 +213,222 @@ export class SectorBalanceJob {
     logger.info('Starting sector balance maintenance tasks')
 
     try {
-      // 1. Cleanup old analysis data (keep last 6 months)
-      const sixMonthsAgo = new Date()
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-      
-      // 2. Cleanup low-confidence classifications
-      const cleanupResult = await this.classificationService.cleanupLowConfidence(30)
-      
-      // 3. Deactivate old alerts (older than 30 days)
-      const thirtyDaysAgo = new Date()
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-      
-      // 4. Health checks
-      const serviceHealth = {
-        sectorBalance: await this.sectorBalanceService.healthCheck(),
-        classification: await this.classificationService.healthCheck(),
-        diversification: await this.diversificationService.healthCheck()
-      }
-      
-      // 5. Send maintenance summary
-      await this.notificationService.create({
-        type: 'SYSTEM',
-        priority: 1, // LOW
-        title: 'Weekly Maintenance Complete',
-        message: `Maintenance tasks completed. Cleaned up ${cleanupResult} low-confidence classifications. All services ${Object.values(serviceHealth).every(h => h) ? 'healthy' : 'require attention'}.`,
-        data: {
-          cleanupResult,
-          serviceHealth,
-          timestamp: new Date().toISOString()
-        }
-      })
-
-      logger.info('Maintenance tasks completed successfully', {
-        cleanupResult,
-        serviceHealth
-      })
-
+      const summary = await this.buildMaintenanceSummary()
+      await this.notifyMaintenanceSummary(summary)
+      this.logMaintenanceSummary(summary)
     } catch (error) {
       logger.error('Maintenance tasks failed:', error)
-      
-      await this.notificationService.create({
-        type: 'SYSTEM',
-        priority: 2, // MEDIUM
-        title: 'Maintenance Tasks Failed',
-        message: 'Weekly maintenance tasks encountered errors but system continues operating.',
-        data: {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          timestamp: new Date().toISOString()
-        }
-      })
+      await this.notifyMaintenanceFailure(error)
     }
+  }
+
+  private async notifyCriticalAlerts(
+    analysisResult: SectorAnalysisSummary,
+    healthScore: HealthScoreSummary
+  ): Promise<void> {
+    const criticalAlerts = analysisResult.issues.filter(issue =>
+      issue.toLowerCase().includes('critical')
+    )
+
+    if (criticalAlerts.length === 0) {
+      return
+    }
+
+    await this.notificationService.create({
+      type: 'PORTFOLIO_UPDATE',
+      priority: 3,
+      title: 'Critical Portfolio Balance Issues Detected',
+      message: `Daily analysis found ${criticalAlerts.length} critical issues requiring immediate attention.`,
+      data: {
+        analysisDate: analysisResult.analysisDate,
+        criticalAlerts,
+        healthScore: healthScore.overall,
+        sectorsAnalyzed: analysisResult.sectorsAnalyzed
+      }
+    })
+  }
+
+  private async sendDailySummary(
+    analysisResult: SectorAnalysisSummary,
+    healthScore: HealthScoreSummary
+  ): Promise<void> {
+    await this.notificationService.create({
+      type: 'PORTFOLIO_UPDATE',
+      priority: 1,
+      title: 'Daily Sector Analysis Complete',
+      message: `Portfolio analysis completed: ${analysisResult.sectorsAnalyzed} sectors analyzed, ${analysisResult.alertsGenerated} alerts generated, Health Score: ${healthScore.overall}/100`,
+      data: {
+        analysisDate: analysisResult.analysisDate,
+        sectorsAnalyzed: analysisResult.sectorsAnalyzed,
+        alertsGenerated: analysisResult.alertsGenerated,
+        suggestionsCreated: analysisResult.suggestionsCreated,
+        healthScore: healthScore.overall,
+        issues: analysisResult.issues
+      }
+    })
+  }
+
+  private logDailyAnalysis(
+    startTime: number,
+    analysisResult: SectorAnalysisSummary,
+    healthScore: HealthScoreSummary
+  ): void {
+    const executionTime = Date.now() - startTime
+    logger.info(`Daily sector analysis completed successfully in ${executionTime}ms`, {
+      sectorsAnalyzed: analysisResult.sectorsAnalyzed,
+      alertsGenerated: analysisResult.alertsGenerated,
+      suggestionsCreated: analysisResult.suggestionsCreated,
+      healthScore: healthScore.overall,
+      issues: analysisResult.issues.length
+    })
+  }
+
+  private async handleDailyAnalysisFailure(executionTime: number, error: unknown): Promise<void> {
+    logger.error('Daily sector analysis failed:', error)
+
+    await this.notificationService.create({
+      type: 'SYSTEM',
+      priority: 3,
+      title: 'Sector Analysis Job Failed',
+      message: `Daily sector analysis failed after ${executionTime}ms. Manual review required.`,
+      data: {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString(),
+        executionTime
+      }
+    })
+  }
+
+  private getMonthlyPeriod(): { startDate: string; endDate: string } {
+    const endDate = new Date()
+    const startDate = new Date()
+    startDate.setFullYear(startDate.getFullYear() - 1)
+
+    return {
+      startDate: startDate.toISOString().split('T')[0],
+      endDate: endDate.toISOString().split('T')[0]
+    }
+  }
+
+  private async buildMonthlyAnalysisContext(): Promise<MonthlyAnalysisContext> {
+    const analysisResult = await this.sectorBalanceService.runSectorAnalysis()
+    const period = this.getMonthlyPeriod()
+
+    const [evolution, riskAnalysis, healthScore, sectorStats] = await Promise.all([
+      this.diversificationService.analyzePortfolioEvolution(period.startDate, period.endDate),
+      this.diversificationService.performRiskAnalysis(),
+      this.diversificationService.generateHealthScore(),
+      this.diversificationService.calculateSectorStats()
+    ])
+
+    return { analysisResult, evolution, riskAnalysis, healthScore, sectorStats, period }
+  }
+
+  private async notifyMonthlyAnalysis(context: MonthlyAnalysisContext): Promise<void> {
+    const { analysisResult, healthScore, riskAnalysis, evolution, sectorStats, period } = context
+
+    await this.notificationService.create({
+      type: 'PORTFOLIO_UPDATE',
+      priority: 2,
+      title: 'Monthly Portfolio Analysis Complete',
+      message: `Comprehensive monthly analysis completed. Portfolio Health Score: ${healthScore.overall}/100. Concentration Risk: ${riskAnalysis.concentrationRisk.level}`,
+      data: {
+        analysisDate: analysisResult.analysisDate,
+        healthScore,
+        riskAnalysis: {
+          concentrationRisk: riskAnalysis.concentrationRisk.level,
+          correlationRisk: riskAnalysis.correlationRisk,
+          liquidityRisk: riskAnalysis.liquidityRisk,
+          sectorRisks: riskAnalysis.sectorSpecificRisks.filter(r => r.riskLevel === 'HIGH' || r.riskLevel === 'CRITICAL').length
+        },
+        portfolioMetrics: {
+          sectorsAnalyzed: analysisResult.sectorsAnalyzed,
+          alertsGenerated: analysisResult.alertsGenerated,
+          suggestionsCreated: analysisResult.suggestionsCreated,
+          majorChanges: evolution.majorChanges.length
+        },
+        topPerformingSectors: this.formatTopSectors(sectorStats),
+        period
+      }
+    })
+  }
+
+  private logMonthlyAnalysis(context: MonthlyAnalysisContext): void {
+    const { analysisResult, healthScore, riskAnalysis, evolution } = context
+    logger.info('Monthly comprehensive analysis completed successfully', {
+      healthScore: healthScore.overall,
+      concentrationRisk: riskAnalysis.concentrationRisk.level,
+      sectorsAnalyzed: analysisResult.sectorsAnalyzed,
+      majorChanges: evolution.majorChanges.length
+    })
+  }
+
+  private formatTopSectors(sectorStats: SectorStatsSummary): Array<{ sector: string; performance: number }> {
+    return sectorStats
+      .slice()
+      .sort((a, b) => b.performance.monthly - a.performance.monthly)
+      .slice(0, 3)
+      .map(s => ({ sector: s.sector, performance: s.performance.monthly }))
+  }
+
+  private async buildMaintenanceSummary(): Promise<MaintenanceSummary> {
+    const cleanupCutoffDate = new Date()
+    cleanupCutoffDate.setMonth(cleanupCutoffDate.getMonth() - 6)
+    const alertCutoffDate = new Date()
+    alertCutoffDate.setDate(alertCutoffDate.getDate() - 30)
+
+    const [cleanupResult, serviceHealth] = await Promise.all([
+      this.classificationService.cleanupLowConfidence(30),
+      this.collectServiceHealth()
+    ])
+
+    return {
+      cleanupResult,
+      serviceHealth,
+      timestamp: new Date().toISOString(),
+      cleanupCutoff: cleanupCutoffDate.toISOString(),
+      alertCutoff: alertCutoffDate.toISOString()
+    }
+  }
+
+  private async collectServiceHealth(): Promise<MaintenanceSummary['serviceHealth']> {
+    const [sectorBalance, classification, diversification] = await Promise.all([
+      this.sectorBalanceService.healthCheck(),
+      this.classificationService.healthCheck(),
+      this.diversificationService.healthCheck()
+    ])
+
+    return { sectorBalance, classification, diversification }
+  }
+
+  private async notifyMaintenanceSummary(summary: MaintenanceSummary): Promise<void> {
+    await this.notificationService.create({
+      type: 'SYSTEM',
+      priority: 1,
+      title: 'Weekly Maintenance Complete',
+      message: `Maintenance tasks completed. Cleaned up ${summary.cleanupResult} low-confidence classifications. All services ${Object.values(summary.serviceHealth).every(h => h) ? 'healthy' : 'require attention'}.`,
+      data: summary
+    })
+  }
+
+  private logMaintenanceSummary(summary: MaintenanceSummary): void {
+    logger.info('Maintenance tasks completed successfully', {
+      cleanupResult: summary.cleanupResult,
+      serviceHealth: summary.serviceHealth
+    })
+  }
+
+  private async notifyMaintenanceFailure(error: unknown): Promise<void> {
+    await this.notificationService.create({
+      type: 'SYSTEM',
+      priority: 2,
+      title: 'Maintenance Tasks Failed',
+      message: 'Weekly maintenance tasks encountered errors but system continues operating.',
+      data: {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      }
+    })
   }
 
   // ============================================================================
