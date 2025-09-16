@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { 
+import {
   goalOptimizerService,
   type GapAnalysis,
   type OptimizationStrategy,
@@ -15,6 +15,17 @@ import {
   type OptimizerSummary,
   type PersonalizedRecommendation
 } from '../services/goalOptimizerService';
+
+type GoalOptimizerErrorKey =
+  | 'summary'
+  | 'refresh'
+  | 'gapAnalysis'
+  | 'strategies'
+  | 'plans'
+  | 'milestones'
+  | 'acceleration'
+  | 'opportunities'
+  | 'recommendations';
 
 export interface UseGoalOptimizerOptions {
   autoRefresh?: boolean;
@@ -47,15 +58,7 @@ export interface GoalOptimizerState {
   
   // Errores
   error: string | null;
-  errors: {
-    summary?: string;
-    gapAnalysis?: string;
-    strategies?: string;
-    plans?: string;
-    milestones?: string;
-    acceleration?: string;
-    opportunities?: string;
-  };
+  errors: Partial<Record<GoalOptimizerErrorKey, string>>;
 
   // Métricas calculadas
   metrics: {
@@ -132,7 +135,7 @@ export interface UseGoalOptimizerReturn extends GoalOptimizerState {
   }) => Promise<void>;
 
   // Utilidades
-  clearError: (type?: string) => void;
+  clearError: (type?: GoalOptimizerErrorKey) => void;
   forceRefresh: () => Promise<void>;
 }
 
@@ -216,7 +219,7 @@ export const useGoalOptimizer = (
   }, []);
 
   // Función para manejar errores
-  const handleError = useCallback((error: any, type: string) => {
+  const handleError = useCallback((error: any, type: GoalOptimizerErrorKey) => {
     const errorMessage = error.response?.data?.error || error.message || 'Error desconocido';
     console.error(`Error in ${type}:`, error);
     
@@ -450,7 +453,7 @@ export const useGoalOptimizer = (
   }, [goalId, updateState, handleError]);
 
   // Utilidades
-  const clearError = useCallback((type?: string) => {
+  const clearError = useCallback((type?: GoalOptimizerErrorKey) => {
     if (type) {
       updateState({ 
         errors: { ...state.errors, [type]: undefined },
