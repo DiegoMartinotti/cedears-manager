@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { opportunityService } from '../services/opportunityService'
-import { useApi } from './useApi'
+import { useAppStore } from '../store'
 
 export interface OpportunityData {
   id: number
@@ -135,9 +135,11 @@ export interface CommissionImpact {
   is_profitable: boolean
 }
 
+const useOnlineStatus = () => useAppStore((state) => state.config.isOnline)
+
 export function useOpportunities() {
   const queryClient = useQueryClient()
-  const { isOnline } = useApi()
+  const isOnline = useOnlineStatus()
 
   // Query para oportunidades del día
   const {
@@ -304,7 +306,7 @@ export function useOpportunities() {
 
 // Hook específico para una oportunidad individual
 export function useOpportunityDetail(id: number) {
-  const { isOnline } = useApi()
+  const isOnline = useOnlineStatus()
   
   return useQuery({
     queryKey: ['opportunities', 'detail', id],
@@ -354,7 +356,7 @@ export function useDiversificationCalculator() {
 
 // Hook para estadísticas en tiempo real
 export function useOpportunityStatsRealtime() {
-  const { isOnline } = useApi()
+  const isOnline = useOnlineStatus()
   
   return useQuery({
     queryKey: ['opportunities', 'stats', 'realtime'],
