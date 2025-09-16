@@ -30,7 +30,7 @@ export class GoalAccelerationService {
   constructor(db: Database.Database) {
     this.db = db;
     this.goalTrackerService = new GoalTrackerService(db);
-    this.portfolioService = new PortfolioService(db);
+    this.portfolioService = new PortfolioService();
     this.opportunityService = new OpportunityService();
     this.technicalAnalysisService = new TechnicalAnalysisService();
   }
@@ -152,7 +152,7 @@ export class GoalAccelerationService {
       risk_increase_factor: 1.0, // Sin aumento de riesgo
       complexity_score: 3, // Baja complejidad
       capital_requirements: 0,
-      expected_return_boost: null, // No aumenta retorno, reduce costos
+      expected_return_boost: 0, // No aumenta retorno, reduce costos
       implementation_timeline_days: 14
     };
   }
@@ -522,7 +522,7 @@ export class GoalAccelerationService {
   private async getCurrentCapital(): Promise<number> {
     try {
       const summary = await this.portfolioService.getPortfolioSummary();
-      return summary.totalValue || 25000;
+      return summary.market_value || summary.total_cost || 25000;
     } catch (error) {
       logger.warn('No se pudo obtener el valor del portafolio, usando 25000 por defecto', error)
       return 25000;
