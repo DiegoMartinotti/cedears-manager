@@ -219,9 +219,9 @@ export const useScenarioAnalysis = () => {
     refetch: refetchScenarios
   } = useQuery({
     queryKey: scenarioQueryKeys.scenarios(),
-    queryFn: scenarioService.getAllScenarios,
+    queryFn: () => scenarioService.getAllScenarios(),
     staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 10 * 60 * 1000 // 10 minutes
+    gcTime: 10 * 60 * 1000 // 10 minutes
   });
 
   // Get scenario templates
@@ -231,7 +231,7 @@ export const useScenarioAnalysis = () => {
     error: templatesError
   } = useQuery({
     queryKey: scenarioQueryKeys.templates(),
-    queryFn: scenarioService.getTemplates,
+    queryFn: () => scenarioService.getTemplates(),
     staleTime: 30 * 60 * 1000 // 30 minutes
   });
 
@@ -362,7 +362,7 @@ export const useScenario = (scenarioId: number) => {
     queryFn: () => scenarioService.getScenario(scenarioId),
     enabled: !!scenarioId,
     staleTime: 2 * 60 * 1000, // 2 minutes
-    cacheTime: 10 * 60 * 1000 // 10 minutes
+    gcTime: 10 * 60 * 1000 // 10 minutes
   });
 
   const {
@@ -459,7 +459,7 @@ export const useScenarioAnalysisResult = (scenarioId: number) => {
     queryFn: () => scenarioService.getLatestAnalysisResult(scenarioId),
     enabled: !!scenarioId,
     staleTime: 10 * 60 * 1000, // 10 minutes
-    cacheTime: 30 * 60 * 1000, // 30 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
     retry: 1
   });
 
@@ -483,7 +483,7 @@ export const useScenarioRecommendations = (scenarioId: number) => {
     queryFn: () => scenarioService.getLatestRecommendations(scenarioId),
     enabled: !!scenarioId,
     staleTime: 10 * 60 * 1000, // 10 minutes
-    cacheTime: 30 * 60 * 1000, // 30 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
     retry: 1
   });
 
@@ -506,7 +506,7 @@ export const useScenarioComparisons = (userId?: string) => {
     queryKey: scenarioQueryKeys.comparisons(),
     queryFn: () => scenarioService.getComparisons(userId),
     staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 15 * 60 * 1000 // 15 minutes
+    gcTime: 15 * 60 * 1000 // 15 minutes
   });
 
   return {
@@ -529,7 +529,7 @@ export const useMonteCarloResults = (scenarioId: number) => {
     queryFn: () => scenarioService.getMonteCarloResults(scenarioId),
     enabled: !!scenarioId,
     staleTime: 30 * 60 * 1000, // 30 minutes
-    cacheTime: 60 * 60 * 1000 // 1 hour
+    gcTime: 60 * 60 * 1000 // 1 hour
   });
 
   return {
@@ -549,9 +549,9 @@ export const useScenarioStats = () => {
     refetch
   } = useQuery({
     queryKey: scenarioQueryKeys.stats(),
-    queryFn: scenarioService.getStats,
+    queryFn: () => scenarioService.getStats(),
     staleTime: 10 * 60 * 1000, // 10 minutes
-    cacheTime: 30 * 60 * 1000 // 30 minutes
+    gcTime: 30 * 60 * 1000 // 30 minutes
   });
 
   return {
