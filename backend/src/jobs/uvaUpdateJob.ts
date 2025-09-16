@@ -148,7 +148,7 @@ export class UVAUpdateJob {
 
       const { result, error } = await this.performUpdateWithRetries()
 
-      if (!result || !result.success) {
+      if (!result?.success) {
         throw error ?? new Error('All update attempts failed')
       }
 
