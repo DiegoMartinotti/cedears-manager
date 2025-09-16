@@ -1,7 +1,7 @@
 import cron from 'node-cron'
-import { benchmarkDataService } from '../services/BenchmarkDataService.js'
-import { performanceAnalysisService } from '../services/PerformanceAnalysisService.js'
-import { benchmarkIndicesModel } from '../models/BenchmarkIndices.js'
+import { benchmarkDataService, BenchmarkUpdateResult } from '../services/BenchmarkDataService.js'
+import { performanceAnalysisService, ComparisonResult } from '../services/PerformanceAnalysisService.js'
+import { benchmarkIndicesModel, BenchmarkIndex } from '../models/BenchmarkIndices.js'
 import { NotificationService } from '../services/NotificationService.js'
 import DatabaseConnection from '../database/connection.js'
 import { logger } from '../utils/logger.js'
@@ -59,61 +59,99 @@ class BenchmarkUpdateJob {
     logger.info('Starting daily benchmark update job')
 
     try {
-      const startTime = new Date()
-      const results = await benchmarkDataService.updateAllBenchmarks()
-      const endTime = new Date()
-      const duration = Math.round((endTime.getTime() - startTime.getTime()) / 1000)
-
-      const successCount = results.filter(r => r.success).length
-      const totalCount = results.length
-      const failedResults = results.filter(r => !r.success)
-
-      // Log results
-      logger.info(`Daily benchmark update completed in ${duration}s: ${successCount}/${totalCount} successful`)
-      
-      if (failedResults.length > 0) {
-        logger.warn('Failed benchmark updates:', failedResults.map(r => ({
-          symbol: r.symbol,
-          error: r.error
-        })))
-      }
-
-      // Create notification for significant issues
-      if (failedResults.length > totalCount * 0.3) { // More than 30% failed
-        await notificationService.createNotification({
-          type: 'SYSTEM',
-          priority: 'HIGH',
-          title: 'Benchmark Update Issues',
-          message: `Daily benchmark update had ${failedResults.length}/${totalCount} failures`,
-          data: { failed_benchmarks: failedResults }
-        })
-      } else if (successCount === totalCount) {
-        // Success notification (low priority)
-        await notificationService.createNotification({
-          type: 'SYSTEM',
-          priority: 'LOW',
-          title: 'Benchmark Update Complete',
-          message: `All ${totalCount} benchmarks updated successfully`,
-          data: { 
-            duration_seconds: duration,
-            total_records: results.reduce((sum, r) => sum + r.records_updated, 0)
-          }
-        })
-      }
-
+      const { results, duration } = await this.executeDailyUpdate()
+      await this.processDailyUpdateResults(results, duration)
     } catch (error) {
-      logger.error('Error in daily benchmark update job:', error)
-      
-      await notificationService.createNotification({
-        type: 'SYSTEM',
-        priority: 'CRITICAL',
-        title: 'Benchmark Update Failed',
-        message: 'Daily benchmark update job encountered a critical error',
-        data: { error: error instanceof Error ? error.message : 'Unknown error' }
-      })
+      await this.notifyDailyUpdateFailure(error)
     } finally {
       this.isRunning = false
     }
+  }
+
+  private async executeDailyUpdate(): Promise<{ results: BenchmarkUpdateResult[]; duration: number }> {
+    const startTime = Date.now()
+    const results = await benchmarkDataService.updateAllBenchmarks()
+    const duration = Math.round((Date.now() - startTime) / 1000)
+
+    return { results, duration }
+  }
+
+  private async processDailyUpdateResults(
+    results: BenchmarkUpdateResult[],
+    duration: number
+  ): Promise<void> {
+    const successCount = results.filter(result => result.success).length
+    const totalCount = results.length
+    const failedResults = results.filter(result => !result.success)
+
+    this.logDailyUpdateSummary(duration, successCount, totalCount, failedResults)
+
+    if (failedResults.length > totalCount * 0.3) {
+      await this.notifyDailyUpdateIssues(failedResults, totalCount)
+      return
+    }
+
+    if (successCount === totalCount) {
+      await this.notifyDailyUpdateSuccess(totalCount, duration, results)
+    }
+  }
+
+  private async notifyDailyUpdateIssues(
+    failedResults: BenchmarkUpdateResult[],
+    totalCount: number
+  ): Promise<void> {
+    await notificationService.createNotification({
+      type: 'SYSTEM',
+      priority: 'HIGH',
+      title: 'Benchmark Update Issues',
+      message: `Daily benchmark update had ${failedResults.length}/${totalCount} failures`,
+      data: { failed_benchmarks: failedResults }
+    })
+  }
+
+  private async notifyDailyUpdateSuccess(
+    totalCount: number,
+    duration: number,
+    results: BenchmarkUpdateResult[]
+  ): Promise<void> {
+    await notificationService.createNotification({
+      type: 'SYSTEM',
+      priority: 'LOW',
+      title: 'Benchmark Update Complete',
+      message: `All ${totalCount} benchmarks updated successfully`,
+      data: {
+        duration_seconds: duration,
+        total_records: results.reduce((sum, result) => sum + result.records_updated, 0)
+      }
+    })
+  }
+
+  private logDailyUpdateSummary(
+    duration: number,
+    successCount: number,
+    totalCount: number,
+    failedResults: BenchmarkUpdateResult[]
+  ): void {
+    logger.info(`Daily benchmark update completed in ${duration}s: ${successCount}/${totalCount} successful`)
+
+    if (failedResults.length > 0) {
+      logger.warn('Failed benchmark updates:', failedResults.map(result => ({
+        symbol: result.symbol,
+        error: result.error
+      })))
+    }
+  }
+
+  private async notifyDailyUpdateFailure(error: unknown): Promise<void> {
+    logger.error('Error in daily benchmark update job:', error)
+
+    await notificationService.createNotification({
+      type: 'SYSTEM',
+      priority: 'CRITICAL',
+      title: 'Benchmark Update Failed',
+      message: 'Daily benchmark update job encountered a critical error',
+      data: { error: error instanceof Error ? error.message : 'Unknown error' }
+    })
   }
 
   async runWeekendUpdate(): Promise<void> {
@@ -159,59 +197,12 @@ class BenchmarkUpdateJob {
 
     try {
       const now = new Date()
-      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-      const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
-      
       const benchmarks = await benchmarkIndicesModel.findAll(true)
-      const performanceResults = []
+      const performanceResults: string[] = []
 
       for (const benchmark of benchmarks) {
-        try {
-          // Calculate 1-month, 3-month, 6-month, and 1-year performance
-          const periods = [
-            { days: 30, name: '1M' },
-            { days: 90, name: '3M' },
-            { days: 180, name: '6M' },
-            { days: 365, name: '1Y' }
-          ]
-
-          for (const period of periods) {
-            const startDate = new Date(now.getTime() - period.days * 24 * 60 * 60 * 1000)
-            
-            try {
-              const comparison = await performanceAnalysisService.compareWithBenchmark(
-                benchmark.id!,
-                startDate,
-                now
-              )
-
-              await performanceAnalysisService.savePerformanceMetrics({
-                calculation_date: now,
-                benchmark_id: benchmark.id,
-                period_days: period.days,
-                portfolio_return: comparison.portfolio.total_return,
-                benchmark_return: comparison.benchmark.total_return,
-                excess_return: comparison.comparison.excess_return,
-                portfolio_volatility: comparison.portfolio.volatility,
-                benchmark_volatility: comparison.benchmark.volatility,
-                sharpe_ratio: comparison.portfolio.sharpe_ratio,
-                information_ratio: comparison.comparison.information_ratio,
-                tracking_error: comparison.comparison.tracking_error,
-                max_drawdown: comparison.portfolio.max_drawdown,
-                alpha: comparison.comparison.alpha,
-                beta: comparison.comparison.beta,
-                r_squared: comparison.comparison.r_squared
-              })
-
-              performanceResults.push(`${benchmark.symbol}-${period.name}: Success`)
-            } catch (error) {
-              logger.warn(`Failed to calculate ${period.name} performance for ${benchmark.symbol}:`, error)
-              performanceResults.push(`${benchmark.symbol}-${period.name}: Failed`)
-            }
-          }
-        } catch (error) {
-          logger.error(`Error processing performance for benchmark ${benchmark.symbol}:`, error)
-        }
+        const benchmarkResults = await this.calculateBenchmarkPerformance(benchmark, now)
+        performanceResults.push(...benchmarkResults)
       }
 
       logger.info('Monthly performance metrics update completed', { results: performanceResults })
@@ -221,12 +212,12 @@ class BenchmarkUpdateJob {
         priority: 'MEDIUM',
         title: 'Monthly Performance Update Complete',
         message: `Performance metrics calculated for ${benchmarks.length} benchmarks`,
-        data: { results: performanceResults.slice(0, 10) } // Limit data size
+        data: { results: performanceResults.slice(0, 10) }
       })
 
     } catch (error) {
       logger.error('Error in monthly performance update:', error)
-      
+
       await notificationService.createNotification({
         type: 'SYSTEM',
         priority: 'HIGH',
@@ -254,6 +245,68 @@ class BenchmarkUpdateJob {
     } catch (error) {
       logger.error('Error in benchmark maintenance tasks:', error)
     }
+  }
+
+  private async calculateBenchmarkPerformance(benchmark: BenchmarkIndex, referenceDate: Date): Promise<string[]> {
+    const results: string[] = []
+
+    for (const period of this.getPerformancePeriods()) {
+      const startDate = this.calculatePeriodStart(referenceDate, period.days)
+
+      try {
+        const comparison = await performanceAnalysisService.compareWithBenchmark(
+          benchmark.id!,
+          startDate,
+          referenceDate
+        )
+
+        await this.savePerformanceMetrics(benchmark.id!, referenceDate, period.days, comparison)
+        results.push(`${benchmark.symbol}-${period.name}: Success`)
+      } catch (error) {
+        logger.warn(`Failed to calculate ${period.name} performance for ${benchmark.symbol}:`, error)
+        results.push(`${benchmark.symbol}-${period.name}: Failed`)
+      }
+    }
+
+    return results
+  }
+
+  private async savePerformanceMetrics(
+    benchmarkId: number,
+    calculationDate: Date,
+    periodDays: number,
+    comparison: ComparisonResult
+  ): Promise<void> {
+    await performanceAnalysisService.savePerformanceMetrics({
+      calculation_date: calculationDate,
+      benchmark_id: benchmarkId,
+      period_days: periodDays,
+      portfolio_return: comparison.portfolio.total_return,
+      benchmark_return: comparison.benchmark.total_return,
+      excess_return: comparison.comparison.excess_return,
+      portfolio_volatility: comparison.portfolio.volatility,
+      benchmark_volatility: comparison.benchmark.volatility,
+      sharpe_ratio: comparison.portfolio.sharpe_ratio,
+      information_ratio: comparison.comparison.information_ratio,
+      tracking_error: comparison.comparison.tracking_error,
+      max_drawdown: comparison.portfolio.max_drawdown,
+      alpha: comparison.comparison.alpha,
+      beta: comparison.comparison.beta,
+      r_squared: comparison.comparison.r_squared
+    })
+  }
+
+  private getPerformancePeriods(): Array<{ days: number; name: string }> {
+    return [
+      { days: 30, name: '1M' },
+      { days: 90, name: '3M' },
+      { days: 180, name: '6M' },
+      { days: 365, name: '1Y' }
+    ]
+  }
+
+  private calculatePeriodStart(referenceDate: Date, days: number): Date {
+    return new Date(referenceDate.getTime() - days * 24 * 60 * 60 * 1000)
   }
 
   private async cleanupOldData(keepDays: number): Promise<void> {
@@ -352,7 +405,11 @@ class BenchmarkUpdateJob {
           const daysSinceUpdate = Math.ceil(
             (now.getTime() - benchmarkLastUpdate.last_update.getTime()) / (1000 * 60 * 60 * 24)
           )
-          
+
+          if (daysSinceUpdate > 7) {
+            logger.warn(`Benchmark ${benchmark.symbol} has ${daysSinceUpdate} days without updates`)
+          }
+
           // Update last_update timestamp
           await benchmarkIndicesModel.update(benchmark.id!, {
             last_update: benchmarkLastUpdate.last_update

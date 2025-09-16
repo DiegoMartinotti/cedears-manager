@@ -1,5 +1,5 @@
 import cron from 'node-cron'
-import { UVAService } from '../services/UVAService.js'
+import { UVAService, UVAUpdateResult } from '../services/UVAService.js'
 import { createLogger } from '../utils/logger.js'
 import { format, isWeekend, subDays } from 'date-fns'
 
@@ -136,117 +136,144 @@ export class UVAUpdateJob {
     }
 
     const startTime = Date.now()
-    this.isRunning = true
-    this.stats.isRunning = true
-    this.stats.totalRuns++
-    this.stats.lastRun = format(new Date(), 'yyyy-MM-dd HH:mm:ss')
+    this.beginRun()
 
     try {
       logger.info('Starting UVA update job')
 
-      // Verificar si debemos ejecutar solo en días laborales
-      if (this.config.businessDaysOnly && !this.shouldRunToday()) {
-        logger.info('Skipping UVA update - weekend day')
-        this.isRunning = false
-        this.stats.isRunning = false
-        return { 
-          success: true, 
-          message: 'Skipped - weekend day'
-        }
+      const skipResult = this.skipForBusinessDay()
+      if (skipResult) {
+        return skipResult
       }
 
-      // Ejecutar actualización con reintentos
-      let lastError: Error | null = null
-      let result: any = null
+      const { result, error } = await this.performUpdateWithRetries()
 
-      for (let attempt = 1; attempt <= this.config.retryAttempts; attempt++) {
-        try {
-          logger.debug('UVA update attempt', { attempt })
-          
-          // Obtener valor UVA más reciente
-          result = await this.uvaService.getLatestUVAValue()
-          
-          if (result.success) {
-            // También actualizar algunos días históricos por si faltaron
-            await this.updateRecentHistoricalData()
-            break // Éxito, salir del loop de reintentos
-          } else {
-            throw new Error(result.error || 'Failed to get UVA value')
-          }
-        } catch (error) {
-          lastError = error instanceof Error ? error : new Error('Unknown error')
-          logger.warn('UVA update attempt failed', { 
-            attempt, 
-            error: lastError.message 
-          })
-
-          // Esperar antes del siguiente intento
-          if (attempt < this.config.retryAttempts) {
-            await new Promise(resolve => 
-              setTimeout(resolve, this.config.retryDelayMs)
-            )
-          }
-        }
-      }
-
-      // Verificar si todos los intentos fallaron
-      if (!result || !result.success) {
-        throw lastError || new Error('All update attempts failed')
+      if (!result?.success) {
+        throw error ?? new Error('All update attempts failed')
       }
 
       const executionTime = Date.now() - startTime
+      this.handleSuccessfulUpdate(result, executionTime)
 
-      // Actualizar estadísticas
-      this.stats.successfulRuns++
-      this.stats.lastSuccess = format(new Date(), 'yyyy-MM-dd HH:mm:ss')
-      this.stats.valuesUpdated++
-      this.stats.lastUVAValue = result.value
-      this.stats.lastUVADate = result.date
-      this.updateAverageExecutionTime(executionTime)
+      return this.buildSuccessResponse(result, executionTime)
 
-      logger.info('UVA update completed successfully', {
+    } catch (error) {
+      const executionTime = Date.now() - startTime
+      return this.handleUpdateFailure(error, executionTime)
+
+    } finally {
+      this.finishRun()
+    }
+  }
+
+  private beginRun(): void {
+    this.isRunning = true
+    this.stats.isRunning = true
+    this.stats.totalRuns++
+    this.stats.lastRun = format(new Date(), 'yyyy-MM-dd HH:mm:ss')
+  }
+
+  private finishRun(): void {
+    this.isRunning = false
+    this.stats.isRunning = false
+  }
+
+  private skipForBusinessDay(): { success: boolean; message: string } | null {
+    if (this.config.businessDaysOnly && !this.shouldRunToday()) {
+      logger.info('Skipping UVA update - weekend day')
+      return {
+        success: true,
+        message: 'Skipped - weekend day'
+      }
+    }
+
+    return null
+  }
+
+  private async performUpdateWithRetries(): Promise<{ result: UVAUpdateResult | null; error: Error | null }> {
+    let lastError: Error | null = null
+
+    for (let attempt = 1; attempt <= this.config.retryAttempts; attempt++) {
+      try {
+        logger.debug('UVA update attempt', { attempt })
+
+        const result = await this.uvaService.getLatestUVAValue()
+
+        if (result.success) {
+          await this.updateRecentHistoricalData()
+          return { result, error: null }
+        }
+
+        lastError = new Error(result.error || 'Failed to get UVA value')
+        throw lastError
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Unknown error')
+        logger.warn('UVA update attempt failed', {
+          attempt,
+          error: lastError.message
+        })
+
+        if (attempt < this.config.retryAttempts) {
+          await this.wait(this.config.retryDelayMs)
+        }
+      }
+    }
+
+    return { result: null, error: lastError }
+  }
+
+  private handleSuccessfulUpdate(result: UVAUpdateResult, executionTime: number): void {
+    this.stats.successfulRuns++
+    this.stats.lastSuccess = format(new Date(), 'yyyy-MM-dd HH:mm:ss')
+    this.stats.valuesUpdated++
+    this.stats.lastUVAValue = result.value
+    this.stats.lastUVADate = result.date
+    this.updateAverageExecutionTime(executionTime)
+
+    logger.info('UVA update completed successfully', {
+      date: result.date,
+      value: result.value,
+      source: result.source,
+      cached: result.cached,
+      executionTime: `${executionTime}ms`
+    })
+  }
+
+  private buildSuccessResponse(result: UVAUpdateResult, executionTime: number) {
+    return {
+      success: true,
+      message: `UVA value updated: ${result.value} for ${result.date}`,
+      stats: {
         date: result.date,
         value: result.value,
         source: result.source,
         cached: result.cached,
-        executionTime: `${executionTime}ms`
-      })
-
-      return {
-        success: true,
-        message: `UVA value updated: ${result.value} for ${result.date}`,
-        stats: {
-          date: result.date,
-          value: result.value,
-          source: result.source,
-          cached: result.cached,
-          executionTime
-        }
+        executionTime
       }
-
-    } catch (error) {
-      const executionTime = Date.now() - startTime
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      
-      this.stats.failedRuns++
-      this.stats.lastError = `${format(new Date(), 'yyyy-MM-dd HH:mm:ss')}: ${errorMessage}`
-      this.updateAverageExecutionTime(executionTime)
-
-      logger.error('UVA update job failed', { 
-        error: errorMessage,
-        executionTime: `${executionTime}ms`
-      })
-
-      return {
-        success: false,
-        message: `UVA update failed: ${errorMessage}`,
-        stats: { executionTime }
-      }
-
-    } finally {
-      this.isRunning = false
-      this.stats.isRunning = false
     }
+  }
+
+  private handleUpdateFailure(error: unknown, executionTime: number) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
+    this.stats.failedRuns++
+    this.stats.lastError = `${format(new Date(), 'yyyy-MM-dd HH:mm:ss')}: ${errorMessage}`
+    this.updateAverageExecutionTime(executionTime)
+
+    logger.error('UVA update job failed', {
+      error: errorMessage,
+      executionTime: `${executionTime}ms`
+    })
+
+    return {
+      success: false,
+      message: `UVA update failed: ${errorMessage}`,
+      stats: { executionTime }
+    }
+  }
+
+  private async wait(ms: number): Promise<void> {
+    await new Promise(resolve => setTimeout(resolve, ms))
   }
 
   /**
