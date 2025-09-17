@@ -1,5 +1,6 @@
 import React from 'react'
 import { motion, AnimatePresence, HTMLMotionProps } from 'framer-motion'
+import type { Variants } from 'framer-motion'
 import { cn } from '../../utils/cn'
 
 interface AnimatedCardProps extends Omit<HTMLMotionProps<"div">, 'children'> {
@@ -12,7 +13,7 @@ interface AnimatedCardProps extends Omit<HTMLMotionProps<"div">, 'children'> {
   variant?: 'fade' | 'slide' | 'scale' | 'bounce'
 }
 
-const cardVariants = {
+const cardVariants: Record<NonNullable<AnimatedCardProps['variant']>, Variants> = {
   fade: {
     hidden: { opacity: 0 },
     visible: { opacity: 1 }
@@ -39,8 +40,8 @@ const cardVariants = {
   }
 }
 
-const hoverVariants = {
-  hover: { 
+const hoverVariants: Variants = {
+  hover: {
     scale: 1.02,
     transition: {
       type: "spring",
@@ -61,24 +62,26 @@ export const AnimatedCard: React.FC<AnimatedCardProps> = ({
   variant = 'fade',
   ...props
 }) => {
-  const motionProps = {
+  const baseVariants = cardVariants[variant]
+  const motionProps: HTMLMotionProps<'div'> = {
     initial: "hidden",
     animate: "visible",
-    variants: cardVariants[variant],
+    variants: baseVariants,
     transition: {
       duration: 0.4,
       delay,
-      ease: "easeOut"
+      ease: 'easeOut' as const
     },
-    ...(hover && {
-      whileHover: "hover",
-      whileTap: "tap",
-      variants: {
-        ...cardVariants[variant],
-        ...hoverVariants
-      }
-    }),
     ...props
+  }
+
+  if (hover) {
+    motionProps.whileHover = "hover"
+    motionProps.whileTap = "tap"
+    motionProps.variants = {
+      ...baseVariants,
+      ...hoverVariants
+    }
   }
 
   return (
