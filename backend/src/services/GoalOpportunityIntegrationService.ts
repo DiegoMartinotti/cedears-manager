@@ -8,8 +8,7 @@ import {
   GoalOpportunityMatch,
   OpportunityDetails,
   ActionDetails,
-  OpportunityResultTracking,
-  PerformanceAfterAction
+  OpportunityResultTracking
 } from '../models/GoalOptimizer';
 import { GoalTrackerService } from './GoalTrackerService';
 import { OpportunityService } from './OpportunityService';
@@ -58,59 +57,89 @@ export class GoalOpportunityIntegrationService {
 
   // 28.5: Identificar y calificar oportunidades para un objetivo específico
   async matchOpportunitiesForGoal(goalId: number, criteria?: Partial<OpportunityMatchCriteria>): Promise<GoalOpportunityMatch[]> {
+    const goal = await this.ensureGoal(goalId);
+    const matchCriteria = await this.buildMatchingCriteria(goal, criteria);
+    const matches = await this.evaluateOpportunities(goal, matchCriteria);
+    return this.persistTopMatches(matches);
+  }
+
+  private async ensureGoal(goalId: number): Promise<FinancialGoal> {
     const goal = await this.goalTrackerService.getGoalById(goalId);
     if (!goal) {
       throw new Error('Objetivo no encontrado');
     }
+    return goal;
+  }
 
-    // Construir criterios de matching basados en el objetivo
-    const matchCriteria = await this.buildMatchingCriteria(goal, criteria);
-
-    // Obtener oportunidades actuales del mercado
+  private async evaluateOpportunities(
+    goal: FinancialGoal,
+    criteria: OpportunityMatchCriteria
+  ): Promise<GoalOpportunityMatch[]> {
     const opportunities = await this.opportunityService.scanForOpportunities({
       min_score_threshold: 50,
       max_opportunities_per_day: 50,
-      require_esg_compliance: matchCriteria.esg_compliant,
-      require_vegan_friendly: matchCriteria.vegan_friendly,
-      excluded_sectors: matchCriteria.exclude_sectors
+      require_esg_compliance: criteria.esg_compliant,
+      require_vegan_friendly: criteria.vegan_friendly,
+      excluded_sectors: criteria.exclude_sectors
     });
 
-    // Evaluar cada oportunidad contra el objetivo
     const matches: GoalOpportunityMatch[] = [];
-    
+
     for (const opportunity of opportunities) {
-      const score = await this.calculateOpportunityScore(goal, opportunity, matchCriteria);
-      
-      if (score.overall_score >= 60) { // Threshold mínimo para match
-        const match = await this.createOpportunityMatch(goal, opportunity, score, matchCriteria);
+      const match = await this.processOpportunity(goal, opportunity, criteria);
+      if (match) {
         matches.push(match);
       }
     }
 
-    // Ordenar por score y prioridad
-    matches.sort((a, b) => {
-      const priorityWeight = { 'URGENT': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 };
-      const aPriority = priorityWeight[a.priority_level] || 1;
-      const bPriority = priorityWeight[b.priority_level] || 1;
-      
-      if (aPriority !== bPriority) {
-        return bPriority - aPriority; // Prioridad más alta primero
-      }
-      
-      return b.match_score - a.match_score; // Score más alto primero
-    });
+    return this.sortMatches(matches);
+  }
 
-    // Limitar a top 10 matches
+  private async processOpportunity(
+    goal: FinancialGoal,
+    opportunity: OpportunityData,
+    criteria: OpportunityMatchCriteria
+  ): Promise<GoalOpportunityMatch | null> {
+    const score = await this.calculateOpportunityScore(goal, opportunity, criteria);
+
+    if (score.overall_score < 60) {
+      return null;
+    }
+
+    return this.createOpportunityMatch(goal, opportunity, score, criteria);
+  }
+
+  private sortMatches(matches: GoalOpportunityMatch[]): GoalOpportunityMatch[] {
+    const priorityWeight: Record<GoalOpportunityMatch['priority_level'], number> = {
+      URGENT: 4,
+      HIGH: 3,
+      MEDIUM: 2,
+      LOW: 1
+    };
+
+    return matches
+      .slice()
+      .sort((a, b) => {
+        const aPriority = priorityWeight[a.priority_level] || 1;
+        const bPriority = priorityWeight[b.priority_level] || 1;
+
+        if (aPriority !== bPriority) {
+          return bPriority - aPriority;
+        }
+
+        return b.match_score - a.match_score;
+      });
+  }
+
+  private async persistTopMatches(matches: GoalOpportunityMatch[]): Promise<GoalOpportunityMatch[]> {
+    const savedMatches: GoalOpportunityMatch[] = [];
     const topMatches = matches.slice(0, 10);
 
-    // Guardar matches en base de datos
-    const savedMatches: GoalOpportunityMatch[] = [];
     for (const match of topMatches) {
       const saved = await this.saveOpportunityMatch(match);
       savedMatches.push(saved);
     }
 
-    // Crear notificaciones para matches de alta prioridad
     await this.createPriorityNotifications(savedMatches);
 
     return savedMatches;
@@ -165,7 +194,7 @@ export class GoalOpportunityIntegrationService {
     const capitalEfficiency = this.calculateCapitalEfficiency(opportunity, criteria);
     
     // 4. Beneficio de diversificación (15% del score)
-    const diversificationBenefit = await this.calculateDiversificationBenefit(opportunity, goal);
+    const diversificationBenefit = await this.calculateDiversificationBenefit(opportunity);
     
     // 5. Potencial de contribución al objetivo (20% del score)
     const goalContributionPotential = await this.calculateGoalContribution(opportunity, goal, criteria);
@@ -263,7 +292,7 @@ export class GoalOpportunityIntegrationService {
     }
   }
 
-  private async calculateDiversificationBenefit(opportunity: OpportunityData, goal: FinancialGoal): Promise<number> {
+  private async calculateDiversificationBenefit(opportunity: OpportunityData): Promise<number> {
     try {
       // Obtener exposición sectorial actual del portafolio
       const portfolio = await this.portfolioService.getPortfolioSummary();
@@ -360,36 +389,49 @@ export class GoalOpportunityIntegrationService {
     const timeSensitivity = this.calculateTimeSensitivity(opportunity);
     const priority = this.determinePriorityLevel(score.overall_score, timeSensitivity);
     const capitalAllocation = this.calculateOptimalAllocation(opportunity, criteria, score);
-    
-    // Calcular contribución esperada al objetivo
-    const expectedContribution = await this.estimateGoalContribution(
-      opportunity, 
-      goal, 
-      capitalAllocation
-    );
-
-    // Generar recomendación de Claude (simulada)
+    const expectedContribution = await this.estimateGoalContribution(opportunity, goal, capitalAllocation);
     const claudeRecommendation = await this.generateClaudeRecommendation(
-      goal, 
-      opportunity, 
-      score, 
+      goal,
+      opportunity,
+      score,
       capitalAllocation
     );
 
-    const opportunityDetails: OpportunityDetails = {
-      instrument_symbol: opportunity.symbol,
-      opportunity_type: opportunity.opportunity_type || 'UNKNOWN',
-      entry_price: opportunity.current_price || 0,
-      target_price: opportunity.target_price,
-      stop_loss: opportunity.stop_loss,
-      expected_holding_period_days: this.estimateHoldingPeriod(opportunity),
-      confidence_level: opportunity.confidence_score || 70,
-      risk_factors: this.identifyRiskFactors(opportunity),
-      catalyst_events: this.identifyCatalysts(opportunity)
-    };
+    return this.composeOpportunityMatch({
+      goal,
+      opportunity,
+      score,
+      capitalAllocation,
+      timeSensitivity,
+      expectedContribution,
+      priority,
+      claudeRecommendation
+    });
+  }
+
+  private composeOpportunityMatch(params: {
+    goal: FinancialGoal
+    opportunity: OpportunityData
+    score: GoalOpportunityScore
+    capitalAllocation: number
+    timeSensitivity: number
+    expectedContribution: number
+    priority: GoalOpportunityMatch['priority_level']
+    claudeRecommendation: string
+  }): GoalOpportunityMatch {
+    const {
+      goal,
+      opportunity,
+      score,
+      capitalAllocation,
+      timeSensitivity,
+      expectedContribution,
+      priority,
+      claudeRecommendation
+    } = params
 
     return {
-      id: 0, // Se asignará en BD
+      id: 0,
       goal_id: goal.id,
       opportunity_id: opportunity.id || 0,
       match_score: score.overall_score,
@@ -400,7 +442,7 @@ export class GoalOpportunityIntegrationService {
       risk_alignment_score: score.risk_alignment,
       diversification_impact: score.diversification_benefit,
       expected_contribution_to_goal: expectedContribution,
-      opportunity_details: opportunityDetails,
+      opportunity_details: this.buildOpportunityDetails(opportunity),
       analysis_timestamp: new Date().toISOString(),
       expiration_timestamp: this.calculateExpirationTime(opportunity),
       action_taken: false,
@@ -412,7 +454,21 @@ export class GoalOpportunityIntegrationService {
       performance_after_action: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
-    };
+    }
+  }
+
+  private buildOpportunityDetails(opportunity: OpportunityData): OpportunityDetails {
+    return {
+      instrument_symbol: opportunity.symbol,
+      opportunity_type: opportunity.opportunity_type || 'UNKNOWN',
+      entry_price: opportunity.current_price || 0,
+      target_price: opportunity.target_price,
+      stop_loss: opportunity.stop_loss,
+      expected_holding_period_days: this.estimateHoldingPeriod(opportunity),
+      confidence_level: opportunity.confidence_score || 70,
+      risk_factors: this.identifyRiskFactors(opportunity),
+      catalyst_events: this.identifyCatalysts(opportunity)
+    }
   }
 
   private calculateTimeSensitivity(opportunity: OpportunityData): number {

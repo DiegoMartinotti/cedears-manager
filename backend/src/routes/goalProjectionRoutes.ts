@@ -1,505 +1,634 @@
-import { Router } from 'express';
-import Database from 'better-sqlite3';
-import { GoalProjectionController } from '../controllers/GoalProjectionController';
-import { GoalExportService } from '../services/GoalExportService';
-import { GoalProjectionService } from '../services/GoalProjectionService';
+import { Router, Request, Response } from 'express'
+import Database from 'better-sqlite3'
+import { GoalProjectionController } from '../controllers/GoalProjectionController'
+import { GoalExportService, ExportOptions, InvestmentPlan } from '../services/GoalExportService'
+import { GoalProjectionService } from '../services/GoalProjectionService'
+import { createLogger } from '../utils/logger'
 
-/**
- * Rutas para proyecciones y escenarios de objetivos
- * Step 27: Proyecciones y Escenarios de Objetivos - API Routes
- */
+type RouteMethod = 'get' | 'post' | 'put'
+
+type ExportFormat = ExportOptions['format']
+
+type GoalRouteHandler = GoalProjectionController['calculateProjections']
+type ExportOptionsBuilder = typeof buildPdfOptions
+type ExportMetaBuilder = typeof pdfResponseMeta
+
+interface SimpleRouteDefinition {
+  method: RouteMethod
+  path: string
+  handler: GoalRouteHandler
+}
+
+interface ExportDefinition {
+  path: string
+  format: ExportFormat
+  buildOptions: ExportOptionsBuilder
+  responseMeta: ExportMetaBuilder
+  planType?: InvestmentPlan['plan_type']
+  errorMessage: string
+}
+
+interface ExportServices {
+  projectionService: GoalProjectionService
+  exportService: GoalExportService
+}
+
+interface CustomExportPayload {
+  planType: InvestmentPlan['plan_type']
+  format: string
+  customName?: string
+  includeSections: Record<string, unknown>
+  templateOptions: Record<string, unknown>
+}
+
+const logger = createLogger('GoalProjectionRoutes')
 
 export function createGoalProjectionRoutes(db: Database.Database): Router {
-  const router = Router();
-  const controller = new GoalProjectionController(db);
-  const exportService = new GoalExportService(db);
-  const projectionService = new GoalProjectionService(db);
+  const router = Router()
+  const controller = new GoalProjectionController(db)
+  const exportService = new GoalExportService(db)
+  const projectionService = new GoalProjectionService(db)
 
-  // ===========================================
-  // PROYECCIONES PRINCIPALES
-  // ===========================================
-  
-  /**
-   * POST /goals/:id/projections/calculate
-   * Calcula proyecciones completas para un objetivo
-   * 
-   * Body: {
-   *   recalculate?: boolean // Forzar recálculo aunque existan proyecciones recientes
-   * }
-   */
-  router.post('/goals/:id/projections/calculate', async (req, res) => {
-    await controller.calculateProjections(req, res);
-  });
+  registerProjectionRoutes(router, controller)
+  registerSensitivityRoutes(router, controller)
+  registerRecommendationRoutes(router, controller)
+  registerAdminRoutes(router, controller)
+  registerExportRoutes(router, projectionService, exportService)
+  registerAnalyticsRoutes(router, db, projectionService)
 
-  /**
-   * GET /goals/:id/projections/current
-   * Obtiene las proyecciones actuales de un objetivo
-   */
-  router.get('/goals/:id/projections/current', async (req, res) => {
-    await controller.getCurrentProjections(req, res);
-  });
+  return router
+}
 
-  /**
-   * PUT /goals/:id/projections/adjust
-   * Ajusta proyecciones con parámetros personalizados
-   * 
-   * Body: {
-   *   monthlyContribution?: number,
-   *   annualReturnRate?: number,
-   *   inflationRate?: number,
-   *   contributionGrowthRate?: number,
-   *   periods?: number
-   * }
-   */
-  router.put('/goals/:id/projections/adjust', async (req, res) => {
-    await controller.adjustProjections(req, res);
-  });
-
-  // ===========================================
-  // ANÁLISIS DE SENSIBILIDAD
-  // ===========================================
-
-  /**
-   * POST /goals/:id/sensitivity/analyze
-   * Realiza análisis de sensibilidad completo
-   */
-  router.post('/goals/:id/sensitivity/analyze', async (req, res) => {
-    await controller.performSensitivityAnalysis(req, res);
-  });
-
-  /**
-   * POST /goals/:id/sensitivity/monte-carlo
-   * Ejecuta simulación Monte Carlo
-   * 
-   * Body: {
-   *   simulations?: number // Número de simulaciones (100-50000, default: 1000)
-   * }
-   */
-  router.post('/goals/:id/sensitivity/monte-carlo', async (req, res) => {
-    await controller.performMonteCarloSimulation(req, res);
-  });
-
-  /**
-   * GET /goals/:id/sensitivity/scenarios
-   * Obtiene escenarios de sensibilidad y stress tests
-   */
-  router.get('/goals/:id/sensitivity/scenarios', async (req, res) => {
-    await controller.getScenarios(req, res);
-  });
-
-  // ===========================================
-  // RECOMENDACIONES PERSONALIZADAS (CLAUDE)
-  // ===========================================
-
-  /**
-   * POST /goals/:id/recommendations
-   * Genera recomendaciones personalizadas con Claude
-   * 
-   * Body: {
-   *   forceRefresh?: boolean // Forzar regeneración de recomendaciones
-   * }
-   */
-  router.post('/goals/:id/recommendations', async (req, res) => {
-    await controller.generateRecommendations(req, res);
-  });
-
-  /**
-   * GET /goals/:id/recommendations/latest
-   * Obtiene las recomendaciones más recientes y activas
-   */
-  router.get('/goals/:id/recommendations/latest', async (req, res) => {
-    await controller.getLatestRecommendations(req, res);
-  });
-
-  /**
-   * POST /goals/:id/recommendations/apply
-   * Marca una recomendación como implementada
-   * 
-   * Body: {
-   *   recommendationId: number,
-   *   implementationNotes?: string
-   * }
-   */
-  router.post('/goals/:id/recommendations/apply', async (req, res) => {
-    await controller.applyRecommendation(req, res);
-  });
-
-  // ===========================================
-  // UTILIDADES ADMINISTRATIVAS
-  // ===========================================
-
-  /**
-   * POST /goals/projections/recalculate-all
-   * Recalcula todas las proyecciones activas (admin)
-   */
-  router.post('/goals/projections/recalculate-all', async (req, res) => {
-    await controller.recalculateAllProjections(req, res);
-  });
-
-  // ===========================================
-  // EXPORTACIÓN DE PLANES DE INVERSIÓN
-  // ===========================================
-
-  /**
-   * GET /goals/:id/export/pdf
-   * Genera y descarga plan de inversión en PDF
-   */
-  router.get('/goals/:id/export/pdf', async (req, res) => {
-    try {
-      const goalId = parseInt(req.params.id);
-      const options = {
-        format: 'PDF' as const,
-        include_charts: req.query.charts === 'true',
-        include_sensitivity: req.query.sensitivity === 'true',
-        include_recommendations: req.query.recommendations === 'true',
-        include_detailed_schedule: req.query.detailed === 'true',
-        language: (req.query.lang as 'ES' | 'EN') || 'ES',
-        template_style: (req.query.style as any) || 'PROFESSIONAL'
-      };
-
-      if (isNaN(goalId)) {
-        res.status(400).json({ error: 'ID de objetivo inválido' });
-        return;
-      }
-
-      // Obtener datos de proyección
-      const projectionSummary = await projectionService.generateGoalProjections(goalId);
-      const plan = await exportService.generateInvestmentPlan(goalId, projectionSummary);
-      const exportResult = await exportService.exportToPDF(plan, options);
-
-      res.json({
-        success: true,
-        data: {
-          download_url: `/downloads/${exportResult.fileName}`,
-          file_name: exportResult.fileName,
-          generated_at: new Date().toISOString(),
-          plan_summary: {
-            goal_name: plan.goal_details.name,
-            success_probability: plan.executive_summary.success_probability,
-            total_pages: 'Variable'
-          }
-        }
-      });
-
-    } catch (error) {
-      console.error('Error exportando PDF:', error);
-      res.status(500).json({ error: 'Error generando PDF' });
+function registerProjectionRoutes(router: Router, controller: GoalProjectionController): void {
+  registerSimpleRoutes(router, [
+    {
+      method: 'post',
+      path: '/goals/:id/projections/calculate',
+      handler: controller.calculateProjections.bind(controller)
+    },
+    {
+      method: 'get',
+      path: '/goals/:id/projections/current',
+      handler: controller.getCurrentProjections.bind(controller)
+    },
+    {
+      method: 'put',
+      path: '/goals/:id/projections/adjust',
+      handler: controller.adjustProjections.bind(controller)
     }
-  });
+  ])
+}
 
-  /**
-   * GET /goals/:id/export/excel
-   * Genera y descarga plan de inversión en Excel
-   */
-  router.get('/goals/:id/export/excel', async (req, res) => {
-    try {
-      const goalId = parseInt(req.params.id);
-      
-      if (isNaN(goalId)) {
-        res.status(400).json({ error: 'ID de objetivo inválido' });
-        return;
-      }
-
-      const options = {
-        format: 'EXCEL' as const,
-        include_charts: req.query.charts === 'true',
-        include_sensitivity: req.query.sensitivity === 'true',
-        include_recommendations: req.query.recommendations === 'true',
-        include_detailed_schedule: req.query.detailed === 'true',
-        language: (req.query.lang as 'ES' | 'EN') || 'ES',
-        template_style: (req.query.style as any) || 'PROFESSIONAL'
-      };
-
-      const projectionSummary = await projectionService.generateGoalProjections(goalId);
-      const plan = await exportService.generateInvestmentPlan(goalId, projectionSummary);
-      const exportResult = await exportService.exportToExcel(plan, options);
-
-      res.json({
-        success: true,
-        data: {
-          download_url: `/downloads/${exportResult.fileName}`,
-          file_name: exportResult.fileName,
-          generated_at: new Date().toISOString(),
-          plan_summary: {
-            goal_name: plan.goal_details.name,
-            sheets_included: ['Resumen', 'Calendario', 'Proyecciones', 'Análisis']
-          }
-        }
-      });
-
-    } catch (error) {
-      console.error('Error exportando Excel:', error);
-      res.status(500).json({ error: 'Error generando Excel' });
+function registerSensitivityRoutes(router: Router, controller: GoalProjectionController): void {
+  registerSimpleRoutes(router, [
+    {
+      method: 'post',
+      path: '/goals/:id/sensitivity/analyze',
+      handler: controller.performSensitivityAnalysis.bind(controller)
+    },
+    {
+      method: 'post',
+      path: '/goals/:id/sensitivity/monte-carlo',
+      handler: controller.performMonteCarloSimulation.bind(controller)
+    },
+    {
+      method: 'get',
+      path: '/goals/:id/sensitivity/scenarios',
+      handler: controller.getScenarios.bind(controller)
     }
-  });
+  ])
+}
 
-  /**
-   * GET /goals/:id/export/json
-   * Genera y descarga plan de inversión en JSON
-   */
-  router.get('/goals/:id/export/json', async (req, res) => {
-    try {
-      const goalId = parseInt(req.params.id);
-      
-      if (isNaN(goalId)) {
-        res.status(400).json({ error: 'ID de objetivo inválido' });
-        return;
-      }
-
-      const options = {
-        format: 'JSON' as const,
-        include_charts: false, // JSON no incluye gráficos
-        include_sensitivity: req.query.sensitivity !== 'false',
-        include_recommendations: req.query.recommendations !== 'false',
-        include_detailed_schedule: req.query.detailed !== 'false',
-        language: (req.query.lang as 'ES' | 'EN') || 'ES',
-        template_style: 'DETAILED' as const
-      };
-
-      const projectionSummary = await projectionService.generateGoalProjections(goalId);
-      const plan = await exportService.generateInvestmentPlan(goalId, projectionSummary);
-      const exportResult = await exportService.exportToJSON(plan, options);
-
-      res.json({
-        success: true,
-        data: {
-          download_url: `/downloads/${exportResult.fileName}`,
-          file_name: exportResult.fileName,
-          generated_at: new Date().toISOString(),
-          plan_summary: {
-            goal_name: plan.goal_details.name,
-            data_completeness: '100%',
-            format_version: '1.0'
-          }
-        }
-      });
-
-    } catch (error) {
-      console.error('Error exportando JSON:', error);
-      res.status(500).json({ error: 'Error generando JSON' });
+function registerRecommendationRoutes(router: Router, controller: GoalProjectionController): void {
+  registerSimpleRoutes(router, [
+    {
+      method: 'post',
+      path: '/goals/:id/recommendations',
+      handler: controller.generateRecommendations.bind(controller)
+    },
+    {
+      method: 'get',
+      path: '/goals/:id/recommendations/latest',
+      handler: controller.getLatestRecommendations.bind(controller)
+    },
+    {
+      method: 'post',
+      path: '/goals/:id/recommendations/apply',
+      handler: controller.applyRecommendation.bind(controller)
     }
-  });
+  ])
+}
 
-  /**
-   * POST /goals/:id/export/investment-plan
-   * Genera plan de inversión personalizado
-   */
+function registerAdminRoutes(router: Router, controller: GoalProjectionController): void {
+  registerSimpleRoutes(router, [
+    {
+      method: 'post',
+      path: '/goals/projections/recalculate-all',
+      handler: controller.recalculateAllProjections.bind(controller)
+    }
+  ])
+}
+
+function registerExportRoutes(
+  router: Router,
+  projectionService: GoalProjectionService,
+  exportService: GoalExportService
+): void {
+  getStandardExportDefinitions().forEach((definition) => {
+    router.get(definition.path, async (req, res) => {
+      await handleStandardExport(req, res, { projectionService, exportService }, definition)
+    })
+  })
+
   router.post('/goals/:id/export/investment-plan', async (req, res) => {
+    await handleCustomPlanExport(req, res, { projectionService, exportService })
+  })
+}
+
+function getStandardExportDefinitions(): ExportDefinition[] {
+  return [
+    {
+      path: '/goals/:id/export/pdf',
+      format: 'PDF',
+      buildOptions: buildPdfOptions,
+      planType: 'STANDARD',
+      responseMeta: pdfResponseMeta,
+      errorMessage: 'Error generando PDF'
+    },
+    {
+      path: '/goals/:id/export/excel',
+      format: 'EXCEL',
+      buildOptions: buildExcelOptions,
+      planType: 'STANDARD',
+      responseMeta: excelResponseMeta,
+      errorMessage: 'Error generando Excel'
+    },
+    {
+      path: '/goals/:id/export/json',
+      format: 'JSON',
+      buildOptions: buildJsonOptions,
+      planType: 'STANDARD',
+      responseMeta: jsonResponseMeta,
+      errorMessage: 'Error generando JSON'
+    }
+  ]
+}
+
+function registerAnalyticsRoutes(
+  router: Router,
+  db: Database.Database,
+  projectionService: GoalProjectionService
+): void {
+  registerSummaryRoute(router, projectionService)
+  registerPerformanceRoute(router, db)
+  registerComparisonRoute(router, db)
+}
+
+function registerSummaryRoute(router: Router, projectionService: GoalProjectionService): void {
+  router.get('/goals/:id/projections/summary', async (req, res) => {
+    const goalId = getGoalIdOrRespond(req, res)
+    if (goalId === null) {
+      return
+    }
+
     try {
-      const goalId = parseInt(req.params.id);
-      const { 
-        plan_type = 'STANDARD',
-        export_format = 'PDF',
-        custom_name,
-        include_sections = {},
-        template_options = {}
-      } = req.body;
-
-      if (isNaN(goalId)) {
-        res.status(400).json({ error: 'ID de objetivo inválido' });
-        return;
-      }
-
-      const options = {
-        format: export_format,
-        include_charts: include_sections.charts !== false,
-        include_sensitivity: include_sections.sensitivity !== false,
-        include_recommendations: include_sections.recommendations !== false,
-        include_detailed_schedule: include_sections.detailed_schedule !== false,
-        language: template_options.language || 'ES',
-        template_style: template_options.style || 'PROFESSIONAL'
-      };
-
-      const projectionSummary = await projectionService.generateGoalProjections(goalId);
-      let plan = await exportService.generateInvestmentPlan(goalId, projectionSummary, plan_type);
-      
-      // Personalizar nombre si se proporciona
-      if (custom_name) {
-        plan.plan_name = custom_name;
-      }
-
-      let exportResult;
-      switch (export_format.toLowerCase()) {
-        case 'pdf':
-          exportResult = await exportService.exportToPDF(plan, options);
-          break;
-        case 'excel':
-          exportResult = await exportService.exportToExcel(plan, options);
-          break;
-        case 'json':
-          exportResult = await exportService.exportToJSON(plan, options);
-          break;
-        default:
-          res.status(400).json({ error: 'Formato de exportación no válido' });
-          return;
-      }
-
+      const summary = await projectionService.generateGoalProjections(goalId)
       res.json({
         success: true,
         data: {
-          plan_id: plan.id,
-          download_url: `/downloads/${exportResult.fileName}`,
-          file_name: exportResult.fileName,
-          plan_type: plan.plan_type,
-          export_format: export_format.toUpperCase(),
-          generated_at: new Date().toISOString(),
-          customizations_applied: {
-            custom_name: !!custom_name,
-            template_style: options.template_style,
-            sections_included: Object.keys(include_sections).length
-          }
-        },
-        message: 'Plan de inversión generado exitosamente'
-      });
-
+          goal: summary.goal,
+          current_projection: summary.current_projection,
+          scenarios: summary.scenarios
+        }
+      })
     } catch (error) {
-      console.error('Error generando plan personalizado:', error);
-      res.status(500).json({ error: 'Error generando plan de inversión' });
+      logger.error('Error obteniendo resumen de proyecciones', { error, goalId })
+      res.status(500).json({ error: 'Error obteniendo resumen de proyecciones' })
     }
-  });
+  })
+}
 
-  // ===========================================
-  // ENDPOINTS ADICIONALES DE CONSULTA
-  // ===========================================
-
-  /**
-   * GET /goals/:id/projections/summary
-   * Resumen ejecutivo de proyecciones
-   */
-  router.get('/goals/:id/projections/summary', async (req, res) => {
-    try {
-      const goalId = parseInt(req.params.id);
-      
-      if (isNaN(goalId)) {
-        res.status(400).json({ error: 'ID de objetivo inválido' });
-        return;
-      }
-
-      // Obtener datos principales
-      const projections = await controller.getCurrentProjections(req, res);
-      
-      // Este endpoint devolvería un resumen consolidado
-      // Por simplicidad, redirigir a proyecciones actuales por ahora
-      
-    } catch (error) {
-      console.error('Error en resumen de proyecciones:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
-    }
-  });
-
-  /**
-   * GET /goals/:id/projections/performance
-   * Análisis de performance vs proyecciones anteriores
-   */
+function registerPerformanceRoute(router: Router, db: Database.Database): void {
   router.get('/goals/:id/projections/performance', async (req, res) => {
+    const goalId = getGoalIdOrRespond(req, res)
+    if (goalId === null) {
+      return
+    }
+
     try {
-      const goalId = parseInt(req.params.id);
-      
-      if (isNaN(goalId)) {
-        res.status(400).json({ error: 'ID de objetivo inválido' });
-        return;
-      }
-
-      // Consulta de performance histórica
-      const stmt = db.prepare(`
-        SELECT 
-          projection_date,
-          scenario_name,
-          projection_type,
-          json_extract(result, '$.futureValue') as projected_value,
-          json_extract(result, '$.effectiveAnnualReturn') as projected_return,
-          confidence_level
-        FROM goal_projections 
-        WHERE goal_id = ? 
-        ORDER BY projection_date DESC 
-        LIMIT 12
-      `);
-
-      const historicalProjections = stmt.all(goalId);
-
+      const historicalProjections = fetchHistoricalProjections(db, goalId)
       res.json({
         success: true,
         data: {
           historical_projections: historicalProjections,
-          performance_trends: {
-            projection_accuracy: 'En desarrollo', // Calcularía precisión de proyecciones pasadas
-            trend_direction: 'STABLE', // IMPROVING, STABLE, DECLINING
-            confidence_evolution: 'Creciente' // Evolución de la confianza en las proyecciones
-          }
+          performance_trends: buildPerformanceTrends(historicalProjections)
         }
-      });
-
+      })
     } catch (error) {
-      console.error('Error en análisis de performance:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
+      logger.error('Error en análisis de performance', { error, goalId })
+      res.status(500).json({ error: 'Error interno del servidor' })
     }
-  });
+  })
+}
 
-  /**
-   * GET /goals/:id/projections/comparison
-   * Compara diferentes escenarios de proyección
-   */
+function registerComparisonRoute(router: Router, db: Database.Database): void {
   router.get('/goals/:id/projections/comparison', async (req, res) => {
+    const goalId = getGoalIdOrRespond(req, res)
+    if (goalId === null) {
+      return
+    }
+
     try {
-      const goalId = parseInt(req.params.id);
-      const { scenarios } = req.query; // Lista de tipos de escenario a comparar
-      
-      if (isNaN(goalId)) {
-        res.status(400).json({ error: 'ID de objetivo inválido' });
-        return;
-      }
-
-      let scenarioFilter = '';
-      let params = [goalId];
-      
-      if (scenarios && typeof scenarios === 'string') {
-        const scenarioList = scenarios.split(',');
-        const placeholders = scenarioList.map(() => '?').join(',');
-        scenarioFilter = `AND projection_type IN (${placeholders})`;
-        params.push(...scenarioList);
-      }
-
-      const stmt = db.prepare(`
-        SELECT 
-          projection_type,
-          scenario_name,
-          json_extract(result, '$.futureValue') as future_value,
-          json_extract(result, '$.realFutureValue') as real_future_value,
-          json_extract(result, '$.effectiveAnnualReturn') as annual_return,
-          json_extract(result, '$.timeToGoalMonths') as time_to_goal,
-          confidence_level,
-          last_updated
-        FROM goal_projections 
-        WHERE goal_id = ? AND is_active = 1 ${scenarioFilter}
-        ORDER BY projection_type, last_updated DESC
-      `);
-
-      const comparisons = stmt.all(...params);
-
+      const { filter, params } = buildScenarioFilter(req.query.scenarios)
+      const comparisons = fetchComparisonData(db, goalId, filter, params)
       res.json({
         success: true,
         data: {
           scenarios: comparisons,
-          comparison_metrics: {
-            value_range: {
-              min: Math.min(...comparisons.map(c => c.real_future_value)),
-              max: Math.max(...comparisons.map(c => c.real_future_value)),
-              spread: 0 // Se calcularía la diferencia
-            },
-            return_range: {
-              min: Math.min(...comparisons.map(c => c.annual_return)),
-              max: Math.max(...comparisons.map(c => c.annual_return)),
-            },
-            recommended_scenario: comparisons.find(c => c.projection_type === 'REALISTIC')?.scenario_name || 'Realista'
-          }
+          comparison_metrics: buildComparisonMetrics(comparisons)
         }
-      });
-
+      })
     } catch (error) {
-      console.error('Error en comparación de escenarios:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
+      logger.error('Error en comparación de escenarios', { error, goalId })
+      res.status(500).json({ error: 'Error interno del servidor' })
     }
-  });
+  })
+}
 
-  return router;
+function registerSimpleRoutes(router: Router, routes: SimpleRouteDefinition[]): void {
+  routes.forEach(({ method, path, handler }) => {
+    router[method](path, async (req, res) => handler(req, res))
+  })
+}
+
+function getGoalIdOrRespond(req: Request, res: Response): number | null {
+  const goalId = Number.parseInt(req.params.id, 10)
+  if (Number.isNaN(goalId)) {
+    res.status(400).json({ error: 'ID de objetivo inválido' })
+    return null
+  }
+  return goalId
+}
+
+function parseBooleanParam(value: unknown, defaultValue: boolean): boolean {
+  if (value === undefined) {
+    return defaultValue
+  }
+  if (typeof value === 'string') {
+    return value.toLowerCase() === 'true'
+  }
+  return Boolean(value)
+}
+
+function buildPdfOptions(req: Request): ExportOptions {
+  return {
+    format: 'PDF',
+    include_charts: parseBooleanParam(req.query.charts, false),
+    include_sensitivity: parseBooleanParam(req.query.sensitivity, false),
+    include_recommendations: parseBooleanParam(req.query.recommendations, false),
+    include_detailed_schedule: parseBooleanParam(req.query.detailed, false),
+    language: (req.query.lang as 'ES' | 'EN') || 'ES',
+    template_style: (req.query.style as ExportOptions['template_style']) || 'PROFESSIONAL'
+  }
+}
+
+function buildExcelOptions(req: Request): ExportOptions {
+  return {
+    format: 'EXCEL',
+    include_charts: parseBooleanParam(req.query.charts, false),
+    include_sensitivity: parseBooleanParam(req.query.sensitivity, false),
+    include_recommendations: parseBooleanParam(req.query.recommendations, false),
+    include_detailed_schedule: parseBooleanParam(req.query.detailed, false),
+    language: (req.query.lang as 'ES' | 'EN') || 'ES',
+    template_style: (req.query.style as ExportOptions['template_style']) || 'PROFESSIONAL'
+  }
+}
+
+function buildJsonOptions(req: Request): ExportOptions {
+  return {
+    format: 'JSON',
+    include_charts: false,
+    include_sensitivity: parseBooleanParam(req.query.sensitivity, true),
+    include_recommendations: parseBooleanParam(req.query.recommendations, true),
+    include_detailed_schedule: parseBooleanParam(req.query.detailed, true),
+    language: (req.query.lang as 'ES' | 'EN') || 'ES',
+    template_style: 'DETAILED'
+  }
+}
+
+function pdfResponseMeta(plan: InvestmentPlan): Record<string, unknown> {
+  return {
+    plan_summary: {
+      goal_name: plan.goal_details.name,
+      success_probability: plan.executive_summary.success_probability,
+      total_pages: 'Variable'
+    }
+  }
+}
+
+function excelResponseMeta(plan: InvestmentPlan): Record<string, unknown> {
+  return {
+    plan_summary: {
+      goal_name: plan.goal_details.name,
+      sheets_included: ['Resumen', 'Calendario', 'Proyecciones', 'Análisis']
+    }
+  }
+}
+
+function jsonResponseMeta(plan: InvestmentPlan): Record<string, unknown> {
+  return {
+    plan_summary: {
+      goal_name: plan.goal_details.name,
+      data_completeness: '100%',
+      format_version: '1.0'
+    }
+  }
+}
+
+function parseCustomExportPayload(body: unknown): CustomExportPayload {
+  const {
+    plan_type = 'STANDARD',
+    export_format = 'PDF',
+    custom_name,
+    include_sections = {},
+    template_options = {}
+  } = (body || {}) as Record<string, unknown>
+
+  return {
+    planType: plan_type as InvestmentPlan['plan_type'],
+    format: String(export_format).toUpperCase(),
+    customName: typeof custom_name === 'string' ? custom_name : undefined,
+    includeSections: include_sections as Record<string, unknown>,
+    templateOptions: template_options as Record<string, unknown>
+  }
+}
+
+function buildCustomResponseData(
+  plan: InvestmentPlan,
+  exportResult: { fileName: string },
+  options: ExportOptions,
+  payload: CustomExportPayload
+): Record<string, unknown> {
+  return {
+    plan_id: plan.id ?? null,
+    download_url: `/downloads/${exportResult.fileName}`,
+    file_name: exportResult.fileName,
+    plan_type: plan.plan_type,
+    export_format: options.format,
+    generated_at: new Date().toISOString(),
+    customizations_applied: {
+      custom_name: Boolean(payload.customName),
+      template_style: options.template_style,
+      sections_included: Object.keys(payload.includeSections).length
+    }
+  }
+}
+
+async function handleStandardExport(
+  req: Request,
+  res: Response,
+  services: ExportServices,
+  definition: ExportDefinition
+): Promise<void> {
+  const goalId = getGoalIdOrRespond(req, res)
+  if (goalId === null) {
+    return
+  }
+
+  try {
+    const options = definition.buildOptions(req)
+    const plan = await generatePlan(goalId, services.projectionService, services.exportService, definition.planType)
+    const exportResult = await exportPlan(services.exportService, plan, definition.format, options)
+
+    res.json({
+      success: true,
+      data: {
+        download_url: `/downloads/${exportResult.fileName}`,
+        file_name: exportResult.fileName,
+        generated_at: new Date().toISOString(),
+        ...definition.responseMeta(plan)
+      }
+    })
+  } catch (error) {
+    logger.error('Error exportando plan de objetivo', {
+      error,
+      goalId,
+      format: definition.format
+    })
+    res.status(500).json({ error: definition.errorMessage })
+  }
+}
+
+async function handleCustomPlanExport(
+  req: Request,
+  res: Response,
+  services: ExportServices
+): Promise<void> {
+  const goalId = getGoalIdOrRespond(req, res)
+  if (goalId === null) {
+    return
+  }
+
+  const payload = parseCustomExportPayload(req.body)
+  if (!isExportFormat(payload.format)) {
+    res.status(400).json({ error: 'Formato de exportación no válido' })
+    return
+  }
+
+  try {
+    const options = buildCustomOptions(payload.includeSections, payload.templateOptions, payload.format)
+    const plan = await generatePlan(goalId, services.projectionService, services.exportService, payload.planType)
+
+    if (payload.customName) {
+      plan.plan_name = payload.customName
+    }
+
+    const exportResult = await exportPlan(services.exportService, plan, options.format, options)
+
+    res.json({
+      success: true,
+      data: buildCustomResponseData(plan, exportResult, options, payload),
+      message: 'Plan de inversión generado exitosamente'
+    })
+  } catch (error) {
+    logger.error('Error generando plan personalizado', {
+      error,
+      goalId,
+      format: payload.format
+    })
+    res.status(500).json({ error: 'Error generando plan de inversión' })
+  }
+}
+
+function isExportFormat(value: string): value is ExportFormat {
+  return value === 'PDF' || value === 'EXCEL' || value === 'JSON'
+}
+
+function buildCustomOptions(
+  includeSections: Record<string, unknown>,
+  templateOptions: Record<string, unknown>,
+  format: string
+): ExportOptions {
+  const templateStyle = templateOptions.style as ExportOptions['template_style'] | undefined
+  const language = templateOptions.language as 'ES' | 'EN' | undefined
+
+  return {
+    format: format as ExportFormat,
+    include_charts: includeSections.charts !== false,
+    include_sensitivity: includeSections.sensitivity !== false,
+    include_recommendations: includeSections.recommendations !== false,
+    include_detailed_schedule: includeSections.detailed_schedule !== false,
+    language: language || 'ES',
+    template_style: templateStyle || 'PROFESSIONAL'
+  }
+}
+
+async function generatePlan(
+  goalId: number,
+  projectionService: GoalProjectionService,
+  exportService: GoalExportService,
+  planType: InvestmentPlan['plan_type'] = 'STANDARD'
+): Promise<InvestmentPlan> {
+  const summary = await projectionService.generateGoalProjections(goalId)
+  return exportService.generateInvestmentPlan(goalId, summary, planType)
+}
+
+async function exportPlan(
+  exportService: GoalExportService,
+  plan: InvestmentPlan,
+  format: ExportFormat,
+  options: ExportOptions
+): Promise<{ fileName: string }> {
+  switch (format) {
+    case 'PDF':
+      return exportService.exportToPDF(plan, options)
+    case 'EXCEL':
+      return exportService.exportToExcel(plan, options)
+    case 'JSON':
+    default:
+      return exportService.exportToJSON(plan, options)
+  }
+}
+
+function fetchHistoricalProjections(db: Database.Database, goalId: number): any[] {
+  const stmt = db.prepare(`
+    SELECT
+      projection_date,
+      scenario_name,
+      projection_type,
+      json_extract(result, '$.futureValue') AS projected_value,
+      json_extract(result, '$.effectiveAnnualReturn') AS projected_return,
+      confidence_level
+    FROM goal_projections
+    WHERE goal_id = ?
+    ORDER BY projection_date DESC
+    LIMIT 12
+  `)
+
+  return stmt.all(goalId)
+}
+
+function buildPerformanceTrends(historical: any[]): Record<string, unknown> {
+  if (historical.length === 0) {
+    return {
+      projection_accuracy: 'Sin datos',
+      trend_direction: 'UNKNOWN',
+      confidence_evolution: 'Sin información'
+    }
+  }
+
+  const confidenceValues = historical.map((item) => item.confidence_level || 0)
+  const avgConfidence =
+    confidenceValues.reduce((sum, value) => sum + value, 0) / confidenceValues.length
+
+  let projectionAccuracy: string
+  if (avgConfidence > 75) {
+    projectionAccuracy = 'Alta'
+  } else if (avgConfidence > 50) {
+    projectionAccuracy = 'Media'
+  } else {
+    projectionAccuracy = 'Baja'
+  }
+
+  return {
+    projection_accuracy: projectionAccuracy,
+    trend_direction: historical[0].projected_value >= historical.at(-1)?.projected_value ? 'STABLE' : 'IMPROVING',
+    confidence_evolution: avgConfidence >= 70 ? 'Creciente' : 'En evaluación'
+  }
+}
+
+function buildScenarioFilter(scenarios: unknown): { filter: string; params: unknown[] } {
+  if (typeof scenarios !== 'string' || scenarios.trim() === '') {
+    return { filter: '', params: [] }
+  }
+
+  const scenarioList = scenarios.split(',').map((item) => item.trim()).filter(Boolean)
+  if (scenarioList.length === 0) {
+    return { filter: '', params: [] }
+  }
+
+  const placeholders = scenarioList.map(() => '?').join(',')
+  return {
+    filter: `AND projection_type IN (${placeholders})`,
+    params: scenarioList
+  }
+}
+
+function fetchComparisonData(
+  db: Database.Database,
+  goalId: number,
+  filter: string,
+  params: unknown[]
+): any[] {
+  const stmt = db.prepare(`
+    SELECT
+      projection_type,
+      scenario_name,
+      json_extract(result, '$.futureValue') AS future_value,
+      json_extract(result, '$.realFutureValue') AS real_future_value,
+      json_extract(result, '$.effectiveAnnualReturn') AS annual_return,
+      json_extract(result, '$.timeToGoalMonths') AS time_to_goal,
+      confidence_level,
+      last_updated
+    FROM goal_projections
+    WHERE goal_id = ? AND is_active = 1 ${filter}
+    ORDER BY projection_type, last_updated DESC
+  `)
+
+  return stmt.all(goalId, ...params)
+}
+
+function buildComparisonMetrics(comparisons: any[]): Record<string, unknown> {
+  if (comparisons.length === 0) {
+    return {
+      value_range: { min: 0, max: 0, spread: 0 },
+      return_range: { min: 0, max: 0 },
+      recommended_scenario: null
+    }
+  }
+
+  const realValues = comparisons.map((item) => item.real_future_value || 0)
+  const returns = comparisons.map((item) => item.annual_return || 0)
+  const minValue = Math.min(...realValues)
+  const maxValue = Math.max(...realValues)
+  const minReturn = Math.min(...returns)
+  const maxReturn = Math.max(...returns)
+
+  const recommended =
+    comparisons.find((item) => item.projection_type === 'REALISTIC')?.scenario_name ||
+    comparisons[0]?.scenario_name ||
+    null
+
+  return {
+    value_range: {
+      min: minValue,
+      max: maxValue,
+      spread: maxValue - minValue
+    },
+    return_range: {
+      min: minReturn,
+      max: maxReturn
+    },
+    recommended_scenario: recommended
+  }
 }
