@@ -1,5 +1,6 @@
 import React from 'react'
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion'
+import type { Variants, TargetAndTransition } from 'framer-motion'
 import { cn } from '../../utils/cn'
 
 interface AnimatedListProps {
@@ -10,7 +11,9 @@ interface AnimatedListProps {
   variant?: 'fade' | 'slide' | 'scale'
 }
 
-const listVariants = {
+type AnimatedListVariant = NonNullable<AnimatedListProps['variant']>
+
+const listVariants: Record<AnimatedListVariant, Variants> = {
   fade: {
     hidden: { opacity: 0 },
     visible: { opacity: 1 },
@@ -35,11 +38,15 @@ export const AnimatedList: React.FC<AnimatedListProps> = ({
   layout = true,
   variant: _variant = 'slide'
 }) => {
+  const variant = _variant
+  const baseVariant = listVariants[variant]
+  const visibleVariant = baseVariant.visible as TargetAndTransition | undefined
   const containerVariants = {
-    ...listVariants[variant],
+    ...baseVariant,
     visible: {
-      ...listVariants[variant].visible,
+      ...(visibleVariant ?? {}),
       transition: {
+        ...(visibleVariant?.transition ?? {}),
         staggerChildren: staggerDelay
       }
     }
@@ -88,7 +95,7 @@ export const AnimatedListItem: React.FC<{
     variants: listVariants[variant],
     transition: {
       duration: 0.3,
-      ease: "easeOut"
+      ease: 'easeOut' as const
     },
     className: className,
     ...(layout && { layout: true }),
