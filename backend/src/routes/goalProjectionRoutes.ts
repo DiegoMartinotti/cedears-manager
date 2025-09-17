@@ -541,8 +541,17 @@ function buildPerformanceTrends(historical: any[]): Record<string, unknown> {
   const avgConfidence =
     confidenceValues.reduce((sum, value) => sum + value, 0) / confidenceValues.length
 
+  let projectionAccuracy: string
+  if (avgConfidence > 75) {
+    projectionAccuracy = 'Alta'
+  } else if (avgConfidence > 50) {
+    projectionAccuracy = 'Media'
+  } else {
+    projectionAccuracy = 'Baja'
+  }
+
   return {
-    projection_accuracy: avgConfidence > 75 ? 'Alta' : avgConfidence > 50 ? 'Media' : 'Baja',
+    projection_accuracy: projectionAccuracy,
     trend_direction: historical[0].projected_value >= historical.at(-1)?.projected_value ? 'STABLE' : 'IMPROVING',
     confidence_evolution: avgConfidence >= 70 ? 'Creciente' : 'En evaluación'
   }
