@@ -1,8 +1,35 @@
 import React from 'react';
 import { Activity, TrendingUp, AlertTriangle, Clock, BarChart3, PieChart } from 'lucide-react';
 
+interface SellAnalysisBreakdown {
+  total_analysis?: number;
+  avg_sell_score?: number;
+  today_analysis?: number;
+  recommendations_breakdown?: Record<string, number>;
+  risk_levels_breakdown?: Record<string, number>;
+}
+
+interface SellAlertsBreakdown {
+  total_alerts?: number;
+  active_alerts?: number;
+  alerts_by_type?: Record<string, number>;
+  alerts_by_priority?: Record<string, number>;
+}
+
+interface SellRecentActivity {
+  last_24h_analysis?: number;
+  positions_analyzed?: number;
+  active_alerts?: number;
+}
+
+interface SellAnalysisStatsData {
+  analysis?: SellAnalysisBreakdown;
+  alerts?: SellAlertsBreakdown;
+  recent_activity?: SellRecentActivity;
+}
+
 interface SellAnalysisStatsProps {
-  stats: any;
+  stats: SellAnalysisStatsData | null;
   isLoading: boolean;
 }
 
@@ -30,6 +57,10 @@ const SellAnalysisStats: React.FC<SellAnalysisStatsProps> = ({ stats, isLoading 
   }
 
   const { analysis, alerts, recent_activity } = stats;
+  const recommendationBreakdown = analysis?.recommendations_breakdown ?? {};
+  const riskBreakdown = analysis?.risk_levels_breakdown ?? {};
+  const alertsByType = alerts?.alerts_by_type ?? {};
+  const alertsByPriority = alerts?.alerts_by_priority ?? {};
 
   return (
     <div className="space-y-6">
@@ -92,7 +123,7 @@ const SellAnalysisStats: React.FC<SellAnalysisStatsProps> = ({ stats, isLoading 
           </div>
           <div className="p-4">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-              {Object.entries(analysis.recommendations_breakdown).map(([recommendation, count]) => (
+              {Object.entries(recommendationBreakdown).map(([recommendation, count]) => (
                 <div key={recommendation} className="text-center p-3 bg-gray-50 rounded">
                   <div className="text-2xl font-bold text-gray-900">{count}</div>
                   <div className="text-sm text-gray-600">
@@ -116,14 +147,14 @@ const SellAnalysisStats: React.FC<SellAnalysisStatsProps> = ({ stats, isLoading 
           </div>
           <div className="p-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {Object.entries(analysis.risk_levels_breakdown).map(([level, count]) => {
-                const colors = {
+              {Object.entries(riskBreakdown).map(([level, count]) => {
+                const colors: Record<string, string> = {
                   LOW: 'bg-green-50 text-green-800 border-green-200',
                   MEDIUM: 'bg-yellow-50 text-yellow-800 border-yellow-200',
                   HIGH: 'bg-orange-50 text-orange-800 border-orange-200',
                   CRITICAL: 'bg-red-50 text-red-800 border-red-200',
                 };
-                
+
                 return (
                   <div key={level} className={`text-center p-3 rounded border ${colors[level as keyof typeof colors] || 'bg-gray-50'}`}>
                     <div className="text-2xl font-bold">{count}</div>
@@ -145,7 +176,7 @@ const SellAnalysisStats: React.FC<SellAnalysisStatsProps> = ({ stats, isLoading 
             </div>
             <div className="p-4">
               <div className="space-y-3">
-                {Object.entries(alerts.alerts_by_type).map(([type, count]) => (
+                {Object.entries(alertsByType).map(([type, count]) => (
                   <div key={type} className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">
                       {type.replace('_', ' ')}
@@ -163,14 +194,14 @@ const SellAnalysisStats: React.FC<SellAnalysisStatsProps> = ({ stats, isLoading 
             </div>
             <div className="p-4">
               <div className="space-y-3">
-                {Object.entries(alerts.alerts_by_priority).map(([priority, count]) => {
-                  const colors = {
+                {Object.entries(alertsByPriority).map(([priority, count]) => {
+                  const colors: Record<string, string> = {
                     LOW: 'text-blue-600',
                     MEDIUM: 'text-yellow-600',
                     HIGH: 'text-orange-600',
                     CRITICAL: 'text-red-600',
                   };
-                  
+
                   return (
                     <div key={priority} className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">{priority}</span>
