@@ -4,6 +4,9 @@ import { GoalTrackerService } from './GoalTrackerService';
 import { FinancialGoal } from '../models/FinancialGoal';
 import { UVAService } from './UVAService';
 import { PortfolioService } from './PortfolioService';
+import { createLogger } from '../utils/logger.js';
+
+const logger = createLogger('GoalProjectionService');
 
 /**
  * Servicio de proyecciones financieras avanzadas para objetivos
@@ -52,13 +55,12 @@ export class GoalProjectionService {
   private goalTrackerService: GoalTrackerService;
   private uvaService: UVAService;
   private portfolioService: PortfolioService;
-
   constructor(db: Database.Database) {
     this.db = db;
     this.compoundEngine = new CompoundInterestEngine(db);
     this.goalTrackerService = new GoalTrackerService(db);
-    this.uvaService = new UVAService(db);
-    this.portfolioService = new PortfolioService(db);
+    this.uvaService = new UVAService();
+    this.portfolioService = new PortfolioService();
   }
 
   /**
@@ -84,9 +86,14 @@ export class GoalProjectionService {
     // Calcular métricas de performance
     const performanceMetrics = await this.calculatePerformanceMetrics();
     
+    const currentProjection = scenarios.find(s => s.projection_type === 'REALISTIC') ?? scenarios[0];
+    if (!currentProjection) {
+      throw new Error('No se pudieron generar proyecciones para el objetivo solicitado');
+    }
+
     return {
       goal,
-      current_projection: scenarios.find(s => s.projection_type === 'REALISTIC') || scenarios[0],
+      current_projection: currentProjection,
       scenarios,
       dynamic_adjustments: dynamicAdjustment,
       performance_metrics: performanceMetrics
@@ -158,7 +165,7 @@ export class GoalProjectionService {
     baseParams: ProjectionParameters
   ): Promise<GoalProjection[]> {
     const projections: GoalProjection[] = [];
-    const currentDate = new Date().toISOString().split('T')[0];
+    const currentDate = new Date().toISOString().substring(0, 10);
 
     // Escenario Optimista (+3%)
     const optimisticParams = {
@@ -259,6 +266,8 @@ export class GoalProjectionService {
     const futureValues = results.map(r => r.futureValue);
     const realFutureValues = results.map(r => r.realFutureValue);
     
+    const sampleProjection = results[0];
+
     return {
       futureValue: this.calculatePercentile(futureValues, 50), // Mediana
       realFutureValue: this.calculatePercentile(realFutureValues, 50),
@@ -267,7 +276,7 @@ export class GoalProjectionService {
       totalDividends: this.calculateAverage(results.map(r => r.totalDividends)),
       effectiveAnnualReturn: this.calculateAverage(results.map(r => r.effectiveAnnualReturn)),
       realAnnualReturn: this.calculateAverage(results.map(r => r.realAnnualReturn)),
-      monthlyProjections: results[0].monthlyProjections // Usar primera simulación como ejemplo
+      monthlyProjections: sampleProjection ? sampleProjection.monthlyProjections : []
     };
   }
 
@@ -311,14 +320,21 @@ export class GoalProjectionService {
       ORDER BY projection_date DESC
     `);
     
-    const rows = stmt.all(goalId);
-    
-    return rows.map(row => ({
-      ...row,
-      parameters: JSON.parse(row.parameters),
-      result: JSON.parse(row.result),
-      is_active: row.is_active === 1
-    })) as GoalProjection[];
+    const rows = stmt.all(goalId) as Array<Omit<GoalProjection, 'parameters' | 'result' | 'is_active'> & {
+      parameters: string;
+      result: string;
+      is_active: number;
+    }>;
+
+    return rows.map(row => {
+      const { parameters, result, is_active, ...rest } = row;
+      return {
+        ...rest,
+        parameters: JSON.parse(parameters) as ProjectionParameters,
+        result: JSON.parse(result) as ProjectionResult,
+        is_active: is_active === 1
+      };
+    });
   }
 
   /**
@@ -332,9 +348,9 @@ export class GoalProjectionService {
         try {
           const summary = await this.generateGoalProjections(goal.id);
           await this.saveGoalProjections(summary.scenarios);
-          console.log(`Proyecciones actualizadas para objetivo: ${goal.name}`);
+          logger.info(`Proyecciones actualizadas para objetivo: ${goal.name}`);
         } catch (error) {
-          console.error(`Error actualizando proyecciones para objetivo ${goal.id}:`, error);
+          logger.error(`Error actualizando proyecciones para objetivo ${goal.id}:`, error);
         }
       }
     }
@@ -365,8 +381,9 @@ export class GoalProjectionService {
 
   private async getCurrentCapital(): Promise<number> {
     try {
-      const portfolio = await this.portfolioService.getCurrentPositions();
-      return portfolio.reduce((total, position) => total + position.current_value, 25000); // Fallback $25k
+      const summary = await this.portfolioService.getPortfolioSummary();
+      const marketValue = summary.market_value ?? 0;
+      return marketValue > 0 ? marketValue : 25000; // Valor simulado como fallback
     } catch {
       return 25000; // Valor simulado fallback
     }
@@ -374,9 +391,8 @@ export class GoalProjectionService {
 
   private async calculateHistoricalPerformance(): Promise<number> {
     try {
-      await this.portfolioService.getCurrentPositions();
-      // Calcular performance promedio de los últimos 12 meses
-      return 8.5; // Performance simulada del 8.5% anual
+      const summary = await this.portfolioService.getPortfolioSummary();
+      return summary.unrealized_pnl_percentage ?? 8.5; // Performance simulada del 8.5% anual
     } catch {
       return 8.5; // Fallback
     }
@@ -413,11 +429,19 @@ export class GoalProjectionService {
 
   private calculatePercentile(values: number[], percentile: number): number {
     const sorted = values.sort((a, b) => a - b);
-    const index = Math.ceil((percentile / 100) * sorted.length) - 1;
-    return sorted[Math.max(0, index)];
+    if (sorted.length === 0) {
+      return 0;
+    }
+
+    const rawIndex = Math.ceil((percentile / 100) * sorted.length) - 1;
+    const safeIndex = Math.max(0, Math.min(sorted.length - 1, rawIndex));
+    return sorted[safeIndex] ?? 0;
   }
 
   private calculateAverage(values: number[]): number {
+    if (values.length === 0) {
+      return 0;
+    }
     return values.reduce((sum, val) => sum + val, 0) / values.length;
   }
 }
