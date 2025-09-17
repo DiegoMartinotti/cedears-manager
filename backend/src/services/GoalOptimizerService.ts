@@ -29,8 +29,8 @@ export class GoalOptimizerService {
   constructor(db: Database.Database) {
     this.db = db;
     this.goalTrackerService = new GoalTrackerService(db);
-    this.portfolioService = new PortfolioService(db);
-    this.uvaService = new UVAService(db);
+    this.portfolioService = new PortfolioService();
+    this.uvaService = new UVAService();
   }
 
   // 28.1: Análisis de gap entre actual y objetivo
@@ -49,9 +49,11 @@ export class GoalOptimizerService {
     // Análisis detallado
     const analysisDetails = await this.generateGapAnalysisDetails(goal, currentCapital, gapMetrics);
 
+    const analysisDate = new Date().toISOString().substring(0, 10);
+
     const gapAnalysisData = {
       goal_id: goalId,
-      analysis_date: new Date().toISOString().split('T')[0],
+      analysis_date: analysisDate,
       current_capital: currentCapital,
       target_capital: goal.target_amount || 0,
       gap_amount: gapMetrics.gap_amount,
@@ -167,7 +169,7 @@ export class GoalOptimizerService {
     
     const completionDate = new Date();
     completionDate.setMonth(completionDate.getMonth() + months);
-    return completionDate.toISOString().split('T')[0];
+    return completionDate.toISOString().substring(0, 10);
   }
 
   private calculatePlanDeviation(goal: FinancialGoal, currentCapital: number): number {
@@ -210,17 +212,18 @@ export class GoalOptimizerService {
   }
 
   private async generateGapAnalysisDetails(
-    goal: FinancialGoal, 
-    currentCapital: number, 
+    goal: FinancialGoal,
+    currentCapital: number,
     gapMetrics: any
   ): Promise<GapAnalysisDetails> {
     const monthlyReturn = goal.expected_return_rate / 100 / 12;
     const historicalVolatility = 0.15; // 15% anualizado (simulado)
-    
+    const safeCapital = currentCapital > 0 ? currentCapital : 1;
+
     return {
       current_monthly_performance: monthlyReturn * 100,
-      required_monthly_performance: (gapMetrics.required_monthly_contribution / currentCapital) * 100,
-      performance_gap: monthlyReturn * 100 - (gapMetrics.required_monthly_contribution / currentCapital) * 100,
+      required_monthly_performance: (gapMetrics.required_monthly_contribution / safeCapital) * 100,
+      performance_gap: monthlyReturn * 100 - (gapMetrics.required_monthly_contribution / safeCapital) * 100,
       historical_volatility: historicalVolatility,
       success_probability: this.calculateSuccessProbability(gapMetrics),
       confidence_intervals: {
@@ -506,11 +509,10 @@ export class GoalOptimizerService {
     const milestones: CreateMilestoneDto[] = [];
     const targetAmount = goal.target_amount;
     const percentages = [10, 25, 50, 75, 90];
-    
-    for (let i = 0; i < percentages.length; i++) {
-      const percentage = percentages[i];
+
+    for (const percentage of percentages) {
       const milestoneAmount = (targetAmount * percentage) / 100;
-      
+
       milestones.push({
         goal_id: goalId,
         milestone_name: `${percentage}% del Objetivo`,
@@ -527,21 +529,21 @@ export class GoalOptimizerService {
       const targetDate = new Date(goal.target_date);
       const currentDate = new Date();
       const monthsToGoal = Math.round((targetDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
-      
+
       if (monthsToGoal > 12) {
         const intervals = Math.min(4, Math.floor(monthsToGoal / 12));
         for (let i = 1; i <= intervals; i++) {
           const monthsToMilestone = Math.round((monthsToGoal * i) / intervals);
           const milestoneDate = new Date();
           milestoneDate.setMonth(milestoneDate.getMonth() + monthsToMilestone);
-          
+
           milestones.push({
             goal_id: goalId,
             milestone_name: `Año ${i}`,
             milestone_type: 'TIME_BASED',
-            target_date: milestoneDate.toISOString().split('T')[0],
+            target_date: milestoneDate.toISOString().substring(0, 10),
             difficulty_level: 'MODERATE',
-            motivation_message: `¡Mantén el rumbo hacia tu objetivo!`
+            motivation_message: '¡Mantén el rumbo hacia tu objetivo!'
           });
         }
       }
@@ -551,6 +553,9 @@ export class GoalOptimizerService {
     const savedMilestones: GoalIntermediateMilestone[] = [];
     for (let i = 0; i < milestones.length; i++) {
       const milestone = milestones[i];
+      if (!milestone) {
+        continue;
+      }
       const saved = await this.saveMilestone({
         ...milestone,
         milestone_order: i + 1
@@ -655,8 +660,9 @@ export class GoalOptimizerService {
     }
 
     const unimplementedStrategies = strategies.filter(s => !s.is_applied && s.priority === 'HIGH');
-    if (unimplementedStrategies.length > 0) {
-      actions.push(`Implementar estrategia: ${unimplementedStrategies[0].strategy_name}`);
+    const firstPendingStrategy = unimplementedStrategies[0];
+    if (firstPendingStrategy) {
+      actions.push(`Implementar estrategia: ${firstPendingStrategy.strategy_name}`);
     }
 
     if (actions.length === 0) {
@@ -671,7 +677,8 @@ export class GoalOptimizerService {
     // Usar el servicio de portafolio para obtener capital actual
     try {
       const summary = await this.portfolioService.getPortfolioSummary();
-      return summary.totalValue || 25000; // Valor simulado como fallback
+      const totalValue = summary.market_value ?? 0;
+      return totalValue > 0 ? totalValue : 25000; // Valor simulado como fallback
     } catch {
       return 25000; // Valor simulado
     }

@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { Alert } from '../../../ui/Alert';
+import { Alert, AlertDescription } from '../../../ui/Alert';
 import { getTypeText, formatCurrency } from '../utils/strategyHelpers';
 
 interface AccelerationStrategy {
@@ -90,9 +90,12 @@ export const StrategyDetails: React.FC<StrategyDetailsProps> = ({
   if (variant === 'other') {
     return (
       <div className={`mt-4 pt-4 border-t ${getBorderColor()}`}>
-        <Alert type="warning" title="Estrategia no recomendada">
-          Esta estrategia no es recomendada actualmente debido a condiciones de mercado, 
-          alta complejidad o baja confianza en los resultados.
+        <Alert variant="warning">
+          <div className="font-semibold">Estrategia no recomendada</div>
+          <AlertDescription>
+            Esta estrategia no es recomendada actualmente debido a condiciones de mercado,
+            alta complejidad o baja confianza en los resultados.
+          </AlertDescription>
         </Alert>
       </div>
     );
