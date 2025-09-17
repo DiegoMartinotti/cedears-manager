@@ -1,6 +1,16 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1';
+declare global {
+  interface ImportMetaEnv {
+    readonly VITE_API_URL?: string;
+  }
+
+  interface ImportMeta {
+    readonly env: ImportMetaEnv;
+  }
+}
+
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001/api/v1';
 
 // Types for API responses
 export interface SellAnalysisData {

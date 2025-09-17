@@ -1,5 +1,5 @@
 /* eslint-disable max-lines-per-function */
-import cron from 'node-cron';
+import cron, { ScheduledTask } from 'node-cron';
 import { sellAnalysisService } from '../services/SellAnalysisService.js';
 import { createLogger } from '../utils/logger.js';
 
@@ -11,6 +11,7 @@ export class SellMonitorJob {
   private runCount: number = 0;
   private errorCount: number = 0;
   private successfulRuns: number = 0;
+  private scheduledTasks: ScheduledTask[] = [];
 
   constructor() {
     this.scheduleJobs();
@@ -19,30 +20,34 @@ export class SellMonitorJob {
   private scheduleJobs(): void {
     // Main monitoring job - every 5 minutes during market hours
     // Monday to Friday, 9:30 AM to 4:00 PM Argentina time (market hours)
-    cron.schedule('*/5 9-16 * * 1-5', async () => {
+    const monitoringTask = cron.schedule('*/5 9-16 * * 1-5', async () => {
       await this.runSellMonitor();
     }, {
       timezone: 'America/Argentina/Buenos_Aires'
     });
+    this.scheduledTasks.push(monitoringTask);
 
     // Cleanup job - daily at 6:00 PM Argentina time
-    cron.schedule('0 18 * * *', async () => {
+    const cleanupTask = cron.schedule('0 18 * * *', async () => {
       await this.runCleanup();
     }, {
       timezone: 'America/Argentina/Buenos_Aires'
     });
+    this.scheduledTasks.push(cleanupTask);
 
     // Weekend preparation job - Friday at 5:00 PM
-    cron.schedule('0 17 * * 5', async () => {
+    const weekendTask = cron.schedule('0 17 * * 5', async () => {
       await this.runWeekendPreparation();
     }, {
       timezone: 'America/Argentina/Buenos_Aires'
     });
+    this.scheduledTasks.push(weekendTask);
 
     // Health check job - every hour
-    cron.schedule('0 * * * *', () => {
+    const healthCheckTask = cron.schedule('0 * * * *', () => {
       this.logHealthStatus();
     });
+    this.scheduledTasks.push(healthCheckTask);
 
     logger.info('SellMonitorJob scheduled:');
     logger.info('- Sell monitoring: Every 5 minutes during market hours (Mon-Fri 9:30-16:00 ART)');
@@ -318,7 +323,10 @@ export class SellMonitorJob {
    * Stop all scheduled jobs (for testing or shutdown)
    */
   stopJobs(): void {
-    cron.destroy();
+    for (const task of this.scheduledTasks) {
+      task.stop();
+    }
+    this.scheduledTasks = [];
     logger.info('SellMonitorJob stopped');
   }
 }
