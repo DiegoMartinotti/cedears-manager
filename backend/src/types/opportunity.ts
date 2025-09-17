@@ -158,6 +158,13 @@ export enum SignalStrength {
   VERY_STRONG = 'VERY_STRONG'
 }
 
+export type OpportunityTechnicalTag =
+  | 'TECHNICAL_BREAKOUT'
+  | 'VALUE_PLAY'
+  | 'DIVIDEND_ARISTOCRAT'
+  | 'EARNINGS_MOMENTUM'
+  | 'OVERSOLD_BOUNCE'
+
 // Interfaces para requests/responses de API
 export interface CreateOpportunityRequest {
   symbol: string

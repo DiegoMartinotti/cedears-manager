@@ -1,5 +1,6 @@
 import SimpleDatabaseConnection from '../database/simple-connection.js'
 import { createLogger } from '../utils/logger.js'
+import type { OpportunityTechnicalTag } from '../types/opportunity.js'
 
 const logger = createLogger('Opportunity')
 
@@ -10,6 +11,7 @@ export interface OpportunityData {
   company_name: string
   opportunity_type: 'BUY' | 'STRONG_BUY'
   composite_score: number
+  sector?: string
   technical_signals: {
     rsi: {
       value: number
@@ -50,6 +52,8 @@ export interface OpportunityData {
     volume_avg: number
     volume_current: number
     market_cap?: number
+    price_change_24h?: number
+    price_change_percentage_24h?: number
   }
   esg_criteria: {
     is_esg_compliant: boolean
@@ -67,6 +71,17 @@ export interface OpportunityData {
     time_horizon_days: number
     confidence_level: number
   }
+  min_investment?: number
+  confidence_score?: number
+  price_change_1m?: number
+  price_change_3m?: number
+  current_price?: number
+  target_price?: number
+  stop_loss?: number
+  volatility?: number
+  has_earnings_growth?: boolean
+  has_upcoming_earnings?: boolean
+  technical_tags?: OpportunityTechnicalTag[]
   detected_at: string
   expires_at: string
   is_active: boolean
@@ -74,7 +89,7 @@ export interface OpportunityData {
   updated_at?: string
 }
 
-export interface OpportunityCreateInput extends Omit<OpportunityData, 'id' | 'ranking' | 'created_at' | 'updated_at'> {}
+export interface OpportunityCreateInput extends Omit<OpportunityData, 'id' | 'created_at' | 'updated_at'> {}
 
 export interface OpportunityFilters {
   minScore?: number
