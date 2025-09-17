@@ -14,8 +14,9 @@ import type {
   DiversificationCheck,
   CommissionImpact,
   OpportunityDetectionConfig,
-  OpportunityType
+  OpportunityTechnicalTag
 } from '../types/opportunity.js'
+import { OpportunityType } from '../types/opportunity.js'
 
 /* eslint-disable max-lines-per-function, max-depth, no-unused-vars */
 const logger = createLogger('OpportunityService')
@@ -187,12 +188,18 @@ export class OpportunityService {
         company_name: instrument.company_name,
         opportunity_type: opportunityType,
         composite_score: compositeScore,
+        sector: instrument.sector,
         technical_signals: technicalSignals,
         ranking: 0, // Se actualizará después
         market_data: marketData,
         esg_criteria: esgCriteria,
         risk_assessment: riskAssessment,
         expected_return: expectedReturn,
+        current_price: marketData.current_price,
+        target_price: expectedReturn.target_price,
+        confidence_score: expectedReturn.confidence_level,
+        volatility: riskAssessment.volatility,
+        technical_tags: this.deriveOpportunityTags(technicalSignals, instrument, marketData),
         detected_at: new Date().toISOString(),
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         is_active: true
@@ -314,27 +321,45 @@ export class OpportunityService {
    */
   private async getMarketData(symbol: string): Promise<MarketData | null> {
     try {
-      const quotes = await quoteModel.findBySymbol(symbol, { limit: 365 })
+      const quotes = await quoteModel.findBySymbol(symbol, 365)
       if (quotes.length === 0) return null
 
-      const currentQuote = quotes[0]
-      const yearQuotes = quotes.slice(0, 252) // ~1 año de trading
-      
-      const yearHigh = Math.max(...yearQuotes.map(q => q.high))
-      const yearLow = Math.min(...yearQuotes.map(q => q.low))
-      const avgVolume = yearQuotes.reduce((sum, q) => sum + (q.volume || 0), 0) / yearQuotes.length
+      const [currentQuote] = quotes
+      if (!currentQuote) return null
+
+      const currentClose = currentQuote.close ?? currentQuote.price
+      const yearQuotes = quotes.slice(0, Math.min(quotes.length, 252))
+
+      const highSeries = yearQuotes
+        .map(q => q.high ?? q.close ?? q.price)
+        .filter((value): value is number => value !== undefined)
+      const lowSeries = yearQuotes
+        .map(q => q.low ?? q.close ?? q.price)
+        .filter((value): value is number => value !== undefined)
+      const volumeSeries = yearQuotes.map(q => q.volume ?? 0)
+
+      const yearHigh = highSeries.length > 0 ? Math.max(...highSeries) : currentClose
+      const yearLow = lowSeries.length > 0 ? Math.min(...lowSeries) : currentClose
+      const avgVolume = volumeSeries.length > 0
+        ? volumeSeries.reduce((sum, value) => sum + value, 0) / volumeSeries.length
+        : 0
+
+      const previousQuote = quotes[1]
+      const previousClose = previousQuote ? (previousQuote.close ?? previousQuote.price) : undefined
+      const priceChange24h = previousClose !== undefined ? currentClose - previousClose : 0
+      const priceChangePct24h = previousClose !== undefined && previousClose !== 0
+        ? (priceChange24h / previousClose) * 100
+        : 0
 
       return {
-        current_price: currentQuote.close,
+        current_price: currentClose,
         year_high: yearHigh,
         year_low: yearLow,
         volume_avg: avgVolume,
-        volume_current: currentQuote.volume || 0,
-        market_cap: this.calculateMarketCap(symbol, currentQuote.close),
-        price_change_24h: quotes.length > 1 ? currentQuote.close - quotes[1].close : 0,
-        price_change_percentage_24h: quotes.length > 1 
-          ? ((currentQuote.close - quotes[1].close) / quotes[1].close) * 100 
-          : 0
+        volume_current: currentQuote.volume ?? 0,
+        market_cap: this.calculateMarketCap(symbol, currentClose),
+        price_change_24h: priceChange24h,
+        price_change_percentage_24h: priceChangePct24h
       }
     } catch (error) {
       logger.error(`Error getting market data for ${symbol}:`, error)
@@ -375,12 +400,44 @@ export class OpportunityService {
   private async calculateRiskAssessment(symbol: string, marketData: MarketData): Promise<RiskAssessment> {
     try {
       // Calcular volatilidad histórica
-      const quotes = await quoteModel.findBySymbol(symbol, { limit: 30 })
-      const returns = []
-      
+      const quotes = await quoteModel.findBySymbol(symbol, 30)
+      if (quotes.length < 2) {
+        return {
+          volatility: 15,
+          sector_concentration: 5,
+          diversification_impact: 2,
+          beta: 1.1,
+          sharpe_ratio: 0.8
+        }
+      }
+
+      const returns: number[] = []
+
       for (let i = 1; i < quotes.length; i++) {
-        const dailyReturn = (quotes[i-1].close - quotes[i].close) / quotes[i].close
+        const previous = quotes[i - 1]
+        const current = quotes[i]
+        if (!previous || !current) {
+          continue
+        }
+        const previousClose = previous.close ?? previous.price
+        const currentClose = current.close ?? current.price
+
+        if (previousClose === undefined || currentClose === undefined || currentClose === 0) {
+          continue
+        }
+
+        const dailyReturn = (previousClose - currentClose) / currentClose
         returns.push(dailyReturn)
+      }
+
+      if (returns.length === 0) {
+        return {
+          volatility: 15,
+          sector_concentration: 5,
+          diversification_impact: 2,
+          beta: 1.1,
+          sharpe_ratio: 0.8
+        }
       }
 
       const avgReturn = returns.reduce((sum, ret) => sum + ret, 0) / returns.length
@@ -408,8 +465,8 @@ export class OpportunityService {
    * Calcula retorno esperado
    */
   private calculateExpectedReturn(
-    marketData: MarketData, 
-    signals: TechnicalSignals, 
+    marketData: MarketData,
+    signals: TechnicalSignals,
     compositeScore: number
   ): ExpectedReturn {
     // Calcular precio objetivo basado en señales técnicas
@@ -437,6 +494,36 @@ export class OpportunityService {
     }
   }
 
+  private deriveOpportunityTags(
+    signals: TechnicalSignals,
+    instrument: InstrumentData,
+    marketData: MarketData
+  ): OpportunityTechnicalTag[] {
+    const tags: OpportunityTechnicalTag[] = []
+
+    if (signals.sma.crossover) {
+      tags.push('TECHNICAL_BREAKOUT')
+    }
+
+    if (signals.distance_from_low.signal === 'BUY' && signals.rsi.signal === 'BUY') {
+      tags.push('OVERSOLD_BOUNCE')
+    }
+
+    if (marketData.current_price < marketData.year_high * 0.7) {
+      tags.push('VALUE_PLAY')
+    }
+
+    if (instrument.sector && ['Utilities', 'Consumer Staples'].includes(instrument.sector)) {
+      tags.push('DIVIDEND_ARISTOCRAT')
+    }
+
+    if (signals.macd.signal === 'BUY') {
+      tags.push('EARNINGS_MOMENTUM')
+    }
+
+    return tags
+  }
+
   /**
    * Calcula el impacto en diversificación de una nueva inversión
    */
@@ -447,22 +534,36 @@ export class OpportunityService {
     try {
       // Obtener valor actual de cartera
       const positions = await this.portfolioService.getPortfolioPositions()
-      const currentPortfolioValue = positions.reduce((sum, pos) => sum + (pos.quantity * pos.current_price), 0)
-      
+      const positionsWithSector = await Promise.all(positions.map(async pos => {
+        const positionInstrument = await this.instrumentModel.findById(pos.instrument_id)
+        return {
+          ...pos,
+          sector: positionInstrument?.sector
+        }
+      }))
+
+      const currentPortfolioValue = positionsWithSector.reduce(
+        (sum, pos) => sum + (pos.quantity * (pos.current_price ?? 0)),
+        0
+      )
+
       // Calcular concentración propuesta
       const totalValueAfter = currentPortfolioValue + investmentAmount
-      const concentrationPercentage = (investmentAmount / totalValueAfter) * 100
-      
+      const concentrationPercentage = totalValueAfter > 0 ? (investmentAmount / totalValueAfter) * 100 : 0
+
       // Límite máximo recomendado por posición
       const maxAllowedConcentration = 15
-      
+
       // Encontrar concentración por sector
       const instrument = await this.instrumentModel.findBySymbol(symbol)
-      const sameSecectorValue = positions
-        .filter(pos => pos.sector === instrument?.sector)
-        .reduce((sum, pos) => sum + (pos.quantity * pos.current_price), 0)
-      
-      const sectorConcentration = ((sameSecectorValue + investmentAmount) / totalValueAfter) * 100
+      const targetSector = instrument?.sector
+      const sameSectorValue = positionsWithSector
+        .filter(pos => targetSector && pos.sector === targetSector)
+        .reduce((sum, pos) => sum + (pos.quantity * (pos.current_price ?? 0)), 0)
+
+      const sectorConcentration = totalValueAfter > 0
+        ? ((sameSectorValue + investmentAmount) / totalValueAfter) * 100
+        : 0
       
       const isWithinLimits = concentrationPercentage <= maxAllowedConcentration && sectorConcentration <= 25
       
@@ -477,7 +578,7 @@ export class OpportunityService {
           reason = `Concentración de ${concentrationPercentage.toFixed(1)}% excede el límite recomendado de ${maxAllowedConcentration}%`
           riskLevel = 'HIGH'
         } else if (sectorConcentration > 25) {
-          const maxSectorAmount = (totalValueAfter * 25) / 100 - sameSecectorValue
+          const maxSectorAmount = (totalValueAfter * 25) / 100 - sameSectorValue
           suggestedAmount = Math.min(suggestedAmount || investmentAmount, maxSectorAmount)
           reason = `Concentración sectorial de ${sectorConcentration.toFixed(1)}% excede el límite recomendado de 25%`
           riskLevel = 'MEDIUM'
@@ -525,7 +626,7 @@ export class OpportunityService {
       
       // Obtener retorno esperado de la oportunidad
       const opportunity = await opportunityModel.findBySymbol(symbol)
-      const expectedUpside = opportunity?.expected_return.upside_percentage || 0
+      const expectedUpside = opportunity?.expected_return?.upside_percentage ?? 0
       
       const netUpsideAfterCosts = expectedUpside - breakEvenPercentage
       const isProfitable = netUpsideAfterCosts > 0
