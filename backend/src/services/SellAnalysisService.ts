@@ -3,10 +3,10 @@ import {
   SellAnalysis,
   SellAlert,
   SellAnalysisData,
-  SellAlertData, 
-  SellThresholds, 
+  SellAlertData,
+  SellThresholds,
   SellScoreComponents,
-  PositionSellAnalysis 
+  PositionSellAnalysis
 } from '../models/SellAnalysis.js';
 import { PortfolioService } from './PortfolioService.js';
 import { QuoteService } from './QuoteService.js';
@@ -14,6 +14,10 @@ import { UVAService } from './UVAService.js';
 import { CommissionService } from './CommissionService.js';
 import { TechnicalAnalysisService } from './TechnicalAnalysisService.js';
 import { InstrumentService } from './InstrumentService.js';
+import { UVA } from '../models/UVA.js';
+import type { PortfolioPositionData } from '../models/PortfolioPosition.js';
+import type { QuoteData } from '../models/Quote.js';
+import type { CommissionCalculation } from '../types/commission.js';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('SellAnalysisService');
@@ -27,6 +31,7 @@ export class SellAnalysisService {
   private commissionService: CommissionService;
   private technicalAnalysisService: TechnicalAnalysisService;
   private instrumentService: InstrumentService;
+  private readonly uvaModel: UVA;
 
   private defaultThresholds: SellThresholds = {
     take_profit_1: 15,
@@ -46,6 +51,7 @@ export class SellAnalysisService {
     this.commissionService = new CommissionService();
     this.technicalAnalysisService = new TechnicalAnalysisService();
     this.instrumentService = new InstrumentService();
+    this.uvaModel = new UVA();
   }
 
   /**
@@ -61,7 +67,13 @@ export class SellAnalysisService {
 
       for (const position of positions) {
         try {
-          const analysis = await this.analyzePosition(position.id, activeThresholds);
+          const positionId = position.id;
+          if (!positionId) {
+            logger.warn('Skipping position without identifier', { instrument: position.instrument_id });
+            continue;
+          }
+
+          const analysis = await this.analyzePosition(positionId, activeThresholds);
           if (analysis) {
             results.push(analysis);
           }
@@ -93,40 +105,45 @@ export class SellAnalysisService {
       }
 
       // Get instrument and current quote
-      const instrument = await this.instrumentService.findById(position.instrument_id);
+      const instrument = await this.instrumentService.getInstrumentById(position.instrument_id);
       if (!instrument) {
         logger.warn(`Instrument ${position.instrument_id} not found`);
         return null;
       }
 
-      const quote = await this.quoteService.getLatestQuote(instrument.ticker);
+      const quote = await this.quoteService.getLatestQuote(instrument.symbol);
       if (!quote) {
-        logger.warn(`No quote found for ${instrument.ticker}`);
+        logger.warn(`No quote found for ${instrument.symbol}`);
         return null;
       }
 
       // Calculate basic position metrics
-      const currentPrice = quote.close;
+      const averageCost = this.resolveAverageCost(position);
+      const currentPrice = this.resolveQuotePrice(quote, averageCost);
       const totalValue = position.quantity * currentPrice;
       const grossProfit = totalValue - position.total_cost;
-      const grossProfitPct = (grossProfit / position.total_cost) * 100;
+      const grossProfitPct = position.total_cost > 0
+        ? (grossProfit / position.total_cost) * 100
+        : 0;
 
       // Calculate inflation adjustment
       const inflationData = await this.calculateInflationAdjustment(position);
-      
+
       // Calculate sell commission
-      const sellCommission = await this.commissionService.calculateSellCommission(
-        totalValue,
-        instrument.ticker
+      const sellCommission = this.commissionService.calculateOperationCommission(
+        'SELL',
+        totalValue
       );
 
       // Calculate net amounts
-      const netProceedsAfterSale = totalValue - sellCommission.total_cost;
+      const netProceedsAfterSale = sellCommission.netAmount;
       const netProfit = netProceedsAfterSale - inflationData.adjusted_cost;
-      const netProfitPct = (netProfit / inflationData.adjusted_cost) * 100;
+      const netProfitPct = inflationData.adjusted_cost > 0
+        ? (netProfit / inflationData.adjusted_cost) * 100
+        : 0;
 
       // Get technical indicators
-      const technicalIndicators = await this.getTechnicalIndicators(instrument.ticker);
+      const technicalIndicators = await this.getTechnicalIndicators(instrument.symbol);
 
       // Calculate sell score components
       const scoreComponents = await this.calculateSellScore(
@@ -151,15 +168,15 @@ export class SellAnalysisService {
       const analysisData: Omit<SellAnalysisData, 'id' | 'created_at' | 'updated_at'> = {
         position_id: positionId,
         instrument_id: position.instrument_id,
-        ticker: instrument.ticker,
+        ticker: instrument.symbol,
         current_price: currentPrice,
-        avg_buy_price: position.avg_price,
+        avg_buy_price: averageCost,
         quantity: position.quantity,
         gross_profit_pct: grossProfitPct,
         net_profit_pct: netProfitPct,
         gross_profit_ars: grossProfit,
         net_profit_ars: netProfit,
-        commission_impact: sellCommission.total_cost,
+        commission_impact: sellCommission.totalCommission,
         inflation_adjustment: inflationData.inflation_factor,
         sell_score: scoreComponents.technicalScore,
         technical_score: scoreComponents.technicalScore,
@@ -182,11 +199,11 @@ export class SellAnalysisService {
       // Build response
       const result: PositionSellAnalysis = {
         position: {
-          id: position.id,
+          id: positionId,
           instrument_id: position.instrument_id,
-          ticker: instrument.ticker,
+          ticker: instrument.symbol,
           quantity: position.quantity,
-          avg_price: position.avg_price,
+          avg_price: averageCost,
           total_invested: position.total_cost,
           days_held: analysisData.days_held
         },
@@ -201,7 +218,7 @@ export class SellAnalysisService {
           adjusted_cost: inflationData.adjusted_cost,
           net_profit: netProfit,
           net_profit_pct: netProfitPct,
-          commission_to_sell: sellCommission.total_cost,
+          commission_to_sell: sellCommission.totalCommission,
           final_net_amount: netProceedsAfterSale
         },
         analysis: {
@@ -227,30 +244,43 @@ export class SellAnalysisService {
   /**
    * Calculate inflation adjustment using UVA
    */
-  private async calculateInflationAdjustment(position: any): Promise<{
+  private async calculateInflationAdjustment(
+    position: PortfolioPositionData & { last_trade_date?: string }
+  ): Promise<{
     inflation_factor: number;
     adjusted_cost: number;
   }> {
     try {
-      const buyDate = position.created_at || position.last_trade_date;
-      if (!buyDate) {
-        return {
-          inflation_factor: 1,
-          adjusted_cost: position.total_cost
-        };
+      const buyDateRaw = position.created_at || position.last_trade_date;
+      const defaultResult = {
+        inflation_factor: 1,
+        adjusted_cost: position.total_cost
+      };
+
+      if (!buyDateRaw) {
+        return defaultResult;
       }
 
-      const buyUVA = await this.uvaService.getUVAValueByDate(buyDate.split('T')[0]);
+      const normalizedBuyDate = this.normalizeDate(buyDateRaw);
+      if (!normalizedBuyDate) {
+        return defaultResult;
+      }
+
+      let buyUVA = await this.uvaModel.findLatestBefore(normalizedBuyDate);
+      if (!buyUVA) {
+        await this.uvaService.updateHistoricalUVAValues(normalizedBuyDate, normalizedBuyDate).catch(() => undefined);
+        buyUVA = await this.uvaModel.findLatestBefore(normalizedBuyDate);
+      }
+
       const currentUVA = await this.uvaService.getLatestUVAValue();
+      const currentValue = currentUVA?.value;
+      const buyValue = buyUVA?.value;
 
-      if (!buyUVA || !currentUVA) {
-        return {
-          inflation_factor: 1,
-          adjusted_cost: position.total_cost
-        };
+      if (!currentValue || !buyValue) {
+        return defaultResult;
       }
 
-      const inflationFactor = currentUVA.value / buyUVA.value;
+      const inflationFactor = currentValue / buyValue;
       const adjustedCost = position.total_cost * inflationFactor;
 
       return {
@@ -276,9 +306,9 @@ export class SellAnalysisService {
     volume_trend: 'HIGH' | 'NORMAL' | 'LOW';
   }> {
     try {
-      const indicators = await this.technicalAnalysisService.getLatestIndicators(ticker);
-      
-      if (!indicators) {
+      const calculated = await this.technicalAnalysisService.calculateIndicators(ticker);
+
+      if (!calculated) {
         return {
           rsi: 50,
           macd_signal: 'NEUTRAL',
@@ -287,41 +317,25 @@ export class SellAnalysisService {
         };
       }
 
-      // Analyze MACD signal
       let macdSignal: 'BUY' | 'SELL' | 'NEUTRAL' = 'NEUTRAL';
-      if (indicators.macd && indicators.macd_signal) {
-        if (indicators.macd > indicators.macd_signal && indicators.macd > 0) {
-          macdSignal = 'SELL'; // Bearish for selling
-        } else if (indicators.macd < indicators.macd_signal && indicators.macd < 0) {
-          macdSignal = 'BUY'; // Still bullish, hold
-        }
+      if (calculated.macd?.signalType === 'SELL') {
+        macdSignal = 'SELL';
+      } else if (calculated.macd?.signalType === 'BUY') {
+        macdSignal = 'BUY';
       }
 
-      // Analyze SMA trend
       let smaTrend: 'UP' | 'DOWN' | 'SIDEWAYS' = 'SIDEWAYS';
-      if (indicators.sma_20 && indicators.sma_50) {
-        if (indicators.sma_20 > indicators.sma_50 * 1.02) {
-          smaTrend = 'UP';
-        } else if (indicators.sma_20 < indicators.sma_50 * 0.98) {
-          smaTrend = 'DOWN';
-        }
-      }
-
-      // Analyze volume trend (simplified)
-      let volumeTrend: 'HIGH' | 'NORMAL' | 'LOW' = 'NORMAL';
-      if (indicators.volume_ratio) {
-        if (indicators.volume_ratio > 1.5) {
-          volumeTrend = 'HIGH';
-        } else if (indicators.volume_ratio < 0.5) {
-          volumeTrend = 'LOW';
-        }
+      if (calculated.sma?.signal === 'BUY') {
+        smaTrend = 'UP';
+      } else if (calculated.sma?.signal === 'SELL') {
+        smaTrend = 'DOWN';
       }
 
       return {
-        rsi: indicators.rsi || 50,
+        rsi: calculated.rsi?.value ?? 50,
         macd_signal: macdSignal,
         sma_trend: smaTrend,
-        volume_trend: volumeTrend
+        volume_trend: 'NORMAL'
       };
     } catch (error) {
       logger.error('Error getting technical indicators:', error);
@@ -332,6 +346,51 @@ export class SellAnalysisService {
         volume_trend: 'NORMAL'
       };
     }
+  }
+
+  private resolveAverageCost(position: PortfolioPositionData): number {
+    if (position.average_cost !== undefined && position.average_cost !== null) {
+      return position.average_cost;
+    }
+
+    if (position.quantity > 0) {
+      return position.total_cost / position.quantity;
+    }
+
+    return 0;
+  }
+
+  private resolveQuotePrice(quote: QuoteData | null, fallback: number): number {
+    if (quote) {
+      if (quote.close !== undefined && quote.close !== null) {
+        return quote.close;
+      }
+
+      if (quote.price !== undefined && quote.price !== null) {
+        return quote.price;
+      }
+    }
+
+    return fallback;
+  }
+
+  private normalizeDate(dateInput: string): string | null {
+    if (!dateInput) {
+      return null;
+    }
+
+    const [datePart] = dateInput.split('T');
+    if (datePart && datePart.length > 0) {
+      return datePart;
+    }
+
+    const parsedDate = new Date(dateInput);
+    if (Number.isNaN(parsedDate.getTime())) {
+      return null;
+    }
+
+    const [isoDate] = parsedDate.toISOString().split('T');
+    return isoDate ?? null;
   }
 
   /**
@@ -683,7 +742,7 @@ export class SellAnalysisService {
       throw new Error(`Position ${positionId} not found`);
     }
 
-    const instrument = await this.instrumentService.findById(position.instrument_id);
+    const instrument = await this.instrumentService.getInstrumentById(position.instrument_id);
     if (!instrument) {
       throw new Error(`Instrument not found`);
     }
@@ -691,35 +750,41 @@ export class SellAnalysisService {
     // Use provided price or current market price
     let currentPrice = sellPrice;
     if (!currentPrice) {
-      const quote = await this.quoteService.getLatestQuote(instrument.ticker);
-      currentPrice = quote?.close || position.avg_price;
+      const quote = await this.quoteService.getLatestQuote(instrument.symbol);
+      currentPrice = this.resolveQuotePrice(quote, this.resolveAverageCost(position));
     }
 
     const grossProceeds = position.quantity * currentPrice;
-    
+
     // Calculate commission
-    const commission = await this.commissionService.calculateSellCommission(
-      grossProceeds,
-      instrument.ticker
+    const commission: CommissionCalculation = this.commissionService.calculateOperationCommission(
+      'SELL',
+      grossProceeds
     );
 
-    const netProceeds = grossProceeds - commission.total_cost;
+    const netProceeds = commission.netAmount;
 
     // Calculate inflation adjustment
     const inflationData = await this.calculateInflationAdjustment(position);
 
     const grossProfit = grossProceeds - position.total_cost;
     const netProfit = netProceeds - inflationData.adjusted_cost;
-    
-    const grossProfitPct = (grossProfit / position.total_cost) * 100;
-    const netProfitPct = (netProfit / inflationData.adjusted_cost) * 100;
+
+    const grossProfitPct = position.total_cost > 0
+      ? (grossProfit / position.total_cost) * 100
+      : 0;
+    const netProfitPct = inflationData.adjusted_cost > 0
+      ? (netProfit / inflationData.adjusted_cost) * 100
+      : 0;
 
     // Calculate break-even price (including commissions and inflation)
-    const breakEvenPrice = (inflationData.adjusted_cost + commission.total_cost) / position.quantity;
+    const breakEvenPrice = position.quantity > 0
+      ? (inflationData.adjusted_cost + commission.totalCommission) / position.quantity
+      : 0;
 
     return {
       gross_proceeds: grossProceeds,
-      commission_cost: commission.total_cost,
+      commission_cost: commission.totalCommission,
       net_proceeds: netProceeds,
       total_invested: position.total_cost,
       inflation_adjusted_cost: inflationData.adjusted_cost,
