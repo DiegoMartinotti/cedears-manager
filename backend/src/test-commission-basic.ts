@@ -1,6 +1,7 @@
 /**
  * Test básico del CommissionService sin dependencias externas
  */
+/* eslint-disable max-lines-per-function, no-console, no-unused-vars, no-redeclare */
 
 // Definir interfaces locales para evitar problemas de compilación
 interface CommissionConfig {
@@ -201,9 +202,10 @@ function testCommissionCalculations() {
 
   // Test 4: Custodia exenta
   console.log('\n4. Custody fee - Exempt portfolio ($800,000):')
-  const exemptCustody = calculator.calculateCustodyFee(800000)
-  
-  console.log(`   Portfolio Value: $${800000.toLocaleString()}`)
+  const exemptPortfolioValue = 800000
+  const exemptCustody = calculator.calculateCustodyFee(exemptPortfolioValue)
+
+  console.log(`   Portfolio Value: $${exemptPortfolioValue.toLocaleString()}`)
   console.log(`   Is Exempt: ${exemptCustody.isExempt}`)
   console.log(`   Applicable Amount: $${exemptCustody.applicableAmount.toLocaleString()}`)
   console.log(`   Monthly Fee: $${exemptCustody.monthlyFee.toFixed(2)}`)
@@ -216,9 +218,10 @@ function testCommissionCalculations() {
 
   // Test 5: Custodia no exenta
   console.log('\n5. Custody fee - Non-exempt portfolio ($2,000,000):')
-  const nonExemptCustody = calculator.calculateCustodyFee(2000000)
-  
-  console.log(`   Portfolio Value: $${2000000.toLocaleString()}`)
+  const nonExemptPortfolioValue = 2000000
+  const nonExemptCustody = calculator.calculateCustodyFee(nonExemptPortfolioValue)
+
+  console.log(`   Portfolio Value: $${nonExemptPortfolioValue.toLocaleString()}`)
   console.log(`   Is Exempt: ${nonExemptCustody.isExempt}`)
   console.log(`   Applicable Amount: $${nonExemptCustody.applicableAmount.toLocaleString()}`)
   console.log(`   Monthly Fee: $${nonExemptCustody.monthlyFee.toFixed(2)}`)
@@ -283,9 +286,10 @@ function testBreakEvenCalculations() {
 
   // Escenarios con custodia
   console.log(`\nWith custody fees (2M portfolio):`)
-  const custodyFee = calculator.calculateCustodyFee(2000000)
+  const custodyPortfolioValue = 2000000
+  const custodyFee = calculator.calculateCustodyFee(custodyPortfolioValue)
   const annualCustody = custodyFee.annualFee
-  const custodyImpact = (annualCustody / 2000000) * 100
+  const custodyImpact = (annualCustody / custodyPortfolioValue) * 100
 
   console.log(`   Annual custody: $${annualCustody.toFixed(2)}`)
   console.log(`   Custody impact: ${custodyImpact.toFixed(2)}% annually`)

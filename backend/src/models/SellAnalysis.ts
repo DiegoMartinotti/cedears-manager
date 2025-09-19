@@ -1,4 +1,4 @@
-import { SimpleDB } from '../database/SimpleDB.js';
+import SimpleDatabaseConnection from '../database/simple-connection.js';
 
 export interface SellAnalysisData {
   id?: number;
@@ -102,12 +102,6 @@ export interface PositionSellAnalysis {
 }
 
 export class SellAnalysis {
-  private db: SimpleDB;
-  
-  constructor() {
-    this.db = SimpleDB.getInstance();
-  }
-
   async create(data: Omit<SellAnalysisData, 'id' | 'created_at' | 'updated_at'>): Promise<SellAnalysisData> {
     const now = new Date().toISOString();
     const analysis: SellAnalysisData = {
@@ -116,44 +110,42 @@ export class SellAnalysis {
       updated_at: now
     };
 
-    const result = await this.db.create('sell_analysis', analysis);
+    const result = SimpleDatabaseConnection.insert('sell_analysis', analysis);
     return result as SellAnalysisData;
   }
 
   async findById(id: number): Promise<SellAnalysisData | null> {
-    const result = await this.db.findById('sell_analysis', id);
-    return result as SellAnalysisData | null;
+    const result = SimpleDatabaseConnection.findById('sell_analysis', id);
+    return (result as SellAnalysisData | null) ?? null;
   }
 
   async findByPositionId(positionId: number): Promise<SellAnalysisData[]> {
-    const results = await this.db.findByField('sell_analysis', 'position_id', positionId);
-    return results as SellAnalysisData[];
+    const results = SimpleDatabaseConnection.findAll('sell_analysis', { position_id: positionId });
+    return results.map(record => record as SellAnalysisData);
   }
 
   async findLatestByPositionId(positionId: number): Promise<SellAnalysisData | null> {
-    const results = await this.db.query('sell_analysis', {
-      position_id: positionId
-    });
-    
+    const results = SimpleDatabaseConnection.findAll('sell_analysis', { position_id: positionId }) as SellAnalysisData[];
+
     if (results.length === 0) return null;
-    
-    // Sort by analysis_date descending and return latest
-    const sorted = results.sort((a: any, b: any) => 
+
+    const sorted = [...results].sort((a, b) =>
       new Date(b.analysis_date).getTime() - new Date(a.analysis_date).getTime()
     );
-    
-    return sorted[0] as SellAnalysisData;
+
+    return sorted[0] ?? null;
   }
 
   async findRecentAnalysis(hours: number = 24): Promise<SellAnalysisData[]> {
     const cutoffDate = new Date();
     cutoffDate.setHours(cutoffDate.getHours() - hours);
-    
-    const allAnalysis = await this.db.findAll('sell_analysis');
-    
-    return allAnalysis.filter((analysis: any) => 
-      new Date(analysis.analysis_date) >= cutoffDate
-    ) as SellAnalysisData[];
+
+    const allAnalysis = SimpleDatabaseConnection.findAll('sell_analysis') as SellAnalysisData[];
+
+    return allAnalysis.filter(analysis => {
+      const analysisDate = analysis.analysis_date ? new Date(analysis.analysis_date) : null;
+      return analysisDate !== null && analysisDate >= cutoffDate;
+    });
   }
 
   async update(id: number, data: Partial<SellAnalysisData>): Promise<SellAnalysisData | null> {
@@ -162,32 +154,33 @@ export class SellAnalysis {
       updated_at: new Date().toISOString()
     };
 
-    const result = await this.db.update('sell_analysis', id, updateData);
-    return result as SellAnalysisData | null;
+    const result = SimpleDatabaseConnection.update('sell_analysis', id, updateData);
+    return (result as SellAnalysisData | null) ?? null;
   }
 
   async delete(id: number): Promise<boolean> {
-    return await this.db.delete('sell_analysis', id);
+    return SimpleDatabaseConnection.delete('sell_analysis', id);
   }
 
   async findAll(): Promise<SellAnalysisData[]> {
-    const results = await this.db.findAll('sell_analysis');
-    return results as SellAnalysisData[];
+    const results = SimpleDatabaseConnection.findAll('sell_analysis');
+    return results.map(record => record as SellAnalysisData);
   }
 
   async cleanup(daysToKeep: number = 90): Promise<number> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
-    
-    const allAnalysis = await this.db.findAll('sell_analysis');
-    const toDelete = allAnalysis.filter((analysis: any) => 
-      new Date(analysis.analysis_date) < cutoffDate
-    );
 
+    const allAnalysis = SimpleDatabaseConnection.findAll('sell_analysis') as SellAnalysisData[];
     let deletedCount = 0;
-    for (const analysis of toDelete) {
-      await this.db.delete('sell_analysis', analysis.id);
-      deletedCount++;
+
+    for (const analysis of allAnalysis) {
+      const analysisDate = analysis.analysis_date ? new Date(analysis.analysis_date) : null;
+      if (analysisDate && analysisDate < cutoffDate && analysis.id) {
+        if (SimpleDatabaseConnection.delete('sell_analysis', analysis.id)) {
+          deletedCount++;
+        }
+      }
     }
 
     return deletedCount;
@@ -230,35 +223,29 @@ export class SellAnalysis {
 }
 
 export class SellAlert {
-  private db: SimpleDB;
-  
-  constructor() {
-    this.db = SimpleDB.getInstance();
-  }
-
   async create(data: Omit<SellAlertData, 'id' | 'created_at'>): Promise<SellAlertData> {
     const alert: SellAlertData = {
       ...data,
       created_at: new Date().toISOString()
     };
 
-    const result = await this.db.create('sell_alerts', alert);
+    const result = SimpleDatabaseConnection.insert('sell_alerts', alert);
     return result as SellAlertData;
   }
 
   async findById(id: number): Promise<SellAlertData | null> {
-    const result = await this.db.findById('sell_alerts', id);
-    return result as SellAlertData | null;
+    const result = SimpleDatabaseConnection.findById('sell_alerts', id);
+    return (result as SellAlertData | null) ?? null;
   }
 
   async findActiveAlerts(): Promise<SellAlertData[]> {
-    const all = await this.db.findAll('sell_alerts');
-    return all.filter((alert: any) => alert.is_active) as SellAlertData[];
+    const all = SimpleDatabaseConnection.findAll('sell_alerts') as SellAlertData[];
+    return all.filter(alert => alert.is_active);
   }
 
   async findByPositionId(positionId: number): Promise<SellAlertData[]> {
-    const results = await this.db.findByField('sell_alerts', 'position_id', positionId);
-    return results as SellAlertData[];
+    const results = SimpleDatabaseConnection.findAll('sell_alerts', { position_id: positionId });
+    return results.map(record => record as SellAlertData);
   }
 
   async findActiveByPositionId(positionId: number): Promise<SellAlertData[]> {
@@ -267,17 +254,17 @@ export class SellAlert {
   }
 
   async acknowledgeAlert(id: number): Promise<SellAlertData | null> {
-    const result = await this.db.update('sell_alerts', id, {
+    const result = SimpleDatabaseConnection.update('sell_alerts', id, {
       acknowledged_at: new Date().toISOString()
     });
-    return result as SellAlertData | null;
+    return (result as SellAlertData | null) ?? null;
   }
 
   async deactivateAlert(id: number): Promise<SellAlertData | null> {
-    const result = await this.db.update('sell_alerts', id, {
+    const result = SimpleDatabaseConnection.update('sell_alerts', id, {
       is_active: false
     });
-    return result as SellAlertData | null;
+    return (result as SellAlertData | null) ?? null;
   }
 
   async deactivateByPositionAndType(positionId: number, alertType: SellAlertData['alert_type']): Promise<number> {
@@ -296,32 +283,33 @@ export class SellAlert {
   }
 
   async update(id: number, data: Partial<SellAlertData>): Promise<SellAlertData | null> {
-    const result = await this.db.update('sell_alerts', id, data);
-    return result as SellAlertData | null;
+    const result = SimpleDatabaseConnection.update('sell_alerts', id, data);
+    return (result as SellAlertData | null) ?? null;
   }
 
   async delete(id: number): Promise<boolean> {
-    return await this.db.delete('sell_alerts', id);
+    return SimpleDatabaseConnection.delete('sell_alerts', id);
   }
 
   async findAll(): Promise<SellAlertData[]> {
-    const results = await this.db.findAll('sell_alerts');
-    return results as SellAlertData[];
+    const results = SimpleDatabaseConnection.findAll('sell_alerts');
+    return results.map(record => record as SellAlertData);
   }
 
   async cleanup(daysToKeep: number = 30): Promise<number> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
-    
-    const allAlerts = await this.db.findAll('sell_alerts');
-    const toDelete = allAlerts.filter((alert: any) => 
-      !alert.is_active && new Date(alert.created_at) < cutoffDate
-    );
 
+    const allAlerts = SimpleDatabaseConnection.findAll('sell_alerts') as SellAlertData[];
     let deletedCount = 0;
-    for (const alert of toDelete) {
-      await this.db.delete('sell_alerts', alert.id);
-      deletedCount++;
+
+    for (const alert of allAlerts) {
+      const createdAt = alert.created_at ? new Date(alert.created_at) : null;
+      if (!alert.is_active && createdAt && createdAt < cutoffDate && alert.id) {
+        if (SimpleDatabaseConnection.delete('sell_alerts', alert.id)) {
+          deletedCount++;
+        }
+      }
     }
 
     return deletedCount;

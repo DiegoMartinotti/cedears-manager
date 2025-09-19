@@ -13,6 +13,8 @@ interface SimpleDatabase {
   commission_config: any[]
   financial_goals: any[]
   migrations_log: any[]
+  sell_analysis: any[]
+  sell_alerts: any[]
 }
 
 class SimpleDatabaseConnection {
@@ -55,7 +57,9 @@ class SimpleDatabaseConnection {
         quotes: [],
         commission_config: [],
         financial_goals: [],
-        migrations_log: []
+        migrations_log: [],
+        sell_analysis: [],
+        sell_alerts: []
       }
 
       SimpleDatabaseConnection.save(db)
