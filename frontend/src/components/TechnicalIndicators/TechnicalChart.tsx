@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { type ReactElement, useState } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import { useIndicatorHistory, useExtremes } from '../../hooks/useTechnicalIndicators'
 import { Card } from '../ui/Card'
@@ -87,6 +87,27 @@ export function TechnicalChart({ symbol, height = 300, showControls = true }: Te
     signal: indicator.signal,
     strength: indicator.strength
   })) || []
+
+  const renderSignalDot = (props: any): ReactElement<SVGElement> => {
+    const { payload, cx = 0, cy = 0 } = props || {}
+
+    const color = payload?.signal === 'BUY'
+      ? '#22c55e'
+      : payload?.signal === 'SELL'
+        ? '#ef4444'
+        : '#6b7280'
+
+    return (
+      <circle
+        cx={cx}
+        cy={cy}
+        r={payload ? 3 : 0}
+        fill={color}
+        stroke={color}
+        strokeWidth={1}
+      />
+    )
+  }
 
   const getReferenceLines = () => {
     if (selectedIndicator === 'RSI') {
@@ -206,24 +227,7 @@ export function TechnicalChart({ symbol, height = 300, showControls = true }: Te
                 dataKey="value"
                 stroke={getIndicatorColor(selectedIndicator)}
                 strokeWidth={2}
-                dot={(props: any) => {
-                  const { payload } = props
-                  if (!payload) return null
-                  
-                  const color = payload.signal === 'BUY' ? '#22c55e' : 
-                               payload.signal === 'SELL' ? '#ef4444' : '#6b7280'
-                  
-                  return (
-                    <circle
-                      cx={props.cx}
-                      cy={props.cy}
-                      r={3}
-                      fill={color}
-                      stroke={color}
-                      strokeWidth={1}
-                    />
-                  )
-                }}
+                dot={renderSignalDot}
                 activeDot={{ r: 5, stroke: getIndicatorColor(selectedIndicator), strokeWidth: 2 }}
               />
             </LineChart>

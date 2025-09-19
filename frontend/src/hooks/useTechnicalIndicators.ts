@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { technicalIndicatorService, type TechnicalIndicatorFilters, type ActiveSignalsFilters, type CalculateIndicatorsRequest } from '../services/technicalIndicatorService'
+import { technicalIndicatorService, type TechnicalIndicatorFilters, type ActiveSignalsFilters, type CalculateIndicatorsRequest, type TechnicalIndicatorHistory } from '../services/technicalIndicatorService'
 
 export const TECHNICAL_INDICATORS_KEYS = {
   all: ['technical-indicators'] as const,
@@ -31,7 +31,7 @@ export function useLatestIndicators(symbol: string, filters?: TechnicalIndicator
 /**
  * Hook para obtener el historial de indicadores técnicos
  */
-export function useIndicatorHistory(symbol: string, filters?: { indicator?: string; days?: number; limit?: number }) {
+export function useIndicatorHistory(symbol: string, filters?: TechnicalIndicatorHistory) {
   return useQuery({
     queryKey: TECHNICAL_INDICATORS_KEYS.history(symbol, filters || {}),
     queryFn: () => technicalIndicatorService.getIndicatorHistory(symbol, filters),
@@ -113,7 +113,7 @@ export function useCalculateIndicators() {
   return useMutation({
     mutationFn: (request: CalculateIndicatorsRequest) => 
       technicalIndicatorService.calculateIndicators(request),
-    onSuccess: (data, variables) => {
+    onSuccess: (_result, variables) => {
       // Invalidar caché relacionado
       if (variables.symbol) {
         queryClient.invalidateQueries({ 
