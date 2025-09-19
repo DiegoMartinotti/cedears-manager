@@ -132,6 +132,12 @@ class SimpleCommissionCalculator {
   }
 }
 
+function assertClose(actual: number, expected: number, message: string) {
+  if (Math.abs(actual - expected) > 0.01) {
+    throw new Error(message)
+  }
+}
+
 function testCommissionCalculations() {
   console.log('🧮 Testing Commission Calculations')
   console.log('==================================')
@@ -155,9 +161,26 @@ function testCommissionCalculations() {
   const expectedTotal = expectedBase + expectedIva
   const expectedNet = 10000 + expectedTotal
 
-  if (Math.abs(smallBuy.baseCommission - expectedBase) > 0.01) {
-    throw new Error(`❌ Small BUY base commission error: expected ${expectedBase}, got ${smallBuy.baseCommission}`)
-  }
+  assertClose(
+    smallBuy.baseCommission,
+    expectedBase,
+    `❌ Small BUY base commission error: expected ${expectedBase}, got ${smallBuy.baseCommission}`
+  )
+  assertClose(
+    smallBuy.ivaAmount,
+    expectedIva,
+    `❌ Small BUY IVA error: expected ${expectedIva}, got ${smallBuy.ivaAmount}`
+  )
+  assertClose(
+    smallBuy.totalCommission,
+    expectedTotal,
+    `❌ Small BUY total commission error: expected ${expectedTotal}, got ${smallBuy.totalCommission}`
+  )
+  assertClose(
+    smallBuy.netAmount,
+    expectedNet,
+    `❌ Small BUY net amount error: expected ${expectedNet}, got ${smallBuy.netAmount}`
+  )
   console.log('   ✅ Small BUY calculation correct')
 
   // Test 2: Compra grande (aplica porcentaje)
@@ -176,9 +199,21 @@ function testCommissionCalculations() {
   const expectedLargeIva = expectedLargeBase * 0.21
   const expectedLargeTotal = expectedLargeBase + expectedLargeIva
 
-  if (Math.abs(largeBuy.baseCommission - expectedLargeBase) > 0.01) {
-    throw new Error(`❌ Large BUY base commission error: expected ${expectedLargeBase}, got ${largeBuy.baseCommission}`)
-  }
+  assertClose(
+    largeBuy.baseCommission,
+    expectedLargeBase,
+    `❌ Large BUY base commission error: expected ${expectedLargeBase}, got ${largeBuy.baseCommission}`
+  )
+  assertClose(
+    largeBuy.ivaAmount,
+    expectedLargeIva,
+    `❌ Large BUY IVA error: expected ${expectedLargeIva}, got ${largeBuy.ivaAmount}`
+  )
+  assertClose(
+    largeBuy.totalCommission,
+    expectedLargeTotal,
+    `❌ Large BUY total commission error: expected ${expectedLargeTotal}, got ${largeBuy.totalCommission}`
+  )
   console.log('   ✅ Large BUY calculation correct')
 
   // Test 3: Venta (resta comisión)
@@ -198,6 +233,16 @@ function testCommissionCalculations() {
   if (sell.netAmount > 50000) {
     throw new Error(`❌ SELL should subtract commission, but net amount is greater than original`)
   }
+  assertClose(
+    sell.baseCommission,
+    expectedSellBase,
+    `❌ SELL base commission error: expected ${expectedSellBase}, got ${sell.baseCommission}`
+  )
+  assertClose(
+    sell.netAmount,
+    expectedSellNet,
+    `❌ SELL net amount error: expected ${expectedSellNet}, got ${sell.netAmount}`
+  )
   console.log('   ✅ SELL calculation correct')
 
   // Test 4: Custodia exenta
@@ -240,9 +285,26 @@ function testCommissionCalculations() {
     throw new Error(`❌ Applicable amount error: expected ${expectedApplicable}, got ${nonExemptCustody.applicableAmount}`)
   }
 
-  if (Math.abs(nonExemptCustody.monthlyFee - expectedMonthlyFee) > 0.01) {
-    throw new Error(`❌ Monthly fee error: expected ${expectedMonthlyFee}, got ${nonExemptCustody.monthlyFee}`)
-  }
+  assertClose(
+    nonExemptCustody.monthlyFee,
+    expectedMonthlyFee,
+    `❌ Monthly fee error: expected ${expectedMonthlyFee}, got ${nonExemptCustody.monthlyFee}`
+  )
+  assertClose(
+    nonExemptCustody.ivaAmount,
+    expectedIva,
+    `❌ Custody IVA error: expected ${expectedIva}, got ${nonExemptCustody.ivaAmount}`
+  )
+  assertClose(
+    nonExemptCustody.totalMonthlyCost,
+    expectedTotalMonthly,
+    `❌ Total monthly cost error: expected ${expectedTotalMonthly}, got ${nonExemptCustody.totalMonthlyCost}`
+  )
+  assertClose(
+    nonExemptCustody.annualFee,
+    expectedAnnual,
+    `❌ Annual custody fee error: expected ${expectedAnnual}, got ${nonExemptCustody.annualFee}`
+  )
 
   console.log('   ✅ Non-exempt custody calculation correct')
 

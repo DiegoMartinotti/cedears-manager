@@ -31,7 +31,7 @@ export class SellAnalysisService {
   private commissionService: CommissionService;
   private technicalAnalysisService: TechnicalAnalysisService;
   private instrumentService: InstrumentService;
-  private uvaModel: UVA;
+  private readonly uvaModel: UVA;
 
   private defaultThresholds: SellThresholds = {
     take_profit_1: 15,
@@ -317,11 +317,12 @@ export class SellAnalysisService {
         };
       }
 
-      const macdSignal: 'BUY' | 'SELL' | 'NEUTRAL' = calculated.macd?.signalType === 'SELL'
-        ? 'SELL'
-        : calculated.macd?.signalType === 'BUY'
-          ? 'BUY'
-          : 'NEUTRAL';
+      let macdSignal: 'BUY' | 'SELL' | 'NEUTRAL' = 'NEUTRAL';
+      if (calculated.macd?.signalType === 'SELL') {
+        macdSignal = 'SELL';
+      } else if (calculated.macd?.signalType === 'BUY') {
+        macdSignal = 'BUY';
+      }
 
       let smaTrend: 'UP' | 'DOWN' | 'SIDEWAYS' = 'SIDEWAYS';
       if (calculated.sma?.signal === 'BUY') {
