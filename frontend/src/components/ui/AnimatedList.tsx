@@ -1,6 +1,6 @@
 import React from 'react'
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion'
-import type { Variants, TargetAndTransition } from 'framer-motion'
+import type { Variants } from 'framer-motion'
 import { cn } from '../../utils/cn'
 
 interface AnimatedListProps {
@@ -31,6 +31,57 @@ const listVariants: Record<AnimatedListVariant, Variants> = {
   }
 }
 
+type VariantValue = Variants[string]
+
+const applyStaggerToVariant = (
+  variant: VariantValue,
+  staggerDelay: number
+): VariantValue => {
+  if (!variant) {
+    return variant
+  }
+
+  if (typeof variant === 'function') {
+    const resolver = variant as (...args: any[]) => VariantValue
+
+    return ((...args: any[]) => {
+      const resolved = resolver(...args)
+
+      if (!resolved || typeof resolved !== 'object') {
+        return resolved
+      }
+
+      const resolvedObject = resolved as {
+        transition?: Record<string, unknown>
+      }
+
+      return {
+        ...resolvedObject,
+        transition: {
+          ...(resolvedObject.transition ?? {}),
+          staggerChildren: staggerDelay
+        }
+      } as VariantValue
+    }) as VariantValue
+  }
+
+  if (typeof variant !== 'object') {
+    return variant
+  }
+
+  const variantObject = variant as {
+    transition?: Record<string, unknown>
+  }
+
+  return {
+    ...variantObject,
+    transition: {
+      ...(variantObject.transition ?? {}),
+      staggerChildren: staggerDelay
+    }
+  } as VariantValue
+}
+
 export const AnimatedList: React.FC<AnimatedListProps> = ({
   children,
   className,
@@ -41,17 +92,10 @@ export const AnimatedList: React.FC<AnimatedListProps> = ({
   const variant = _variant
   const containerVariants = React.useMemo<Variants>(() => {
     const baseVariant = listVariants[variant]
-    const visibleVariant = baseVariant.visible as TargetAndTransition | undefined
 
     return {
       ...baseVariant,
-      visible: {
-        ...(visibleVariant ?? {}),
-        transition: {
-          ...(visibleVariant?.transition ?? {}),
-          staggerChildren: staggerDelay
-        }
-      }
+      visible: applyStaggerToVariant(baseVariant.visible, staggerDelay)
     }
   }, [variant, staggerDelay])
 
