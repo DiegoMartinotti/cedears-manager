@@ -305,6 +305,11 @@ export function useDateRangeManager(initialRange?: DateRange) {
 export function useReportsCache() {
   const queryClient = useQueryClient();
 
+  const isDateRangeIdentifier = (
+    identifier: DateRange | number | undefined
+  ): identifier is DateRange =>
+    typeof identifier === 'object' && identifier !== null && 'startDate' in identifier;
+
   const clearAllReportsCache = () => {
     queryClient.removeQueries({ queryKey: REPORTS_QUERY_KEYS.all });
   };
@@ -312,17 +317,17 @@ export function useReportsCache() {
   const clearReportCache = (reportType: ReportType, identifier?: DateRange | number) => {
     switch (reportType) {
       case 'dashboard':
-        if (identifier && 'startDate' in identifier) {
+        if (isDateRangeIdentifier(identifier)) {
           queryClient.removeQueries({ queryKey: REPORTS_QUERY_KEYS.dashboard(identifier) });
         }
         break;
       case 'impact_analysis':
-        if (identifier && 'startDate' in identifier) {
+        if (isDateRangeIdentifier(identifier)) {
           queryClient.removeQueries({ queryKey: REPORTS_QUERY_KEYS.impactAnalysis(identifier) });
         }
         break;
       case 'commission_comparison':
-        if (identifier && 'startDate' in identifier) {
+        if (isDateRangeIdentifier(identifier)) {
           queryClient.removeQueries({ queryKey: REPORTS_QUERY_KEYS.commissionComparison(identifier) });
         }
         break;
