@@ -31,6 +31,57 @@ const listVariants: Record<AnimatedListVariant, Variants> = {
   }
 }
 
+type VariantValue = Variants[string]
+
+const applyStaggerToVariant = (
+  variant: VariantValue,
+  staggerDelay: number
+): VariantValue => {
+  if (!variant) {
+    return variant
+  }
+
+  if (typeof variant === 'function') {
+    const resolver = variant as (...args: any[]) => VariantValue
+
+    return ((...args: any[]) => {
+      const resolved = resolver(...args)
+
+      if (!resolved || typeof resolved !== 'object') {
+        return resolved
+      }
+
+      const resolvedObject = resolved as {
+        transition?: Record<string, unknown>
+      }
+
+      return {
+        ...resolvedObject,
+        transition: {
+          ...(resolvedObject.transition ?? {}),
+          staggerChildren: staggerDelay
+        }
+      } as VariantValue
+    }) as VariantValue
+  }
+
+  if (typeof variant !== 'object') {
+    return variant
+  }
+
+  const variantObject = variant as {
+    transition?: Record<string, unknown>
+  }
+
+  return {
+    ...variantObject,
+    transition: {
+      ...(variantObject.transition ?? {}),
+      staggerChildren: staggerDelay
+    }
+  } as VariantValue
+}
+
 export const AnimatedList: React.FC<AnimatedListProps> = ({
   children,
   className,
@@ -38,21 +89,15 @@ export const AnimatedList: React.FC<AnimatedListProps> = ({
   layout = true,
   variant: _variant = 'slide'
 }) => {
-  const variant = _variant
-  const baseVariant = listVariants[variant]
-  const visibleVariant = baseVariant.visible
-  const visibleTarget =
-    typeof visibleVariant === 'function' ? undefined : visibleVariant
-  const containerVariants = {
-    ...baseVariant,
-    visible: {
-      ...(visibleTarget ?? {}),
-      transition: {
-        ...(visibleTarget?.transition ?? {}),
-        staggerChildren: staggerDelay
-      }
+  const variantKey = _variant
+  const containerVariants = React.useMemo<Variants>(() => {
+    const baseVariant = listVariants[variantKey]
+
+    return {
+      ...baseVariant,
+      visible: applyStaggerToVariant(baseVariant.visible, staggerDelay)
     }
-  }
+  }, [variantKey, staggerDelay])
 
   const content = layout ? (
     <LayoutGroup>
