@@ -7,6 +7,139 @@ const logger = createLogger('SectorClassification')
 export class SectorClassificationModel {
   private db = DatabaseConnection.getInstance()
 
+  private buildFilterClauses(options: {
+    sector?: string
+    source?: string
+    minConfidence?: number
+  } = {}): { where: string; params: unknown[] } {
+    const filters: string[] = ['1=1']
+    const params: unknown[] = []
+
+    if (options.sector) {
+      filters.push('gics_sector = ?')
+      params.push(options.sector)
+    }
+
+    if (options.source) {
+      filters.push('source = ?')
+      params.push(options.source)
+    }
+
+    if (options.minConfidence !== undefined) {
+      filters.push('confidence_score >= ?')
+      params.push(options.minConfidence)
+    }
+
+    return { where: filters.join(' AND '), params }
+  }
+
+  private buildPaginationClauses(options?: { limit?: number; offset?: number }): {
+    clause: string
+    params: unknown[]
+  } {
+    const parts: string[] = []
+    const params: unknown[] = []
+
+    if (options?.limit !== undefined) {
+      parts.push('LIMIT ?')
+      params.push(options.limit)
+    }
+
+    if (options?.offset !== undefined) {
+      parts.push('OFFSET ?')
+      params.push(options.offset)
+    }
+
+    const clause = parts.length > 0 ? ` ${parts.join(' ')}` : ''
+    return { clause, params }
+  }
+
+  private buildFindAllQuery(options?: {
+    sector?: string
+    source?: string
+    minConfidence?: number
+    limit?: number
+    offset?: number
+  }): { query: string; params: unknown[] } {
+    const filters = this.buildFilterClauses(options)
+    const pagination = this.buildPaginationClauses(options)
+
+    const query = `
+      SELECT
+        id,
+        instrument_id as instrumentId,
+        gics_sector as gicsSector,
+        gics_industry_group as gicsIndustryGroup,
+        gics_industry as gicsIndustry,
+        gics_sub_industry as gicsSubIndustry,
+        last_updated as lastUpdated,
+        source,
+        confidence_score as confidenceScore,
+        created_at as createdAt,
+        updated_at as updatedAt
+      FROM sector_classifications
+      WHERE ${filters.where}
+      ORDER BY created_at DESC${pagination.clause}
+    `
+
+    return {
+      query,
+      params: [...filters.params, ...pagination.params]
+    }
+  }
+
+  private buildUpdateStatement(data: Partial<SectorClassification>): {
+    clause: string
+    params: unknown[]
+  } {
+    const mappings: Array<{ field: keyof SectorClassification; column: string }> = [
+      { field: 'gicsSector', column: 'gics_sector' },
+      { field: 'gicsIndustryGroup', column: 'gics_industry_group' },
+      { field: 'gicsIndustry', column: 'gics_industry' },
+      { field: 'gicsSubIndustry', column: 'gics_sub_industry' },
+      { field: 'source', column: 'source' },
+      { field: 'confidenceScore', column: 'confidence_score' }
+    ]
+
+    const updates: string[] = []
+    const params: unknown[] = []
+
+    mappings.forEach(({ field, column }) => {
+      const value = data[field]
+      if (value !== undefined) {
+        updates.push(`${column} = ?`)
+        params.push(value)
+      }
+    })
+
+    return {
+      clause: updates.join(', '),
+      params
+    }
+  }
+
+  private getSingleValue<T extends Record<string, number | string | null>>(
+    query: string
+  ): T {
+    const stmt = this.db.prepare(query)
+    return stmt.get() as T
+  }
+
+  private aggregateBy(column: 'gics_sector' | 'source'): Record<string, number> {
+    const stmt = this.db.prepare(`
+      SELECT ${column} as key, COUNT(*) as count
+      FROM sector_classifications
+      GROUP BY ${column}
+    `)
+    const results = stmt.all() as Array<{ key: string | null; count: number }>
+
+    return results.reduce((acc, row) => {
+      const key = row.key ?? 'Unknown'
+      acc[key] = row.count
+      return acc
+    }, {} as Record<string, number>)
+  }
+
   // ============================================================================
   // CRUD Operations
   // ============================================================================
@@ -107,54 +240,10 @@ export class SectorClassificationModel {
     offset?: number
   }): Promise<SectorClassification[]> {
     try {
-      let query = `
-        SELECT 
-          id,
-          instrument_id as instrumentId,
-          gics_sector as gicsSector,
-          gics_industry_group as gicsIndustryGroup,
-          gics_industry as gicsIndustry,
-          gics_sub_industry as gicsSubIndustry,
-          last_updated as lastUpdated,
-          source,
-          confidence_score as confidenceScore,
-          created_at as createdAt,
-          updated_at as updatedAt
-        FROM sector_classifications 
-        WHERE 1=1
-      `
-      const params: any[] = []
-
-      if (options?.sector) {
-        query += ' AND gics_sector = ?'
-        params.push(options.sector)
-      }
-
-      if (options?.source) {
-        query += ' AND source = ?'
-        params.push(options.source)
-      }
-
-      if (options?.minConfidence !== undefined) {
-        query += ' AND confidence_score >= ?'
-        params.push(options.minConfidence)
-      }
-
-      query += ' ORDER BY created_at DESC'
-
-      if (options?.limit) {
-        query += ' LIMIT ?'
-        params.push(options.limit)
-      }
-
-      if (options?.offset) {
-        query += ' OFFSET ?'
-        params.push(options.offset)
-      }
-
+      const { query, params } = this.buildFindAllQuery(options)
       const stmt = this.db.prepare(query)
       const results = stmt.all(...params) as SectorClassification[]
-      
+
       return results
     } catch (error) {
       logger.error('Error finding sector classifications:', error)
@@ -164,60 +253,26 @@ export class SectorClassificationModel {
 
   async update(id: number, data: Partial<SectorClassification>): Promise<SectorClassification | null> {
     try {
-      const updates: string[] = []
-      const params: any[] = []
+      const { clause, params } = this.buildUpdateStatement(data)
 
-      if (data.gicsSector !== undefined) {
-        updates.push('gics_sector = ?')
-        params.push(data.gicsSector)
-      }
-
-      if (data.gicsIndustryGroup !== undefined) {
-        updates.push('gics_industry_group = ?')
-        params.push(data.gicsIndustryGroup)
-      }
-
-      if (data.gicsIndustry !== undefined) {
-        updates.push('gics_industry = ?')
-        params.push(data.gicsIndustry)
-      }
-
-      if (data.gicsSubIndustry !== undefined) {
-        updates.push('gics_sub_industry = ?')
-        params.push(data.gicsSubIndustry)
-      }
-
-      if (data.source !== undefined) {
-        updates.push('source = ?')
-        params.push(data.source)
-      }
-
-      if (data.confidenceScore !== undefined) {
-        updates.push('confidence_score = ?')
-        params.push(data.confidenceScore)
-      }
-
-      if (updates.length === 0) {
+      if (!clause) {
         return this.findById(id)
       }
 
-      updates.push('last_updated = ?', 'updated_at = CURRENT_TIMESTAMP')
-      params.push(new Date().toISOString())
-      params.push(id)
-
+      const expressions = [clause, 'last_updated = ?', 'updated_at = CURRENT_TIMESTAMP']
       const stmt = this.db.prepare(`
-        UPDATE sector_classifications 
-        SET ${updates.join(', ')}
+        UPDATE sector_classifications
+        SET ${expressions.join(', ')}
         WHERE id = ?
       `)
 
-      stmt.run(...params)
-      
+      stmt.run(...params, new Date().toISOString(), id)
+
       const updated = await this.findById(id)
       if (updated) {
         logger.info(`Updated sector classification ${id}`)
       }
-      
+
       return updated
     } catch (error) {
       logger.error(`Error updating sector classification ${id}:`, error)
@@ -395,41 +450,11 @@ export class SectorClassificationModel {
     lastUpdated: string | null
   }> {
     try {
-      // Total classifications
-      const totalStmt = this.db.prepare('SELECT COUNT(*) as total FROM sector_classifications')
-      const totalResult = totalStmt.get() as { total: number }
-
-      // By sector
-      const sectorStmt = this.db.prepare(`
-        SELECT gics_sector as sector, COUNT(*) as count
-        FROM sector_classifications
-        GROUP BY gics_sector
-      `)
-      const sectorResults = sectorStmt.all() as Array<{sector: string, count: number}>
-      const bySector = sectorResults.reduce((acc, row) => {
-        acc[row.sector] = row.count
-        return acc
-      }, {} as Record<string, number>)
-
-      // By source
-      const sourceStmt = this.db.prepare(`
-        SELECT source, COUNT(*) as count
-        FROM sector_classifications
-        GROUP BY source
-      `)
-      const sourceResults = sourceStmt.all() as Array<{source: string, count: number}>
-      const bySource = sourceResults.reduce((acc, row) => {
-        acc[row.source] = row.count
-        return acc
-      }, {} as Record<string, number>)
-
-      // Average confidence
-      const avgStmt = this.db.prepare('SELECT AVG(confidence_score) as avg FROM sector_classifications')
-      const avgResult = avgStmt.get() as { avg: number }
-
-      // Last updated
-      const lastStmt = this.db.prepare('SELECT MAX(last_updated) as lastUpdated FROM sector_classifications')
-      const lastResult = lastStmt.get() as { lastUpdated: string }
+      const totalResult = this.getSingleValue<{ total: number }>('SELECT COUNT(*) as total FROM sector_classifications')
+      const bySector = this.aggregateBy('gics_sector')
+      const bySource = this.aggregateBy('source')
+      const avgResult = this.getSingleValue<{ avg: number }>('SELECT AVG(confidence_score) as avg FROM sector_classifications')
+      const lastResult = this.getSingleValue<{ lastUpdated: string | null }>('SELECT MAX(last_updated) as lastUpdated FROM sector_classifications')
 
       return {
         totalClassifications: totalResult.total,

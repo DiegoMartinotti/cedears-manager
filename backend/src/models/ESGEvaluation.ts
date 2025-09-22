@@ -60,6 +60,79 @@ export interface ESGTrend {
 export class ESGEvaluationModel {
   private db = DatabaseConnection.getInstance()
 
+  private buildFilterConditions(filters: ESGFilters = {}): { clause: string; params: unknown[] } {
+    const conditions: string[] = ['1=1']
+    const params: unknown[] = []
+
+    if (filters.instrumentId) {
+      conditions.push('e.instrument_id = ?')
+      params.push(filters.instrumentId)
+    }
+
+    if (filters.minScore !== undefined) {
+      conditions.push('e.total_score >= ?')
+      params.push(filters.minScore)
+    }
+
+    if (filters.maxScore !== undefined) {
+      conditions.push('e.total_score <= ?')
+      params.push(filters.maxScore)
+    }
+
+    if (filters.dateFrom) {
+      conditions.push('e.evaluation_date >= ?')
+      params.push(filters.dateFrom)
+    }
+
+    if (filters.dateTo) {
+      conditions.push('e.evaluation_date <= ?')
+      params.push(filters.dateTo)
+    }
+
+    if (filters.minConfidence !== undefined) {
+      conditions.push('e.confidence_level >= ?')
+      params.push(filters.minConfidence)
+    }
+
+    if (filters.hasControversies === true) {
+      conditions.push('e.controversies IS NOT NULL AND e.controversies != ""')
+    } else if (filters.hasControversies === false) {
+      conditions.push('(e.controversies IS NULL OR e.controversies = "")')
+    }
+
+    return {
+      clause: conditions.join(' AND '),
+      params
+    }
+  }
+
+  private getSingleValue<T extends Record<string, number | string | null>>(
+    query: string,
+    params: unknown[] = []
+  ): T {
+    const stmt = this.db.prepare(query)
+    return stmt.get(...params) as T
+  }
+
+  private getScoreDistribution(): { range: string; count: number }[] {
+    const stmt = this.db.prepare(`
+      SELECT
+        CASE
+          WHEN total_score >= 80 THEN 'Excellent (80-100)'
+          WHEN total_score >= 60 THEN 'Good (60-79)'
+          WHEN total_score >= 40 THEN 'Fair (40-59)'
+          WHEN total_score >= 20 THEN 'Poor (20-39)'
+          ELSE 'Very Poor (0-19)'
+        END as range,
+        COUNT(*) as count
+      FROM esg_evaluations
+      GROUP BY range
+      ORDER BY MIN(total_score) DESC
+    `)
+
+    return stmt.all() as { range: string; count: number }[]
+  }
+
   /**
    * Create a new ESG evaluation
    */
@@ -121,53 +194,14 @@ export class ESGEvaluationModel {
    * Find all ESG evaluations with filters
    */
   findAll(filters: ESGFilters = {}): ESGEvaluation[] {
-    let query = `
-      SELECT e.*, i.symbol, i.company_name 
+    const { clause, params } = this.buildFilterConditions(filters)
+    const query = `
+      SELECT e.*, i.symbol, i.company_name
       FROM esg_evaluations e
       LEFT JOIN instruments i ON e.instrument_id = i.id
-      WHERE 1=1
+      WHERE ${clause}
+      ORDER BY e.evaluation_date DESC
     `
-    const params: any[] = []
-
-    if (filters.instrumentId) {
-      query += ' AND e.instrument_id = ?'
-      params.push(filters.instrumentId)
-    }
-
-    if (filters.minScore !== undefined) {
-      query += ' AND e.total_score >= ?'
-      params.push(filters.minScore)
-    }
-
-    if (filters.maxScore !== undefined) {
-      query += ' AND e.total_score <= ?'
-      params.push(filters.maxScore)
-    }
-
-    if (filters.dateFrom) {
-      query += ' AND e.evaluation_date >= ?'
-      params.push(filters.dateFrom)
-    }
-
-    if (filters.dateTo) {
-      query += ' AND e.evaluation_date <= ?'
-      params.push(filters.dateTo)
-    }
-
-    if (filters.minConfidence !== undefined) {
-      query += ' AND e.confidence_level >= ?'
-      params.push(filters.minConfidence)
-    }
-
-    if (filters.hasControversies !== undefined) {
-      if (filters.hasControversies) {
-        query += ' AND e.controversies IS NOT NULL AND e.controversies != ""'
-      } else {
-        query += ' AND (e.controversies IS NULL OR e.controversies = "")'
-      }
-    }
-
-    query += ' ORDER BY e.evaluation_date DESC'
 
     const stmt = this.db.prepare(query)
     return stmt.all(...params) as ESGEvaluation[]
@@ -245,46 +279,22 @@ export class ESGEvaluationModel {
     recentEvaluations: number
     instrumentsCovered: number
   } {
-    const totalStmt = this.db.prepare('SELECT COUNT(*) as count FROM esg_evaluations')
-    const totalResult = totalStmt.get() as { count: number }
-
-    const avgStmt = this.db.prepare('SELECT AVG(total_score) as avg FROM esg_evaluations')
-    const avgResult = avgStmt.get() as { avg: number }
-
-    const recentStmt = this.db.prepare(`
-      SELECT COUNT(*) as count 
-      FROM esg_evaluations 
+    const totalResult = this.getSingleValue<{ count: number }>('SELECT COUNT(*) as count FROM esg_evaluations')
+    const avgResult = this.getSingleValue<{ avg: number }>('SELECT AVG(total_score) as avg FROM esg_evaluations')
+    const recentResult = this.getSingleValue<{ count: number }>(`
+      SELECT COUNT(*) as count
+      FROM esg_evaluations
       WHERE evaluation_date >= DATE('now', '-30 days')
     `)
-    const recentResult = recentStmt.get() as { count: number }
-
-    const instrumentsStmt = this.db.prepare(`
-      SELECT COUNT(DISTINCT instrument_id) as count 
+    const instrumentsResult = this.getSingleValue<{ count: number }>(`
+      SELECT COUNT(DISTINCT instrument_id) as count
       FROM esg_evaluations
     `)
-    const instrumentsResult = instrumentsStmt.get() as { count: number }
-
-    // Score distribution
-    const distributionStmt = this.db.prepare(`
-      SELECT 
-        CASE 
-          WHEN total_score >= 80 THEN 'Excellent (80-100)'
-          WHEN total_score >= 60 THEN 'Good (60-79)'
-          WHEN total_score >= 40 THEN 'Fair (40-59)'
-          WHEN total_score >= 20 THEN 'Poor (20-39)'
-          ELSE 'Very Poor (0-19)'
-        END as range,
-        COUNT(*) as count
-      FROM esg_evaluations
-      GROUP BY range
-      ORDER BY MIN(total_score) DESC
-    `)
-    const distribution = distributionStmt.all() as { range: string; count: number }[]
 
     return {
       totalEvaluations: totalResult.count,
       averageScore: Math.round((avgResult.avg || 0) * 100) / 100,
-      distributionByScore: distribution,
+      distributionByScore: this.getScoreDistribution(),
       recentEvaluations: recentResult.count,
       instrumentsCovered: instrumentsResult.count
     }

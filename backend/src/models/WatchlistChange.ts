@@ -53,6 +53,70 @@ export class WatchlistChangeModel {
     this.db = database
   }
 
+  private buildFilterClause(filters: WatchlistChangeFilters = {}): { where: string; params: unknown[] } {
+    const conditions: string[] = ['1=1']
+    const params: unknown[] = []
+
+    if (filters.action) {
+      conditions.push('action = ?')
+      params.push(filters.action)
+    }
+
+    if (filters.userApproved !== undefined) {
+      if (filters.userApproved === null) {
+        conditions.push('user_approved IS NULL')
+      } else {
+        conditions.push('user_approved = ?')
+        params.push(filters.userApproved)
+      }
+    }
+
+    if (filters.reviewId) {
+      conditions.push('review_id = ?')
+      params.push(filters.reviewId)
+    }
+
+    if (filters.instrumentId) {
+      conditions.push('instrument_id = ?')
+      params.push(filters.instrumentId)
+    }
+
+    if (filters.dateFrom) {
+      conditions.push('change_date >= ?')
+      params.push(filters.dateFrom)
+    }
+
+    if (filters.dateTo) {
+      conditions.push('change_date <= ?')
+      params.push(filters.dateTo)
+    }
+
+    return {
+      where: conditions.join(' AND '),
+      params
+    }
+  }
+
+  private mergeUserNotes(metadata: string | null, userNotes?: string): string | null {
+    if (!userNotes) {
+      return metadata
+    }
+
+    let parsed: Record<string, unknown> = {}
+    if (metadata) {
+      try {
+        parsed = JSON.parse(metadata) as Record<string, unknown>
+      } catch {
+        parsed = {}
+      }
+    }
+
+    parsed.userNotes = userNotes
+    parsed.lastReviewedAt = new Date().toISOString()
+
+    return JSON.stringify(parsed)
+  }
+
   /**
    * Create a new watchlist change
    */
@@ -102,72 +166,38 @@ export class WatchlistChangeModel {
    * Get all watchlist changes with optional filters
    */
   findAll(filters: WatchlistChangeFilters = {}, limit = 100, offset = 0): WatchlistChangeData[] {
-    let query = `
-      SELECT 
-        id, instrument_id as instrumentId, action, reason, 
+    const { where, params } = this.buildFilterClause(filters)
+    const query = `
+      SELECT
+        id, instrument_id as instrumentId, action, reason,
         claude_confidence as claudeConfidence, user_approved as userApproved,
         change_date as changeDate, review_id as reviewId,
         old_data as oldData, new_data as newData, metadata
-      FROM watchlist_changes 
-      WHERE 1=1
+      FROM watchlist_changes
+      WHERE ${where}
+      ORDER BY change_date DESC
+      LIMIT ? OFFSET ?
     `
 
-    const params: any[] = []
-
-    if (filters.action) {
-      query += ` AND action = ?`
-      params.push(filters.action)
-    }
-
-    if (filters.userApproved !== undefined) {
-      if (filters.userApproved === null) {
-        query += ` AND user_approved IS NULL`
-      } else {
-        query += ` AND user_approved = ?`
-        params.push(filters.userApproved)
-      }
-    }
-
-    if (filters.reviewId) {
-      query += ` AND review_id = ?`
-      params.push(filters.reviewId)
-    }
-
-    if (filters.instrumentId) {
-      query += ` AND instrument_id = ?`
-      params.push(filters.instrumentId)
-    }
-
-    if (filters.dateFrom) {
-      query += ` AND change_date >= ?`
-      params.push(filters.dateFrom)
-    }
-
-    if (filters.dateTo) {
-      query += ` AND change_date <= ?`
-      params.push(filters.dateTo)
-    }
-
-    query += ` ORDER BY change_date DESC LIMIT ? OFFSET ?`
-    params.push(limit, offset)
-
     const stmt = this.db.prepare(query)
-    return stmt.all(...params) as WatchlistChangeData[]
+    return stmt.all(...params, limit, offset) as WatchlistChangeData[]
   }
 
   /**
    * Update user approval status
    */
   updateApprovalStatus(id: number, approved: boolean, userNotes?: string): boolean {
-    let query = `UPDATE watchlist_changes SET user_approved = ?`
-    const params: any[] = [approved ? 1 : 0]
+    const metadataRow = this.db
+      .prepare('SELECT metadata FROM watchlist_changes WHERE id = ?')
+      .get(id) as { metadata: string | null } | undefined
+    const metadataJson = this.mergeUserNotes(metadataRow?.metadata ?? null, userNotes)
 
-    // Add user notes if provided (we'll need to add this column in a future migration)
-    query += ` WHERE id = ?`
-    params.push(id)
-
-    const stmt = this.db.prepare(query)
-    const result = stmt.run(...params)
+    const stmt = this.db.prepare(`
+      UPDATE watchlist_changes
+      SET user_approved = ?, metadata = ?
+      WHERE id = ?
+    `)
+    const result = stmt.run(approved ? 1 : 0, metadataJson, id)
     return result.changes > 0
   }
 
