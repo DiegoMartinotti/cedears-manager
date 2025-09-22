@@ -41,7 +41,7 @@ interface CommissionCalculation {
 }
 
 class SimpleCommissionCalculator {
-  private galiciaConfig: CommissionConfig = {
+  private readonly galiciaConfig: CommissionConfig = {
     name: 'Banco Galicia',
     broker: 'galicia',
     isActive: true,
