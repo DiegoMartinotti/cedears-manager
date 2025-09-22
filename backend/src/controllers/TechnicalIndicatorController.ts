@@ -191,6 +191,7 @@ export class TechnicalIndicatorController {
    * POST /api/v1/technical-indicators/calculate
    * Calcula indicadores técnicos manualmente
    */
+  /* eslint-disable-next-line max-lines-per-function */
   async calculateIndicators(req: Request, res: Response): Promise<void> {
     try {
       const validation = calculateIndicatorsSchema.safeParse(req.body)
@@ -204,6 +205,11 @@ export class TechnicalIndicatorController {
       }
 
       const { symbol, symbols, force } = validation.data
+      logger.info('Manual technical indicator calculation requested', {
+        singleSymbol: symbol?.toUpperCase(),
+        symbolsCount: symbols?.length ?? 0,
+        forceRefresh: force
+      })
       const results = []
 
       if (symbol) {
@@ -258,6 +264,7 @@ export class TechnicalIndicatorController {
    * GET /api/v1/technical-indicators/:symbol/extremes
    * Obtiene mínimos y máximos anuales para un símbolo
    */
+  /* eslint-disable-next-line max-lines-per-function */
   async getExtremes(req: Request, res: Response): Promise<void> {
     try {
       const { symbol } = req.params

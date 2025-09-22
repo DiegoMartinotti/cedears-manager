@@ -104,6 +104,7 @@ export class CustodyFeeJob {
   /**
    * Ejecutar cálculo mensual manualmente
    */
+  /* eslint-disable-next-line max-lines-per-function */
   async executeMonthlyCalculation(targetMonth?: string): Promise<{
     success: boolean
     custodyFee?: number
@@ -236,6 +237,10 @@ export class CustodyFeeJob {
     try {
       // Obtener último día del mes
       const lastDayOfMonth = this.getLastDayOfMonth(month)
+      logger.debug('Calculating portfolio value using month boundary', {
+        month,
+        lastDayOfMonth
+      })
       
       // Usar DashboardService para obtener resumen de cartera
       const portfolioSummary = await this.dashboardService.getPortfolioSummary()
