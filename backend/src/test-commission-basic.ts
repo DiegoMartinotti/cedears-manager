@@ -40,34 +40,37 @@ interface CommissionCalculation {
   }
 }
 
-class SimpleCommissionCalculator {
-  private readonly galiciaConfig: CommissionConfig = {
-    name: 'Banco Galicia',
-    broker: 'galicia',
-    isActive: true,
-    buy: {
-      percentage: 0.005,  // 0.5%
-      minimum: 150,       // $150 ARS
-      iva: 0.21          // 21%
-    },
-    sell: {
-      percentage: 0.005,
-      minimum: 150,
-      iva: 0.21
-    },
-    custody: {
-      exemptAmount: 1000000,    // $1M ARS
-      monthlyPercentage: 0.0025, // 0.25%
-      monthlyMinimum: 500,       // $500 ARS
-      iva: 0.21
-    }
+const GALICIA_COMMISSION_CONFIG: Readonly<CommissionConfig> = {
+  name: 'Banco Galicia',
+  broker: 'galicia',
+  isActive: true,
+  buy: {
+    percentage: 0.005,  // 0.5%
+    minimum: 150,       // $150 ARS
+    iva: 0.21          // 21%
+  },
+  sell: {
+    percentage: 0.005,
+    minimum: 150,
+    iva: 0.21
+  },
+  custody: {
+    exemptAmount: 1000000,    // $1M ARS
+    monthlyPercentage: 0.0025, // 0.25%
+    monthlyMinimum: 500,       // $500 ARS
+    iva: 0.21
   }
+} as const satisfies CommissionConfig
+
+class SimpleCommissionCalculator {
 
   calculateOperationCommission(
     type: 'BUY' | 'SELL',
     totalAmount: number
   ): CommissionCalculation {
-    const operationConfig = type === 'BUY' ? this.galiciaConfig.buy : this.galiciaConfig.sell
+    const operationConfig = type === 'BUY'
+      ? GALICIA_COMMISSION_CONFIG.buy
+      : GALICIA_COMMISSION_CONFIG.sell
 
     // Calcular comisión base
     const percentageCommission = totalAmount * operationConfig.percentage
@@ -106,7 +109,7 @@ class SimpleCommissionCalculator {
     totalMonthlyCost: number
     isExempt: boolean
   } {
-    const custodyConfig = this.galiciaConfig.custody
+    const custodyConfig = GALICIA_COMMISSION_CONFIG.custody
 
     const isExempt = portfolioValueARS <= custodyConfig.exemptAmount
     const applicableAmount = Math.max(0, portfolioValueARS - custodyConfig.exemptAmount)
