@@ -392,7 +392,7 @@ function testRecommendations() {
   }
 
   // Encontrar monto mínimo para 2% de impacto
-  const targetImpact = 2.0 // 2%
+  const targetImpact = 2 // 2%
   const minAmount = (150 * 1.21) / (targetImpact / 100) // Comisión mínima / target
 
   console.log(`\nFor ${targetImpact}% maximum commission impact:`)

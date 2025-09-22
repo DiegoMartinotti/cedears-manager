@@ -1,5 +1,5 @@
-import { join } from 'path'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { join } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createLogger } from '../utils/logger.js'
 
 const logger = createLogger('database')
