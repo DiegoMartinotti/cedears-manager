@@ -104,13 +104,13 @@ export class SectorClassificationModel {
     const updates: string[] = []
     const params: unknown[] = []
 
-    mappings.forEach(({ field, column }) => {
+    for (const { field, column } of mappings) {
       const value = data[field]
       if (value !== undefined) {
         updates.push(`${column} = ?`)
         params.push(value)
       }
-    })
+    }
 
     return {
       clause: updates.join(', '),
