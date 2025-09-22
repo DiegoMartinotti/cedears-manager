@@ -1,6 +1,7 @@
 /**
  * Test básico del CommissionService sin dependencias externas
  */
+/* eslint-disable max-lines-per-function, no-console, no-unused-vars, no-redeclare */
 
 // Definir interfaces locales para evitar problemas de compilación
 interface CommissionConfig {
@@ -39,34 +40,37 @@ interface CommissionCalculation {
   }
 }
 
-class SimpleCommissionCalculator {
-  private galiciaConfig: CommissionConfig = {
-    name: 'Banco Galicia',
-    broker: 'galicia',
-    isActive: true,
-    buy: {
-      percentage: 0.005,  // 0.5%
-      minimum: 150,       // $150 ARS
-      iva: 0.21          // 21%
-    },
-    sell: {
-      percentage: 0.005,
-      minimum: 150,
-      iva: 0.21
-    },
-    custody: {
-      exemptAmount: 1000000,    // $1M ARS
-      monthlyPercentage: 0.0025, // 0.25%
-      monthlyMinimum: 500,       // $500 ARS
-      iva: 0.21
-    }
+const GALICIA_COMMISSION_CONFIG: Readonly<CommissionConfig> = {
+  name: 'Banco Galicia',
+  broker: 'galicia',
+  isActive: true,
+  buy: {
+    percentage: 0.005,  // 0.5%
+    minimum: 150,       // $150 ARS
+    iva: 0.21          // 21%
+  },
+  sell: {
+    percentage: 0.005,
+    minimum: 150,
+    iva: 0.21
+  },
+  custody: {
+    exemptAmount: 1000000,    // $1M ARS
+    monthlyPercentage: 0.0025, // 0.25%
+    monthlyMinimum: 500,       // $500 ARS
+    iva: 0.21
   }
+} as const satisfies CommissionConfig
+
+class SimpleCommissionCalculator {
 
   calculateOperationCommission(
     type: 'BUY' | 'SELL',
     totalAmount: number
   ): CommissionCalculation {
-    const operationConfig = type === 'BUY' ? this.galiciaConfig.buy : this.galiciaConfig.sell
+    const operationConfig = type === 'BUY'
+      ? GALICIA_COMMISSION_CONFIG.buy
+      : GALICIA_COMMISSION_CONFIG.sell
 
     // Calcular comisión base
     const percentageCommission = totalAmount * operationConfig.percentage
@@ -105,7 +109,7 @@ class SimpleCommissionCalculator {
     totalMonthlyCost: number
     isExempt: boolean
   } {
-    const custodyConfig = this.galiciaConfig.custody
+    const custodyConfig = GALICIA_COMMISSION_CONFIG.custody
 
     const isExempt = portfolioValueARS <= custodyConfig.exemptAmount
     const applicableAmount = Math.max(0, portfolioValueARS - custodyConfig.exemptAmount)
@@ -128,6 +132,12 @@ class SimpleCommissionCalculator {
       totalMonthlyCost,
       isExempt
     }
+  }
+}
+
+function assertClose(actual: number, expected: number, message: string) {
+  if (Math.abs(actual - expected) > 0.01) {
+    throw new Error(message)
   }
 }
 
@@ -154,9 +164,26 @@ function testCommissionCalculations() {
   const expectedTotal = expectedBase + expectedIva
   const expectedNet = 10000 + expectedTotal
 
-  if (Math.abs(smallBuy.baseCommission - expectedBase) > 0.01) {
-    throw new Error(`❌ Small BUY base commission error: expected ${expectedBase}, got ${smallBuy.baseCommission}`)
-  }
+  assertClose(
+    smallBuy.baseCommission,
+    expectedBase,
+    `❌ Small BUY base commission error: expected ${expectedBase}, got ${smallBuy.baseCommission}`
+  )
+  assertClose(
+    smallBuy.ivaAmount,
+    expectedIva,
+    `❌ Small BUY IVA error: expected ${expectedIva}, got ${smallBuy.ivaAmount}`
+  )
+  assertClose(
+    smallBuy.totalCommission,
+    expectedTotal,
+    `❌ Small BUY total commission error: expected ${expectedTotal}, got ${smallBuy.totalCommission}`
+  )
+  assertClose(
+    smallBuy.netAmount,
+    expectedNet,
+    `❌ Small BUY net amount error: expected ${expectedNet}, got ${smallBuy.netAmount}`
+  )
   console.log('   ✅ Small BUY calculation correct')
 
   // Test 2: Compra grande (aplica porcentaje)
@@ -175,9 +202,21 @@ function testCommissionCalculations() {
   const expectedLargeIva = expectedLargeBase * 0.21
   const expectedLargeTotal = expectedLargeBase + expectedLargeIva
 
-  if (Math.abs(largeBuy.baseCommission - expectedLargeBase) > 0.01) {
-    throw new Error(`❌ Large BUY base commission error: expected ${expectedLargeBase}, got ${largeBuy.baseCommission}`)
-  }
+  assertClose(
+    largeBuy.baseCommission,
+    expectedLargeBase,
+    `❌ Large BUY base commission error: expected ${expectedLargeBase}, got ${largeBuy.baseCommission}`
+  )
+  assertClose(
+    largeBuy.ivaAmount,
+    expectedLargeIva,
+    `❌ Large BUY IVA error: expected ${expectedLargeIva}, got ${largeBuy.ivaAmount}`
+  )
+  assertClose(
+    largeBuy.totalCommission,
+    expectedLargeTotal,
+    `❌ Large BUY total commission error: expected ${expectedLargeTotal}, got ${largeBuy.totalCommission}`
+  )
   console.log('   ✅ Large BUY calculation correct')
 
   // Test 3: Venta (resta comisión)
@@ -197,13 +236,24 @@ function testCommissionCalculations() {
   if (sell.netAmount > 50000) {
     throw new Error(`❌ SELL should subtract commission, but net amount is greater than original`)
   }
+  assertClose(
+    sell.baseCommission,
+    expectedSellBase,
+    `❌ SELL base commission error: expected ${expectedSellBase}, got ${sell.baseCommission}`
+  )
+  assertClose(
+    sell.netAmount,
+    expectedSellNet,
+    `❌ SELL net amount error: expected ${expectedSellNet}, got ${sell.netAmount}`
+  )
   console.log('   ✅ SELL calculation correct')
 
   // Test 4: Custodia exenta
   console.log('\n4. Custody fee - Exempt portfolio ($800,000):')
-  const exemptCustody = calculator.calculateCustodyFee(800000)
-  
-  console.log(`   Portfolio Value: $${800000.toLocaleString()}`)
+  const exemptPortfolioValue = 800000
+  const exemptCustody = calculator.calculateCustodyFee(exemptPortfolioValue)
+
+  console.log(`   Portfolio Value: $${exemptPortfolioValue.toLocaleString()}`)
   console.log(`   Is Exempt: ${exemptCustody.isExempt}`)
   console.log(`   Applicable Amount: $${exemptCustody.applicableAmount.toLocaleString()}`)
   console.log(`   Monthly Fee: $${exemptCustody.monthlyFee.toFixed(2)}`)
@@ -216,9 +266,10 @@ function testCommissionCalculations() {
 
   // Test 5: Custodia no exenta
   console.log('\n5. Custody fee - Non-exempt portfolio ($2,000,000):')
-  const nonExemptCustody = calculator.calculateCustodyFee(2000000)
-  
-  console.log(`   Portfolio Value: $${2000000.toLocaleString()}`)
+  const nonExemptPortfolioValue = 2000000
+  const nonExemptCustody = calculator.calculateCustodyFee(nonExemptPortfolioValue)
+
+  console.log(`   Portfolio Value: $${nonExemptPortfolioValue.toLocaleString()}`)
   console.log(`   Is Exempt: ${nonExemptCustody.isExempt}`)
   console.log(`   Applicable Amount: $${nonExemptCustody.applicableAmount.toLocaleString()}`)
   console.log(`   Monthly Fee: $${nonExemptCustody.monthlyFee.toFixed(2)}`)
@@ -237,9 +288,26 @@ function testCommissionCalculations() {
     throw new Error(`❌ Applicable amount error: expected ${expectedApplicable}, got ${nonExemptCustody.applicableAmount}`)
   }
 
-  if (Math.abs(nonExemptCustody.monthlyFee - expectedMonthlyFee) > 0.01) {
-    throw new Error(`❌ Monthly fee error: expected ${expectedMonthlyFee}, got ${nonExemptCustody.monthlyFee}`)
-  }
+  assertClose(
+    nonExemptCustody.monthlyFee,
+    expectedMonthlyFee,
+    `❌ Monthly fee error: expected ${expectedMonthlyFee}, got ${nonExemptCustody.monthlyFee}`
+  )
+  assertClose(
+    nonExemptCustody.ivaAmount,
+    expectedIva,
+    `❌ Custody IVA error: expected ${expectedIva}, got ${nonExemptCustody.ivaAmount}`
+  )
+  assertClose(
+    nonExemptCustody.totalMonthlyCost,
+    expectedTotalMonthly,
+    `❌ Total monthly cost error: expected ${expectedTotalMonthly}, got ${nonExemptCustody.totalMonthlyCost}`
+  )
+  assertClose(
+    nonExemptCustody.annualFee,
+    expectedAnnual,
+    `❌ Annual custody fee error: expected ${expectedAnnual}, got ${nonExemptCustody.annualFee}`
+  )
 
   console.log('   ✅ Non-exempt custody calculation correct')
 
@@ -283,9 +351,10 @@ function testBreakEvenCalculations() {
 
   // Escenarios con custodia
   console.log(`\nWith custody fees (2M portfolio):`)
-  const custodyFee = calculator.calculateCustodyFee(2000000)
+  const custodyPortfolioValue = 2000000
+  const custodyFee = calculator.calculateCustodyFee(custodyPortfolioValue)
   const annualCustody = custodyFee.annualFee
-  const custodyImpact = (annualCustody / 2000000) * 100
+  const custodyImpact = (annualCustody / custodyPortfolioValue) * 100
 
   console.log(`   Annual custody: $${annualCustody.toFixed(2)}`)
   console.log(`   Custody impact: ${custodyImpact.toFixed(2)}% annually`)
@@ -323,7 +392,7 @@ function testRecommendations() {
   }
 
   // Encontrar monto mínimo para 2% de impacto
-  const targetImpact = 2.0 // 2%
+  const targetImpact = 2 // 2%
   const minAmount = (150 * 1.21) / (targetImpact / 100) // Comisión mínima / target
 
   console.log(`\nFor ${targetImpact}% maximum commission impact:`)
