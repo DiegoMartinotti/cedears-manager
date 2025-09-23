@@ -17,6 +17,12 @@ export class GoalTrackerService {
     this.db = db;
   }
 
+  private formatDate(date: Date = new Date()): string {
+    const isoString = date.toISOString()
+    const [day] = isoString.split('T')
+    return day ?? isoString
+  }
+
   // 26.1: Crear nuevo objetivo financiero
   async createFinancialGoal(goalData: CreateFinancialGoalDto): Promise<FinancialGoal> {
     const query = `
@@ -173,7 +179,7 @@ export class GoalTrackerService {
 
     const progressData: Omit<GoalProgress, 'id'> = {
       goal_id: goalId,
-      date: new Date().toISOString().split('T')[0],
+      date: this.formatDate(),
       current_capital: currentCapital,
       monthly_income: monthlyIncome,
       actual_return_rate: actualReturnRate,
@@ -195,41 +201,34 @@ export class GoalTrackerService {
   }
 
   private async saveGoalProgress(progressData: Omit<GoalProgress, 'id'>): Promise<GoalProgress> {
-    return new Promise((resolve, reject) => {
-      const query = `
-        INSERT OR REPLACE INTO goal_progress (
-          goal_id, date, current_capital, monthly_income, actual_return_rate,
-          projected_completion_date, progress_percentage, deviation_from_plan, metrics
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `;
-      
-      this.db.run(query, [
-        progressData.goal_id,
-        progressData.date,
-        progressData.current_capital,
-        progressData.monthly_income,
-        progressData.actual_return_rate,
-        progressData.projected_completion_date,
-        progressData.progress_percentage,
-        progressData.deviation_from_plan,
-        JSON.stringify(progressData.metrics)
-      ], function(err) {
-        if (err) {
-          reject(err);
-          return;
-        }
-        
-        // Recuperar el progreso guardado
-        const selectQuery = 'SELECT * FROM goal_progress WHERE goal_id = ? AND date = ?';
-        this.get(selectQuery, [progressData.goal_id, progressData.date], (selectErr, row) => {
-          if (selectErr) {
-            reject(selectErr);
-            return;
-          }
-          resolve(row as GoalProgress);
-        });
-      });
-    });
+    const query = `
+      INSERT OR REPLACE INTO goal_progress (
+        goal_id, date, current_capital, monthly_income, actual_return_rate,
+        projected_completion_date, progress_percentage, deviation_from_plan, metrics
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `
+
+    const stmt = this.db.prepare(query)
+    stmt.run(
+      progressData.goal_id,
+      progressData.date,
+      progressData.current_capital,
+      progressData.monthly_income,
+      progressData.actual_return_rate,
+      progressData.projected_completion_date,
+      progressData.progress_percentage,
+      progressData.deviation_from_plan,
+      JSON.stringify(progressData.metrics)
+    )
+
+    const selectStmt = this.db.prepare('SELECT * FROM goal_progress WHERE goal_id = ? AND date = ? ORDER BY date DESC LIMIT 1')
+    const row = selectStmt.get(progressData.goal_id, progressData.date) as GoalProgress | undefined
+
+    if (!row) {
+      throw new Error('No se pudo registrar el progreso del objetivo')
+    }
+
+    return row
   }
 
   // 26.4: Simulador de aportes extraordinarios
@@ -253,7 +252,7 @@ export class GoalTrackerService {
     
     const simulationData: Omit<GoalSimulation, 'id'> = {
       goal_id: goalId,
-      simulation_date: new Date().toISOString().split('T')[0],
+      simulation_date: this.formatDate(),
       scenario_name: `Aporte Extra $${extraAmount.toLocaleString()} por ${months} meses`,
       extra_contribution: extraAmount,
       new_return_rate: goal.expected_return_rate,
@@ -277,7 +276,7 @@ export class GoalTrackerService {
   private calculateNewCompletionDate(monthsToGoal: number): string {
     const completionDate = new Date();
     completionDate.setMonth(completionDate.getMonth() + monthsToGoal);
-    return completionDate.toISOString().split('T')[0];
+    return this.formatDate(completionDate);
   }
 
   private assessRiskLevel(extraAmount: number, currentCapital: number): string {
@@ -331,92 +330,58 @@ export class GoalTrackerService {
   }
 
   private async getLatestProgress(goalId: number): Promise<GoalProgress | null> {
-    return new Promise((resolve, reject) => {
-      const query = 'SELECT * FROM goal_progress WHERE goal_id = ? ORDER BY date DESC LIMIT 1';
-      this.db.get(query, [goalId], (err, row) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve(row as GoalProgress || null);
-      });
-    });
+    const stmt = this.db.prepare('SELECT * FROM goal_progress WHERE goal_id = ? ORDER BY date DESC LIMIT 1')
+    const row = stmt.get(goalId)
+    return (row as GoalProgress) || null
   }
 
   private async getMilestones(goalId: number): Promise<GoalMilestone[]> {
-    return new Promise((resolve, reject) => {
-      const query = 'SELECT * FROM goal_milestones WHERE goal_id = ? ORDER BY milestone_percentage ASC';
-      this.db.all(query, [goalId], (err, rows) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve(rows as GoalMilestone[]);
-      });
-    });
+    const stmt = this.db.prepare('SELECT * FROM goal_milestones WHERE goal_id = ? ORDER BY milestone_percentage ASC')
+    const rows = stmt.all(goalId)
+    return rows as GoalMilestone[]
   }
 
   private async getRecentSimulations(goalId: number): Promise<GoalSimulation[]> {
-    return new Promise((resolve, reject) => {
-      const query = 'SELECT * FROM goal_simulations WHERE goal_id = ? ORDER BY simulation_date DESC LIMIT 5';
-      this.db.all(query, [goalId], (err, rows) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve(rows as GoalSimulation[]);
-      });
-    });
+    const stmt = this.db.prepare('SELECT * FROM goal_simulations WHERE goal_id = ? ORDER BY simulation_date DESC LIMIT 5')
+    const rows = stmt.all(goalId)
+    return rows as GoalSimulation[]
   }
 
   private async getActiveAlerts(goalId: number): Promise<GoalAlert[]> {
-    return new Promise((resolve, reject) => {
-      const query = 'SELECT * FROM goal_alerts WHERE goal_id = ? AND is_enabled = 1';
-      this.db.all(query, [goalId], (err, rows) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve(rows as GoalAlert[]);
-      });
-    });
+    const stmt = this.db.prepare('SELECT * FROM goal_alerts WHERE goal_id = ? AND is_enabled = 1')
+    const rows = stmt.all(goalId)
+    return rows as GoalAlert[]
   }
 
   private async saveGoalSimulation(simulationData: Omit<GoalSimulation, 'id'>): Promise<GoalSimulation> {
-    return new Promise((resolve, reject) => {
-      const query = `
-        INSERT INTO goal_simulations (
-          goal_id, simulation_date, scenario_name, extra_contribution,
-          new_return_rate, impact_months, new_completion_date, time_saved_months, simulation_details
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `;
-      
-      this.db.run(query, [
-        simulationData.goal_id,
-        simulationData.simulation_date,
-        simulationData.scenario_name,
-        simulationData.extra_contribution,
-        simulationData.new_return_rate,
-        simulationData.impact_months,
-        simulationData.new_completion_date,
-        simulationData.time_saved_months,
-        JSON.stringify(simulationData.simulation_details)
-      ], function(err) {
-        if (err) {
-          reject(err);
-          return;
-        }
-        
-        const selectQuery = 'SELECT * FROM goal_simulations WHERE id = ?';
-        this.get(selectQuery, [this.lastID], (selectErr, row) => {
-          if (selectErr) {
-            reject(selectErr);
-            return;
-          }
-          resolve(row as GoalSimulation);
-        });
-      });
-    });
+    const query = `
+      INSERT INTO goal_simulations (
+        goal_id, simulation_date, scenario_name, extra_contribution,
+        new_return_rate, impact_months, new_completion_date, time_saved_months, simulation_details
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `
+
+    const stmt = this.db.prepare(query)
+    const result = stmt.run(
+      simulationData.goal_id,
+      simulationData.simulation_date,
+      simulationData.scenario_name,
+      simulationData.extra_contribution,
+      simulationData.new_return_rate,
+      simulationData.impact_months,
+      simulationData.new_completion_date,
+      simulationData.time_saved_months,
+      JSON.stringify(simulationData.simulation_details)
+    )
+
+    const selectStmt = this.db.prepare('SELECT * FROM goal_simulations WHERE id = ?')
+    const row = selectStmt.get(result.lastInsertRowid) as GoalSimulation | undefined
+
+    if (!row) {
+      throw new Error('No se pudo guardar la simulación del objetivo')
+    }
+
+    return row
   }
 
   // 26.5: Sistema de alertas
@@ -497,7 +462,8 @@ export class GoalTrackerService {
   }
 
   private updateAlertTriggerCount(alertId: number): void {
-    const query = 'UPDATE goal_alerts SET trigger_count = trigger_count + 1, last_triggered = ? WHERE id = ?';
-    this.db.run(query, [new Date().toISOString(), alertId]);
+    const query = 'UPDATE goal_alerts SET trigger_count = trigger_count + 1, last_triggered = ? WHERE id = ?'
+    const stmt = this.db.prepare(query)
+    stmt.run(new Date().toISOString(), alertId)
   }
 }

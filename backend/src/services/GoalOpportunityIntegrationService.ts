@@ -16,6 +16,8 @@ import { PortfolioService } from './PortfolioService';
 import { NotificationService } from './NotificationService';
 import { FinancialGoal } from '../models/FinancialGoal';
 import { OpportunityData } from '../models/Opportunity';
+import type { OpportunityTechnicalTag } from '../types/opportunity';
+import { SectorBalanceService } from './SectorBalanceService';
 
 export interface OpportunityMatchCriteria {
   goal_id: number;
@@ -46,13 +48,15 @@ export class GoalOpportunityIntegrationService {
   private opportunityService: OpportunityService;
   private portfolioService: PortfolioService;
   private notificationService: NotificationService;
+  private sectorBalanceService: SectorBalanceService;
 
   constructor(db: Database.Database) {
     this.db = db;
     this.goalTrackerService = new GoalTrackerService(db);
     this.opportunityService = new OpportunityService();
-    this.portfolioService = new PortfolioService(db);
+    this.portfolioService = new PortfolioService();
     this.notificationService = new NotificationService(db);
+    this.sectorBalanceService = new SectorBalanceService();
   }
 
   // 28.5: Identificar y calificar oportunidades para un objetivo específico
@@ -252,12 +256,12 @@ export class GoalOpportunityIntegrationService {
   private calculateTimeAlignment(opportunity: OpportunityData, criteria: OpportunityMatchCriteria): number {
     // Estimar horizonte temporal de la oportunidad basado en tipo y volatilidad
     let opportunityTimeHorizon = 12; // Default 12 meses
-    
-    if (opportunity.opportunity_type === 'TECHNICAL_BREAKOUT') {
+
+    if (this.hasTechnicalTag(opportunity, 'TECHNICAL_BREAKOUT')) {
       opportunityTimeHorizon = 3; // 3 meses para breakouts técnicos
-    } else if (opportunity.opportunity_type === 'VALUE_PLAY') {
+    } else if (this.hasTechnicalTag(opportunity, 'VALUE_PLAY')) {
       opportunityTimeHorizon = 18; // 18 meses para value plays
-    } else if (opportunity.opportunity_type === 'DIVIDEND_ARISTOCRAT') {
+    } else if (this.hasTechnicalTag(opportunity, 'DIVIDEND_ARISTOCRAT')) {
       opportunityTimeHorizon = 36; // 3 años para dividend aristocrats
     }
 
@@ -295,9 +299,12 @@ export class GoalOpportunityIntegrationService {
   private async calculateDiversificationBenefit(opportunity: OpportunityData): Promise<number> {
     try {
       // Obtener exposición sectorial actual del portafolio
-      const portfolio = await this.portfolioService.getPortfolioSummary();
-      const currentSectorExposure = portfolio.sectorDistribution || {};
-      
+      const overview = await this.sectorBalanceService.getSectorBalanceOverview();
+      const currentSectorExposure = overview.sectorDistributions.reduce<Record<string, number>>((acc, distribution) => {
+        acc[distribution.sector] = distribution.percentage / 100;
+        return acc;
+      }, {});
+
       const opportunitySector = opportunity.sector || 'Unknown';
       const currentExposure = currentSectorExposure[opportunitySector] || 0;
       
@@ -324,7 +331,7 @@ export class GoalOpportunityIntegrationService {
     criteria: OpportunityMatchCriteria
   ): Promise<number> {
     // Estimar contribución potencial al objetivo
-    const expectedReturn = opportunity.expected_return || goal.expected_return_rate;
+    const expectedReturn = opportunity.expected_return?.upside_percentage ?? goal.expected_return_rate;
     const suggestedInvestment = Math.min(criteria.capital_available * 0.05, 3000); // $3000 máximo
     const timeToGoalMonths = criteria.time_horizon_months;
     
@@ -462,8 +469,8 @@ export class GoalOpportunityIntegrationService {
       instrument_symbol: opportunity.symbol,
       opportunity_type: opportunity.opportunity_type || 'UNKNOWN',
       entry_price: opportunity.current_price || 0,
-      target_price: opportunity.target_price,
-      stop_loss: opportunity.stop_loss,
+      target_price: opportunity.target_price ?? null,
+      stop_loss: opportunity.stop_loss ?? null,
       expected_holding_period_days: this.estimateHoldingPeriod(opportunity),
       confidence_level: opportunity.confidence_score || 70,
       risk_factors: this.identifyRiskFactors(opportunity),
@@ -473,11 +480,11 @@ export class GoalOpportunityIntegrationService {
 
   private calculateTimeSensitivity(opportunity: OpportunityData): number {
     // Determinar urgencia basada en tipo de oportunidad y volatilidad
-    if (opportunity.opportunity_type === 'TECHNICAL_BREAKOUT') {
+    if (this.hasTechnicalTag(opportunity, 'TECHNICAL_BREAKOUT')) {
       return 24; // 24 horas para breakouts técnicos
-    } else if (opportunity.opportunity_type === 'EARNINGS_MOMENTUM') {
+    } else if (this.hasTechnicalTag(opportunity, 'EARNINGS_MOMENTUM')) {
       return 72; // 72 horas antes de earnings
-    } else if (opportunity.opportunity_type === 'OVERSOLD_BOUNCE') {
+    } else if (this.hasTechnicalTag(opportunity, 'OVERSOLD_BOUNCE')) {
       return 48; // 48 horas para rebounds
     } else {
       return 168; // 1 semana para otros tipos
@@ -519,7 +526,7 @@ export class GoalOpportunityIntegrationService {
     goal: FinancialGoal, 
     allocation: number
   ): Promise<number> {
-    const expectedReturn = opportunity.expected_return || goal.expected_return_rate;
+    const expectedReturn = opportunity.expected_return?.upside_percentage ?? goal.expected_return_rate;
     const holdingPeriodMonths = this.estimateHoldingPeriod(opportunity) / 30;
     
     const monthlyReturn = expectedReturn / 100 / 12;
@@ -581,21 +588,21 @@ export class GoalOpportunityIntegrationService {
 
   private identifyCatalysts(opportunity: OpportunityData): string[] {
     const catalysts: string[] = [];
-    
+
     if (opportunity.has_upcoming_earnings) {
       catalysts.push('Próximo reporte de earnings');
     }
-    
-    if (opportunity.technical_signals?.includes('BREAKOUT')) {
+
+    if (this.hasTechnicalTag(opportunity, 'TECHNICAL_BREAKOUT')) {
       catalysts.push('Breakout técnico confirmado');
     }
-    
-    if (opportunity.opportunity_type === 'DIVIDEND_ARISTOCRAT') {
+
+    if (this.hasTechnicalTag(opportunity, 'DIVIDEND_ARISTOCRAT')) {
       catalysts.push('Historial consistente de dividendos');
     }
-    
+
     catalysts.push('Tendencia sectorial positiva');
-    
+
     return catalysts;
   }
 
@@ -695,10 +702,14 @@ export class GoalOpportunityIntegrationService {
   private async getCurrentCapital(): Promise<number> {
     try {
       const summary = await this.portfolioService.getPortfolioSummary();
-      return summary.totalValue || 25000;
+      return summary.market_value || 25000;
     } catch {
       return 25000;
     }
+  }
+
+  private hasTechnicalTag(opportunity: OpportunityData, tag: OpportunityTechnicalTag): boolean {
+    return opportunity.technical_tags?.includes(tag) ?? false;
   }
 
   // Métodos de persistencia
