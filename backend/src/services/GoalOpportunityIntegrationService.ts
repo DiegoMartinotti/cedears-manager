@@ -48,7 +48,7 @@ export class GoalOpportunityIntegrationService {
   private opportunityService: OpportunityService;
   private portfolioService: PortfolioService;
   private notificationService: NotificationService;
-  private sectorBalanceService: SectorBalanceService;
+  private readonly sectorBalanceService: SectorBalanceService;
 
   constructor(db: Database.Database) {
     this.db = db;
