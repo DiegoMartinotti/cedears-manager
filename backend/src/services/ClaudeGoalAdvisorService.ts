@@ -1,9 +1,10 @@
 import Database from 'better-sqlite3';
-import { ClaudeContextualService } from './ClaudeContextualService';
 import { FinancialGoal, GoalProgress } from '../models/FinancialGoal';
 import { GoalProjectionSummary } from './GoalProjectionService';
 import { SensitivityAnalysis, MonteCarloResult } from './SensitivityAnalysisService';
 import { PortfolioService } from './PortfolioService';
+import { claudeAnalysisService } from './claudeAnalysisService.js';
+import { ClaudeServiceError } from './claudeService.js';
 import { createLogger } from '../utils/logger.js'
 
 const logger = createLogger('ClaudeGoalAdvisorService')
@@ -80,13 +81,46 @@ export interface PersonalizedStrategy {
 
 export class ClaudeGoalAdvisorService {
   private db: Database.Database;
-  private claudeService: ClaudeContextualService;
   private portfolioService: PortfolioService;
 
   constructor(db: Database.Database) {
     this.db = db;
-    this.claudeService = new ClaudeContextualService(db);
-    this.portfolioService = new PortfolioService(db);
+    this.portfolioService = new PortfolioService();
+  }
+
+  private async runClaudePrompt(
+    prompt: string,
+    context: Record<string, unknown>
+  ): Promise<string> {
+    const requestContext = JSON.stringify(context);
+
+    try {
+      const result = await claudeAnalysisService.analyze({
+        prompt,
+        context: requestContext
+      });
+
+      if (!result.analysis) {
+        throw new Error('Claude no devolvió un análisis válido');
+      }
+
+      return result.analysis;
+    } catch (error) {
+      if (error instanceof ClaudeServiceError && error.code === 'NOT_INITIALIZED') {
+        await claudeAnalysisService.initialize();
+        const retry = await claudeAnalysisService.analyze({
+          prompt,
+          context: requestContext
+        });
+        if (!retry.analysis) {
+          throw new Error('Claude no devolvió un análisis válido');
+        }
+        return retry.analysis;
+      }
+
+      logger.error('Error ejecutando análisis con Claude', { error });
+      throw error;
+    }
   }
 
   /**
@@ -96,14 +130,13 @@ export class ClaudeGoalAdvisorService {
     context: GoalAnalysisContext
   ): Promise<GoalRecommendation[]> {
     const analysisPrompt = this.buildAnalysisPrompt(context);
-    const claudeResponse = await this.claudeService.analyzeWithContext(
-      analysisPrompt,
-      'goal_optimization',
-      { goal_id: context.goal.id }
-    );
+    const analysis = await this.runClaudePrompt(analysisPrompt, {
+      goal_id: context.goal.id,
+      prompt_type: 'goal_optimization'
+    });
 
     const recommendations = await this.parseClaudeRecommendations(
-      claudeResponse.analysis,
+      analysis,
       context.goal.id
     );
 
@@ -120,17 +153,14 @@ export class ClaudeGoalAdvisorService {
     context: GoalAnalysisContext
   ): Promise<PersonalizedStrategy> {
     const strategyPrompt = this.buildStrategyPrompt(context);
-    
-    const claudeResponse = await this.claudeService.analyzeWithContext(
-      strategyPrompt,
-      'strategy_development',
-      { 
-        goal_id: context.goal.id,
-        risk_profile: context.user_profile.risk_tolerance
-      }
-    );
 
-    return this.parsePersonalizedStrategy(claudeResponse.analysis, context.goal.id);
+    const analysis = await this.runClaudePrompt(strategyPrompt, {
+      goal_id: context.goal.id,
+      prompt_type: 'strategy_development',
+      risk_profile: context.user_profile.risk_tolerance
+    });
+
+    return this.parsePersonalizedStrategy(analysis, context.goal.id);
   }
 
   /**
@@ -151,14 +181,13 @@ export class ClaudeGoalAdvisorService {
     }[];
   }> {
     const deviationPrompt = this.buildDeviationAnalysisPrompt(context);
-    
-    const claudeResponse = await this.claudeService.analyzeWithContext(
-      deviationPrompt,
-      'deviation_analysis',
-      { goal_id: goalId }
-    );
 
-    const analysis = JSON.parse(claudeResponse.analysis);
+    const analysisText = await this.runClaudePrompt(deviationPrompt, {
+      goal_id: goalId,
+      prompt_type: 'deviation_analysis'
+    });
+
+    const analysis = JSON.parse(analysisText);
     
     // Generar acciones correctivas como recomendaciones
     const correctiveActions = await this.generateCorrectiveActions(
@@ -194,14 +223,13 @@ export class ClaudeGoalAdvisorService {
     };
   }> {
     const optimizationPrompt = this.buildContributionOptimizationPrompt(context);
-    
-    const claudeResponse = await this.claudeService.analyzeWithContext(
-      optimizationPrompt,
-      'contribution_optimization',
-      { goal_id: context.goal.id }
-    );
 
-    return JSON.parse(claudeResponse.analysis);
+    const analysis = await this.runClaudePrompt(optimizationPrompt, {
+      goal_id: context.goal.id,
+      prompt_type: 'contribution_optimization'
+    });
+
+    return JSON.parse(analysis);
   }
 
   /**
@@ -231,13 +259,12 @@ export class ClaudeGoalAdvisorService {
   }> {
     const marketPrompt = this.buildMarketOpportunityPrompt(context);
     
-    const claudeResponse = await this.claudeService.analyzeWithContext(
-      marketPrompt,
-      'market_opportunity_analysis',
-      { goal_id: goalId }
-    );
+    const analysis = await this.runClaudePrompt(marketPrompt, {
+      goal_id: goalId,
+      prompt_type: 'market_opportunity_analysis'
+    });
 
-    return JSON.parse(claudeResponse.analysis);
+    return JSON.parse(analysis);
   }
 
   /**
@@ -296,82 +323,84 @@ Responde en formato JSON estructurado.
     `;
   }
 
-  private buildStrategyPrompt(): string {
+  private buildStrategyPrompt(context: GoalAnalysisContext): string {
     return `
-Desarrolla una estrategia personalizada completa para el siguiente objetivo financiero:
+Desarrolla una estrategia personalizada completa para el objetivo "${context.goal.name}".
 
-[CONTEXTO DEL OBJETIVO - Similar al prompt anterior pero enfocado en estrategia]
+Datos clave del objetivo:
+- Tipo: ${context.goal.type}
+- Monto objetivo: $${context.goal.target_amount?.toLocaleString() ?? 'N/A'}
+- Fecha objetivo: ${context.goal.target_date ?? 'Sin definir'}
+- Contribución mensual actual: $${context.goal.monthly_contribution}
+- Retorno esperado: ${context.goal.expected_return_rate}%
+- Progreso actual: ${context.current_progress.progress_percentage.toFixed(1)}%
+- Perfil de riesgo del inversor: ${context.user_profile.risk_tolerance}
 
 Genera una estrategia integral que incluya:
-
-1. **ACCIONES RECOMENDADAS:**
-   - Inmediatas (próximos 30 días)
-   - Corto plazo (próximos 6 meses)
-   - Largo plazo (más de 6 meses)
-
-2. **EVALUACIÓN DE RIESGOS:**
-   - Nivel de riesgo actual vs óptimo
-   - Ajustes necesarios
-   - Estrategias de mitigación
-
-3. **OPORTUNIDADES DE OPTIMIZACIÓN:**
-   - Estrategia de contribuciones
-   - Asignación de activos
-   - Eficiencia fiscal
-   - Optimización de timing
-
-4. **MÉTRICAS DE ÉXITO:**
-   - Indicadores clave
-   - Objetivos de hitos
-   - Frecuencia de revisión
+1. **Acciones recomendadas** (inmediatas, corto plazo y largo plazo).
+2. **Evaluación de riesgos** con acciones de mitigación.
+3. **Oportunidades de optimización** en contribuciones, asignación de activos y eficiencia fiscal.
+4. **Métricas de éxito** con indicadores y frecuencia de revisión.
 
 Responde en formato JSON estructurado y detallado.
     `;
   }
 
-  private buildDeviationAnalysisPrompt(): string {
+  private buildDeviationAnalysisPrompt(context: GoalAnalysisContext): string {
     return `
-Analiza las desviaciones del siguiente objetivo financiero y genera alertas predictivas:
+Analiza las desviaciones del objetivo "${context.goal.name}" y genera alertas predictivas.
 
-[CONTEXTO SIMILAR CON FOCO EN DESVIACIONES]
+Datos de seguimiento:
+- Progreso actual: ${context.current_progress.progress_percentage.toFixed(1)}%
+- Desviación del plan: ${context.current_progress.deviation_from_plan.toFixed(1)}%
+- Capital actual: $${context.current_progress.current_capital.toLocaleString()}
+- Horizonte temporal restante: ${context.goal.target_date ?? 'Sin definir'}
 
 Identifica:
-1. Severidad de la desviación (MINOR/MODERATE/MAJOR/CRITICAL)
-2. Causas raíz de las desviaciones
-3. Acciones correctivas específicas
-4. Alertas predictivas con probabilidades
+1. Severidad de la desviación (MINOR/MODERATE/MAJOR/CRITICAL).
+2. Causas raíz basadas en los datos.
+3. Acciones correctivas específicas.
+4. Alertas predictivas con probabilidades y horizonte temporal.
 
-Responde en formato JSON.
+Responde en formato JSON estructurado.
     `;
   }
 
-  private buildContributionOptimizationPrompt(): string {
+  private buildContributionOptimizationPrompt(context: GoalAnalysisContext): string {
     return `
-Optimiza la estrategia de contribuciones para el siguiente objetivo:
+Optimiza la estrategia de contribuciones para el objetivo "${context.goal.name}".
 
-[CONTEXTO ESPECÍFICO PARA OPTIMIZACIÓN DE CONTRIBUCIONES]
+Información relevante:
+- Contribución mensual actual: $${context.goal.monthly_contribution}
+- Capital actual: $${context.current_progress.current_capital.toLocaleString()}
+- Probabilidad de éxito Monte Carlo: ${context.monte_carlo_results.success_probability.toFixed(1)}%
+- Perfil de riesgo: ${context.user_profile.risk_tolerance}
 
 Genera:
-1. Análisis de la estrategia actual
-2. Estrategia optimizada 
-3. Calendario de contribuciones mensuales
-4. Mejoras esperadas cuantificadas
+1. Análisis de la estrategia actual.
+2. Estrategia optimizada con ajustes sugeridos.
+3. Calendario de contribuciones mensuales recomendado.
+4. Mejoras esperadas cuantificadas en tiempo y crecimiento.
 
 Responde en formato JSON detallado.
     `;
   }
 
-  private buildMarketOpportunityPrompt(): string {
+  private buildMarketOpportunityPrompt(context: GoalAnalysisContext): string {
     return `
-Analiza oportunidades de mercado relevantes para este objetivo financiero:
+Analiza oportunidades de mercado relevantes para el objetivo "${context.goal.name}".
 
-[CONTEXTO CON FOCO EN OPORTUNIDADES DE MERCADO]
+Contexto:
+- Horizonte temporal estimado: ${context.goal.target_date ?? 'Sin definir'}
+- Capital disponible aproximado: $${context.current_progress.current_capital.toLocaleString()}
+- Sensibilidad identificada: ${context.sensitivity_analysis.summary.most_sensitive_parameter}
+- Perfil de riesgo: ${context.user_profile.risk_tolerance}
 
 Identifica:
-1. Oportunidades actuales específicas
-2. Timing estratégico óptimo
-3. Consideraciones de riesgo
-4. Acciones requeridas
+1. Oportunidades actuales específicas con impacto potencial en el objetivo.
+2. Timing estratégico óptimo (ventanas de entrada/salida).
+3. Consideraciones de riesgo y mitigaciones sugeridas.
+4. Acciones requeridas priorizadas.
 
 Responde en formato JSON estructurado.
     `;
