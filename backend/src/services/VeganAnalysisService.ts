@@ -265,11 +265,15 @@ export class VeganAnalysisService {
   /**
    * Analyze vegan-related news using Claude
    */
-  private async getVeganNewsAnalysis(): Promise<any> {
+  private async getVeganNewsAnalysis(symbol: string, companyName: string): Promise<any> {
+    void symbol
+    void companyName
     return null
   }
 
-  private async detectVeganViolations(): Promise<VeganViolation[]> {
+  private async detectVeganViolations(symbol: string, companyName: string): Promise<VeganViolation[]> {
+    void symbol
+    void companyName
     return []
   }
 

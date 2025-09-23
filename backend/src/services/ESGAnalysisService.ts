@@ -2,10 +2,10 @@ import axios from 'axios'
 import * as cheerio from 'cheerio'
 import ESGEvaluationModel, { ESGEvaluation, ESGScoreBreakdown } from '../models/ESGEvaluation.js'
 import { Instrument as InstrumentModel } from '../models/Instrument.js'
-import { ClaudeContextualService } from './ClaudeContextualService.js'
-import { NewsAnalysisService } from './NewsAnalysisService.js'
+import { ClaudeContextualService, type ComprehensiveAnalysisResult } from './ClaudeContextualService.js'
+import { NewsAnalysisService, type NewsAnalysisResult } from './NewsAnalysisService.js'
 import { createLogger } from '../utils/logger.js'
-import { RateLimiter } from './rateLimitService.js'
+import { RateLimitService } from './rateLimitService.js'
 
 const logger = createLogger('ESGAnalysisService')
 
@@ -24,6 +24,7 @@ export interface ESGAnalysisResult {
   governanceScore: number
   totalScore: number
   confidenceLevel: number
+  analysisSummary: string
   dataSources: string[]
   keyMetrics: {
     carbonEmissions?: number
@@ -51,7 +52,7 @@ export class ESGAnalysisService {
   private instrumentModel = new InstrumentModel()
   private claudeService = new ClaudeContextualService()
   private newsService = new NewsAnalysisService()
-  private rateLimiter = new RateLimiter()
+  private rateLimiter = new RateLimitService()
 
   private readonly DATA_SOURCES: ESGDataSource[] = [
     { name: 'Yahoo Finance ESG', type: 'API', url: 'https://query1.finance.yahoo.com/v1/finance/esgChart', reliability: 85 },
@@ -69,7 +70,7 @@ export class ESGAnalysisService {
     logger.info(`Starting ESG analysis for instrument ${instrumentId}`)
 
     try {
-      const instrument = this.instrumentModel.findById(instrumentId)
+      const instrument = await this.instrumentModel.findById(instrumentId)
       if (!instrument) {
         throw new Error(`Instrument ${instrumentId} not found`)
       }
@@ -115,30 +116,30 @@ export class ESGAnalysisService {
    */
   private async getYahooFinanceESGData(symbol: string): Promise<any> {
     try {
-      await this.rateLimiter.waitForToken('yahoo-finance', 1000) // 1 request per second
+      return await this.withRateLimit(`yahoo-${symbol}`, async () => {
+        const response = await axios.get(`https://query1.finance.yahoo.com/v1/finance/esgChart`, {
+          params: { symbol },
+          timeout: 10000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        })
 
-      const response = await axios.get(`https://query1.finance.yahoo.com/v1/finance/esgChart`, {
-        params: { symbol: symbol },
-        timeout: 10000,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        if (response.data?.esgChart?.result?.[0]) {
+          const esgData = response.data.esgChart.result[0]
+          return {
+            totalScore: esgData.totalEsg?.raw || 0,
+            environmentalScore: esgData.environmentScore?.raw || 0,
+            socialScore: esgData.socialScore?.raw || 0,
+            governanceScore: esgData.governanceScore?.raw || 0,
+            controversyLevel: esgData.adult || 0,
+            percentile: esgData.percentile?.raw || 0,
+            source: 'Yahoo Finance'
+          }
         }
+
+        return null
       })
-
-      if (response.data?.esgChart?.result?.[0]) {
-        const esgData = response.data.esgChart.result[0]
-        return {
-          totalScore: esgData.totalEsg?.raw || 0,
-          environmentalScore: esgData.environmentScore?.raw || 0,
-          socialScore: esgData.socialScore?.raw || 0,
-          governanceScore: esgData.governanceScore?.raw || 0,
-          controversyLevel: esgData.adult || 0,
-          percentile: esgData.percentile?.raw || 0,
-          source: 'Yahoo Finance'
-        }
-      }
-
-      return null
     } catch (error) {
       logger.warn(`Failed to get Yahoo Finance ESG data for ${symbol}:`, error)
       return null
@@ -150,31 +151,30 @@ export class ESGAnalysisService {
    */
   private async getSustainalyticsData(symbol: string, companyName: string): Promise<any> {
     try {
-      await this.rateLimiter.waitForToken('sustainalytics', 2000) // 1 request per 2 seconds
+      return await this.withRateLimit(`sustainalytics-${symbol}`, async () => {
+        // This is a simplified implementation - in production you'd need proper scraping
+        const searchUrl = `https://www.sustainalytics.com/esg-rating/${companyName.toLowerCase().replace(/\s+/g, '-')}`
 
-      // This is a simplified implementation - in production you'd need proper scraping
-      const searchUrl = `https://www.sustainalytics.com/esg-rating/${companyName.toLowerCase().replace(/\s+/g, '-')}`
-      
-      const response = await axios.get(searchUrl, {
-        timeout: 15000,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        const response = await axios.get(searchUrl, {
+          timeout: 15000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        })
+
+        const $ = cheerio.load(response.data)
+
+        // Extract ESG score if available
+        const score = $('.esg-score').text().trim()
+        const risk = $('.esg-risk').text().trim()
+
+        return {
+          esgScore: score ? parseFloat(score) : null,
+          riskLevel: risk,
+          source: 'Sustainalytics',
+          confidence: 85
         }
       })
-
-      const $ = cheerio.load(response.data)
-      
-      // Extract ESG score if available
-      const score = $('.esg-score').text().trim()
-      const risk = $('.esg-risk').text().trim()
-      
-      return {
-        esgScore: score ? parseFloat(score) : null,
-        riskLevel: risk,
-        source: 'Sustainalytics',
-        confidence: 85
-      }
-
     } catch (error) {
       logger.warn(`Failed to get Sustainalytics data for ${symbol}:`, error)
       return null
@@ -184,24 +184,35 @@ export class ESGAnalysisService {
   /**
    * Analyze ESG-related news using Claude
    */
+  /* eslint-disable-next-line max-lines-per-function */
   private async getESGNewsAnalysis(symbol: string, companyName: string): Promise<any> {
     try {
-      const newsArticles = await this.newsService.getNews(symbol, {
-        keywords: ['ESG', 'sustainability', 'environment', 'governance', 'diversity'],
-        limit: 10
+      const newsResults = await this.newsService.searchNews(symbol, {
+        symbol,
+        pageSize: 30
+      }, {
+        useCache: true,
+        cacheTTLMinutes: 10,
+        analyzeWithClaude: true
       })
 
-      if (!newsArticles || newsArticles.length === 0) {
+      const keywords = ['esg', 'sustainability', 'environment', 'governance', 'diversity']
+      const newsArticles = newsResults.filter((result: NewsAnalysisResult) => {
+        const text = `${result.article.title} ${result.article.description ?? ''}`.toLowerCase()
+        return keywords.some(keyword => text.includes(keyword))
+      }).slice(0, 10)
+
+      if (newsArticles.length === 0) {
         return null
       }
 
       const prompt = `
         Analyze the following news articles about ${companyName} (${symbol}) from an ESG perspective.
         Rate the company on Environmental (E), Social (S), and Governance (G) factors on a scale of 0-100.
-        
+
         Articles:
-        ${newsArticles.map((article, i) => `${i + 1}. ${article.title}: ${article.description}`).join('\n')}
-        
+        ${newsArticles.map((result: NewsAnalysisResult, i: number) => `${i + 1}. ${result.article.title}: ${result.article.description}`).join('\n')}
+
         Provide your analysis in this JSON format:
         {
           "environmentalScore": number,
@@ -217,11 +228,18 @@ export class ESGAnalysisService {
 
       const analysis = await this.claudeService.analyzeSymbol({
         symbol,
-        analysisType: 'ESG_NEWS',
-        customPrompt: prompt
+        analysisType: 'CUSTOM',
+        options: {
+          includeNews: false,
+          includeSentiment: false,
+          includeEarnings: false,
+          includeTrends: false,
+          customPrompt: prompt,
+          useCache: false
+        }
       })
 
-      return this.parseClaudeESGResponse(analysis.analysis)
+      return this.parseClaudeESGResponse(this.extractClaudeSummary(analysis))
 
     } catch (error) {
       logger.warn(`Failed to get ESG news analysis for ${symbol}:`, error)
@@ -229,33 +247,41 @@ export class ESGAnalysisService {
     }
   }
 
-    /**
-     * Detect ESG controversies
-     */
-    // eslint-disable-next-line max-lines-per-function
-    private async detectControversies(symbol: string, companyName: string): Promise<ESGControversy[]> {
+  /**
+   * Detect ESG controversies
+   */
+  // eslint-disable-next-line max-lines-per-function
+  private async detectControversies(symbol: string, companyName: string): Promise<ESGControversy[]> {
     try {
       const controversyKeywords = [
         'lawsuit', 'fine', 'penalty', 'violation', 'scandal', 'controversy',
         'environmental damage', 'labor issues', 'discrimination', 'corruption'
       ]
 
-      const newsArticles = await this.newsService.getNews(symbol, {
-        keywords: controversyKeywords,
-        limit: 20,
-        sentiment: 'negative'
+      const newsResults = await this.newsService.searchNews(symbol, {
+        symbol,
+        pageSize: 40
+      }, {
+        useCache: true,
+        cacheTTLMinutes: 10,
+        analyzeWithClaude: true
       })
 
-      if (!newsArticles || newsArticles.length === 0) {
+      const newsArticles = newsResults.filter((result: NewsAnalysisResult) => {
+        const text = `${result.article.title} ${result.article.description ?? ''}`.toLowerCase()
+        return controversyKeywords.some(keyword => text.includes(keyword))
+      }).slice(0, 20)
+
+      if (newsArticles.length === 0) {
         return []
       }
 
       const prompt = `
         Analyze the following news articles about ${companyName} (${symbol}) to identify ESG controversies.
-        
+
         Articles:
-        ${newsArticles.map((article, i) => `${i + 1}. ${article.title}: ${article.description} (${article.publishedAt})`).join('\n')}
-        
+        ${newsArticles.map((result: NewsAnalysisResult, i: number) => `${i + 1}. ${result.article.title}: ${result.article.description} (${result.article.publishedAt})`).join('\n')}
+
         Return a JSON array of controversies with this format:
         [
           {
@@ -273,11 +299,18 @@ export class ESGAnalysisService {
 
       const analysis = await this.claudeService.analyzeSymbol({
         symbol,
-        analysisType: 'CONTROVERSY_DETECTION',
-        customPrompt: prompt
+        analysisType: 'CUSTOM',
+        options: {
+          includeNews: false,
+          includeSentiment: false,
+          includeEarnings: false,
+          includeTrends: false,
+          customPrompt: prompt,
+          useCache: false
+        }
       })
 
-      return this.parseControversiesResponse(analysis.analysis)
+      return this.parseControversiesResponse(this.extractClaudeSummary(analysis))
 
     } catch (error) {
       logger.warn(`Failed to detect controversies for ${symbol}:`, error)
@@ -285,11 +318,11 @@ export class ESGAnalysisService {
     }
   }
 
-    /**
-     * Combine data from multiple sources and calculate final scores
-     */
-    // eslint-disable-next-line max-lines-per-function
-    private async combineESGData(data: {
+  /**
+   * Combine data from multiple sources and calculate final scores
+   */
+  // eslint-disable-next-line max-lines-per-function
+  private async combineESGData(data: {
     instrumentId: number
     symbol: string
     companyName: string
@@ -369,6 +402,11 @@ export class ESGAnalysisService {
       dataSources
     })
 
+    const [analysisDatePart] = new Date().toISOString().split('T')
+    const analysisDate = analysisDatePart ?? new Date().toISOString()
+    const [nextReviewDatePart] = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')
+    const nextReviewDate = nextReviewDatePart ?? new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()
+
     return {
       instrumentId: data.instrumentId,
       symbol: data.symbol,
@@ -381,14 +419,15 @@ export class ESGAnalysisService {
       dataSources,
       keyMetrics,
       controversies: data.controversies.map(c => `${c.title} (${c.severity})`),
-      analysisDate: new Date().toISOString().split('T')[0],
-      nextReviewDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 90 days
+      analysisDate,
+      nextReviewDate
     }
   }
 
   /**
    * Get Claude insights for final ESG analysis
    */
+  /* eslint-disable-next-line max-lines-per-function */
   private async getClaudeESGInsights(data: {
     symbol: string
     companyName: string
@@ -421,11 +460,19 @@ export class ESGAnalysisService {
 
       const analysis = await this.claudeService.analyzeSymbol({
         symbol: data.symbol,
-        analysisType: 'ESG_SUMMARY',
-        customPrompt: prompt
+        analysisType: 'CUSTOM',
+        options: {
+          includeNews: false,
+          includeSentiment: false,
+          includeEarnings: false,
+          includeTrends: false,
+          customPrompt: prompt,
+          useCache: false
+        }
       })
 
-      return analysis.analysis || 'Analysis not available'
+      const summary = this.extractClaudeSummary(analysis)
+      return summary || 'Analysis not available'
 
     } catch (error) {
       logger.warn(`Failed to get Claude ESG insights for ${data.symbol}:`, error)
@@ -448,7 +495,7 @@ export class ESGAnalysisService {
         data_sources: result.dataSources.join(', '),
         confidence_level: result.confidenceLevel,
         next_review_date: result.nextReviewDate,
-        analysis_summary: `ESG analysis completed using ${result.dataSources.length} data sources`,
+        analysis_summary: result.analysisSummary || `ESG analysis completed using ${result.dataSources.length} data sources`,
         key_metrics: JSON.stringify(result.keyMetrics),
         controversies: result.controversies.join('; ')
       }
@@ -526,6 +573,27 @@ export class ESGAnalysisService {
     governanceScore: number
   ): ESGScoreBreakdown {
     return this.esgModel.calculateScoreBreakdown(environmentalScore, socialScore, governanceScore)
+  }
+
+  private extractClaudeSummary(analysis: ComprehensiveAnalysisResult): string {
+    const summaryParts: string[] = []
+    if (analysis.claudeInsights?.summary) {
+      summaryParts.push(analysis.claudeInsights.summary)
+    }
+
+    if (analysis.claudeInsights?.keyPoints?.length) {
+      summaryParts.push(`Key points: ${analysis.claudeInsights.keyPoints.join('; ')}`)
+    }
+
+    if (analysis.claudeInsights?.strategicRecommendations?.length) {
+      summaryParts.push(`Recommendations: ${analysis.claudeInsights.strategicRecommendations.join('; ')}`)
+    }
+
+    return summaryParts.join('\n')
+  }
+
+  private async withRateLimit<T>(requestId: string, fn: () => Promise<T>): Promise<T> {
+    return this.rateLimiter.executeWithLimit(fn, requestId)
   }
 }
 
