@@ -52,7 +52,7 @@ export class ESGAnalysisService {
   private instrumentModel = new InstrumentModel()
   private claudeService = new ClaudeContextualService()
   private newsService = new NewsAnalysisService()
-  private rateLimiter = new RateLimitService()
+  private readonly rateLimiter = new RateLimitService()
 
   private readonly DATA_SOURCES: ESGDataSource[] = [
     { name: 'Yahoo Finance ESG', type: 'API', url: 'https://query1.finance.yahoo.com/v1/finance/esgChart', reliability: 85 },
