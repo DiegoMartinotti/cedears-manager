@@ -62,6 +62,11 @@ interface SourceContribution {
   contributions: ScoreVector
 }
 
+// eslint-disable-next-line no-unused-vars
+type NewsPromptBuilder = (articles: NewsAnalysisResult[]) => string
+// eslint-disable-next-line no-unused-vars
+type NewsResponseParser<T> = (summary: string) => T
+
 export class ESGAnalysisService {
   private esgModel = new ESGEvaluationModel()
   private instrumentModel = new InstrumentModel()
@@ -201,28 +206,21 @@ export class ESGAnalysisService {
    */
   /* eslint-disable-next-line max-lines-per-function */
   private async getESGNewsAnalysis(symbol: string, companyName: string): Promise<any> {
-    try {
-      const keywords = ['esg', 'sustainability', 'environment', 'governance', 'diversity']
-      const newsArticles = await this.fetchFilteredNews(
-        symbol,
-        30,
-        10,
-        (result: NewsAnalysisResult) => {
-          const text = `${result.article.title} ${result.article.description ?? ''}`.toLowerCase()
-          return keywords.some(keyword => text.includes(keyword))
-        }
-      )
-
-      if (newsArticles.length === 0) {
-        return null
-      }
-
-      const prompt = `
+    return this.analyzeNewsWithClaude(
+      symbol,
+      {
+        pageSize: 30,
+        limit: 10,
+        fallback: null,
+        logScope: 'get ESG news analysis',
+        filter: this.createKeywordFilter(['esg', 'sustainability', 'environment', 'governance', 'diversity'])
+      },
+      articles => `
         Analyze the following news articles about ${companyName} (${symbol}) from an ESG perspective.
         Rate the company on Environmental (E), Social (S), and Governance (G) factors on a scale of 0-100.
 
         Articles:
-        ${newsArticles.map((result: NewsAnalysisResult, i: number) => `${i + 1}. ${result.article.title}: ${result.article.description}`).join('\n')}
+        ${articles.map((result: NewsAnalysisResult, i: number) => `${i + 1}. ${result.article.title}: ${result.article.description}`).join('\n')}
 
         Provide your analysis in this JSON format:
         {
@@ -235,16 +233,9 @@ export class ESGAnalysisService {
           "confidence": number (0-100),
           "reasoning": "explanation"
         }
-      `
-
-      const analysis = await this.requestClaudeAnalysis(symbol, prompt)
-
-      return this.parseClaudeESGResponse(this.extractClaudeSummary(analysis))
-
-    } catch (error) {
-      logger.warn(`Failed to get ESG news analysis for ${symbol}:`, error)
-      return null
-    }
+      `,
+      summary => this.parseClaudeESGResponse(summary)
+    )
   }
 
   /**
@@ -252,31 +243,31 @@ export class ESGAnalysisService {
    */
   // eslint-disable-next-line max-lines-per-function
   private async detectControversies(symbol: string, companyName: string): Promise<ESGControversy[]> {
-    try {
-      const controversyKeywords = [
-        'lawsuit', 'fine', 'penalty', 'violation', 'scandal', 'controversy',
-        'environmental damage', 'labor issues', 'discrimination', 'corruption'
-      ]
-
-      const newsArticles = await this.fetchFilteredNews(
-        symbol,
-        40,
-        20,
-        (result: NewsAnalysisResult) => {
-          const text = `${result.article.title} ${result.article.description ?? ''}`.toLowerCase()
-          return controversyKeywords.some(keyword => text.includes(keyword))
-        }
-      )
-
-      if (newsArticles.length === 0) {
-        return []
-      }
-
-      const prompt = `
+    return this.analyzeNewsWithClaude(
+      symbol,
+      {
+        pageSize: 40,
+        limit: 20,
+        fallback: [] as ESGControversy[],
+        logScope: 'detect controversies',
+        filter: this.createKeywordFilter([
+          'lawsuit',
+          'fine',
+          'penalty',
+          'violation',
+          'scandal',
+          'controversy',
+          'environmental damage',
+          'labor issues',
+          'discrimination',
+          'corruption'
+        ])
+      },
+      articles => `
         Analyze the following news articles about ${companyName} (${symbol}) to identify ESG controversies.
 
         Articles:
-        ${newsArticles.map((result: NewsAnalysisResult, i: number) => `${i + 1}. ${result.article.title}: ${result.article.description} (${result.article.publishedAt})`).join('\n')}
+        ${articles.map((result: NewsAnalysisResult, i: number) => `${i + 1}. ${result.article.title}: ${result.article.description} (${result.article.publishedAt})`).join('\n')}
 
         Return a JSON array of controversies with this format:
         [
@@ -289,18 +280,11 @@ export class ESGAnalysisService {
             "impact": number (0-100)
           }
         ]
-        
+
         Only include significant ESG-related controversies. Ignore minor news.
-      `
-
-      const analysis = await this.requestClaudeAnalysis(symbol, prompt)
-
-      return this.parseControversiesResponse(this.extractClaudeSummary(analysis))
-
-    } catch (error) {
-      logger.warn(`Failed to detect controversies for ${symbol}:`, error)
-      return []
-    }
+      `,
+      summary => this.parseControversiesResponse(summary)
+    )
   }
 
   /**
@@ -497,20 +481,13 @@ export class ESGAnalysisService {
   }
 
   private extractClaudeSummary(analysis: ComprehensiveAnalysisResult): string {
-    const summaryParts: string[] = []
-    if (analysis.claudeInsights?.summary) {
-      summaryParts.push(analysis.claudeInsights.summary)
-    }
+    const { summary, keyPoints, strategicRecommendations } = analysis.claudeInsights ?? {}
 
-    if (analysis.claudeInsights?.keyPoints?.length) {
-      summaryParts.push(`Key points: ${analysis.claudeInsights.keyPoints.join('; ')}`)
-    }
-
-    if (analysis.claudeInsights?.strategicRecommendations?.length) {
-      summaryParts.push(`Recommendations: ${analysis.claudeInsights.strategicRecommendations.join('; ')}`)
-    }
-
-    return summaryParts.join('\n')
+    return [
+      summary,
+      keyPoints?.length && `Key points: ${keyPoints.join('; ')}`,
+      strategicRecommendations?.length && `Recommendations: ${strategicRecommendations.join('; ')}`
+    ].filter((part): part is string => Boolean(part)).join('\n')
   }
 
   private async withRateLimit<T>(requestId: string, fn: () => Promise<T>): Promise<T> {
@@ -540,24 +517,11 @@ export class ESGAnalysisService {
     sustainalyticsData: any
     newsData: any
   }): SourceContribution[] {
-    const sources: SourceContribution[] = []
-
-    const yahooSource = this.createYahooSource(data.yahooData)
-    if (yahooSource) {
-      sources.push(yahooSource)
-    }
-
-    const sustainalyticsSource = this.createSustainalyticsSource(data.sustainalyticsData)
-    if (sustainalyticsSource) {
-      sources.push(sustainalyticsSource)
-    }
-
-    const newsSource = this.createNewsSource(data.newsData)
-    if (newsSource) {
-      sources.push(newsSource)
-    }
-
-    return sources
+    return [
+      this.createYahooSource(data.yahooData),
+      this.createSustainalyticsSource(data.sustainalyticsData),
+      this.createNewsSource(data.newsData)
+    ].filter((source): source is SourceContribution => Boolean(source))
   }
 
   private createYahooSource(yahooData: any): SourceContribution | null {
@@ -669,19 +633,58 @@ export class ESGAnalysisService {
   }
 
   private calculateControversyPenalty(controversies: ESGControversy[]): number {
-    return controversies.reduce((penalty, controversy) => {
-      let severityFactor = 0.05
+    const severityWeights: Record<ESGControversy['severity'], number> = {
+      LOW: 0.05,
+      MEDIUM: 0.1,
+      HIGH: 0.3,
+      CRITICAL: 0.5
+    }
 
-      if (controversy.severity === 'CRITICAL') {
-        severityFactor = 0.5
-      } else if (controversy.severity === 'HIGH') {
-        severityFactor = 0.3
-      } else if (controversy.severity === 'MEDIUM') {
-        severityFactor = 0.1
+    return controversies.reduce((penalty, controversy) => (
+      penalty + controversy.impact * severityWeights[controversy.severity]
+    ), 0)
+  }
+
+  private async analyzeNewsWithClaude<T>(
+    symbol: string,
+    {
+      pageSize,
+      limit,
+      filter,
+      fallback,
+      logScope
+    }: {
+      pageSize: number
+      limit: number
+      filter: NewsFilter
+      fallback: T
+      logScope: string
+    },
+    promptBuilder: NewsPromptBuilder,
+    parser: NewsResponseParser<T>
+  ): Promise<T> {
+    try {
+      const articles = await this.fetchFilteredNews(symbol, pageSize, limit, filter)
+      if (articles.length === 0) {
+        return fallback
       }
 
-      return penalty + controversy.impact * severityFactor
-    }, 0)
+      const prompt = promptBuilder(articles)
+      const analysis = await this.requestClaudeAnalysis(symbol, prompt)
+      return parser(this.extractClaudeSummary(analysis))
+    } catch (error) {
+      logger.warn(`Failed to ${logScope} for ${symbol}:`, error)
+      return fallback
+    }
+  }
+
+  private createKeywordFilter(keywords: string[]): NewsFilter {
+    const loweredKeywords = keywords.map(keyword => keyword.toLowerCase())
+    return (result: NewsAnalysisResult) => {
+      const { title, description } = result.article
+      const text = `${title} ${description ?? ''}`.toLowerCase()
+      return loweredKeywords.some(keyword => text.includes(keyword))
+    }
   }
 
   private requestClaudeAnalysis(symbol: string, prompt: string): Promise<ComprehensiveAnalysisResult> {
