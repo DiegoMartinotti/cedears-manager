@@ -50,6 +50,18 @@ export interface ESGControversy {
 // eslint-disable-next-line no-unused-vars
 type NewsFilter = (news: NewsAnalysisResult) => boolean
 
+type ScoreVector = {
+  environmental: number
+  social: number
+  governance: number
+}
+
+interface SourceContribution {
+  label: string
+  confidence: number
+  contributions: ScoreVector
+}
+
 export class ESGAnalysisService {
   private esgModel = new ESGEvaluationModel()
   private instrumentModel = new InstrumentModel()
@@ -304,85 +316,20 @@ export class ESGAnalysisService {
     newsData: any
     controversies: ESGControversy[]
   }): Promise<ESGAnalysisResult> {
-    
-    const scores = {
-      environmental: 0,
-      social: 0,
-      governance: 0
-    }
 
-    const dataSources: string[] = []
-    const keyMetrics: any = {}
-
-    const sources: Array<{
-      label: string
-      confidence: number
-      contributions: { environmental: number; social: number; governance: number }
-    }> = []
-
-    if (data.yahooData) {
-      sources.push({
-        label: 'Yahoo Finance',
-        confidence: 85,
-        contributions: {
-          environmental: data.yahooData.environmentalScore * 0.4,
-          social: data.yahooData.socialScore * 0.4,
-          governance: data.yahooData.governanceScore * 0.4
-        }
-      })
-    }
-
-    if (data.sustainalyticsData?.esgScore) {
-      const sustainScore = 100 - data.sustainalyticsData.esgScore
-      sources.push({
-        label: 'Sustainalytics',
-        confidence: data.sustainalyticsData.confidence || 90,
-        contributions: {
-          environmental: sustainScore * 0.3,
-          social: sustainScore * 0.3,
-          governance: sustainScore * 0.3
-        }
-      })
-    }
-
-    if (data.newsData) {
-      sources.push({
-        label: 'News Analysis',
-        confidence: data.newsData.confidence || 70,
-        contributions: {
-          environmental: data.newsData.environmentalScore * 0.2,
-          social: data.newsData.socialScore * 0.2,
-          governance: data.newsData.governanceScore * 0.2
-        }
-      })
-    }
-
-    let totalConfidence = 0
-    for (const source of sources) {
-      scores.environmental += source.contributions.environmental
-      scores.social += source.contributions.social
-      scores.governance += source.contributions.governance
-      dataSources.push(source.label)
-      totalConfidence += source.confidence
-    }
-
-    const sourceCount = sources.length
+    const sources = this.buildSourceContributions(data)
+    const { scores: aggregatedScores, dataSources, totalConfidence } = this.aggregateSourceScores(sources)
     const controversyPenalty = this.calculateControversyPenalty(data.controversies)
-
-    if (sourceCount > 0) {
-      scores.environmental = Math.max(0, scores.environmental - controversyPenalty)
-      scores.social = Math.max(0, scores.social - controversyPenalty)
-      scores.governance = Math.max(0, scores.governance - controversyPenalty)
-    }
-
-    const totalScore = (scores.environmental * 0.4 + scores.social * 0.3 + scores.governance * 0.3)
-    const confidenceLevel = sourceCount > 0 ? totalConfidence / sourceCount : 0
+    const adjustedScores = this.applyControversyPenalty(aggregatedScores, controversyPenalty, sources.length > 0)
+    const totalScore = this.calculateTotalScore(adjustedScores)
+    const confidenceLevel = this.calculateConfidenceLevel(totalConfidence, sources.length)
+    const keyMetrics: Record<string, number> = {}
 
     // Use Claude for final analysis and insights
     const claudeAnalysis = await this.getClaudeESGInsights({
       symbol: data.symbol,
       companyName: data.companyName,
-      scores,
+      scores: adjustedScores,
       controversies: data.controversies,
       dataSources
     })
@@ -395,9 +342,9 @@ export class ESGAnalysisService {
     return {
       instrumentId: data.instrumentId,
       symbol: data.symbol,
-      environmentalScore: Math.round(scores.environmental * 100) / 100,
-      socialScore: Math.round(scores.social * 100) / 100,
-      governanceScore: Math.round(scores.governance * 100) / 100,
+      environmentalScore: Math.round(adjustedScores.environmental * 100) / 100,
+      socialScore: Math.round(adjustedScores.social * 100) / 100,
+      governanceScore: Math.round(adjustedScores.governance * 100) / 100,
       totalScore: Math.round(totalScore * 100) / 100,
       confidenceLevel: Math.round(confidenceLevel * 100) / 100,
       analysisSummary: claudeAnalysis,
@@ -586,6 +533,139 @@ export class ESGAnalysisService {
     })
 
     return newsResults.filter(article => predicate(article)).slice(0, limit)
+  }
+
+  private buildSourceContributions(data: {
+    yahooData: any
+    sustainalyticsData: any
+    newsData: any
+  }): SourceContribution[] {
+    const sources: SourceContribution[] = []
+
+    const yahooSource = this.createYahooSource(data.yahooData)
+    if (yahooSource) {
+      sources.push(yahooSource)
+    }
+
+    const sustainalyticsSource = this.createSustainalyticsSource(data.sustainalyticsData)
+    if (sustainalyticsSource) {
+      sources.push(sustainalyticsSource)
+    }
+
+    const newsSource = this.createNewsSource(data.newsData)
+    if (newsSource) {
+      sources.push(newsSource)
+    }
+
+    return sources
+  }
+
+  private createYahooSource(yahooData: any): SourceContribution | null {
+    if (!yahooData) {
+      return null
+    }
+
+    const {
+      environmentalScore = 0,
+      socialScore = 0,
+      governanceScore = 0
+    } = yahooData
+
+    return {
+      label: 'Yahoo Finance',
+      confidence: 85,
+      contributions: {
+        environmental: environmentalScore * 0.4,
+        social: socialScore * 0.4,
+        governance: governanceScore * 0.4
+      }
+    }
+  }
+
+  private createSustainalyticsSource(sustainalyticsData: any): SourceContribution | null {
+    const sustainalyticsScore = sustainalyticsData?.esgScore
+    if (typeof sustainalyticsScore !== 'number') {
+      return null
+    }
+
+    const adjustedScore = 100 - sustainalyticsScore
+    const confidence = sustainalyticsData?.confidence ?? 90
+
+    return {
+      label: 'Sustainalytics',
+      confidence,
+      contributions: {
+        environmental: adjustedScore * 0.3,
+        social: adjustedScore * 0.3,
+        governance: adjustedScore * 0.3
+      }
+    }
+  }
+
+  private createNewsSource(newsData: any): SourceContribution | null {
+    if (!newsData) {
+      return null
+    }
+
+    const {
+      environmentalScore = 0,
+      socialScore = 0,
+      governanceScore = 0,
+      confidence = 70
+    } = newsData
+
+    return {
+      label: 'News Analysis',
+      confidence,
+      contributions: {
+        environmental: environmentalScore * 0.2,
+        social: socialScore * 0.2,
+        governance: governanceScore * 0.2
+      }
+    }
+  }
+
+  private aggregateSourceScores(sources: SourceContribution[]): {
+    scores: ScoreVector
+    dataSources: string[]
+    totalConfidence: number
+  } {
+    return sources.reduce((accumulator, source) => {
+      accumulator.scores.environmental += source.contributions.environmental
+      accumulator.scores.social += source.contributions.social
+      accumulator.scores.governance += source.contributions.governance
+      accumulator.dataSources.push(source.label)
+      accumulator.totalConfidence += source.confidence
+      return accumulator
+    }, {
+      scores: { environmental: 0, social: 0, governance: 0 },
+      dataSources: [] as string[],
+      totalConfidence: 0
+    })
+  }
+
+  private applyControversyPenalty(scores: ScoreVector, penalty: number, hasSources: boolean): ScoreVector {
+    if (!hasSources || penalty <= 0) {
+      return scores
+    }
+
+    return {
+      environmental: Math.max(0, scores.environmental - penalty),
+      social: Math.max(0, scores.social - penalty),
+      governance: Math.max(0, scores.governance - penalty)
+    }
+  }
+
+  private calculateTotalScore(scores: ScoreVector): number {
+    return (scores.environmental * 0.4 + scores.social * 0.3 + scores.governance * 0.3)
+  }
+
+  private calculateConfidenceLevel(totalConfidence: number, sourceCount: number): number {
+    if (sourceCount <= 0) {
+      return 0
+    }
+
+    return totalConfidence / sourceCount
   }
 
   private calculateControversyPenalty(controversies: ESGControversy[]): number {
