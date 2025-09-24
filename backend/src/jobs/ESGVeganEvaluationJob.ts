@@ -1,7 +1,7 @@
 import * as cron from 'node-cron'
 import ESGAnalysisService from '../services/ESGAnalysisService.js'
 import VeganAnalysisService from '../services/VeganAnalysisService.js'
-import { Instrument as InstrumentModel } from '../models/Instrument.js'
+import { Instrument as InstrumentModel, type InstrumentData } from '../models/Instrument.js'
 import ESGEvaluationModel from '../models/ESGEvaluation.js'
 import VeganEvaluationModel from '../models/VeganEvaluation.js'
 import { createLogger } from '../utils/logger.js'
@@ -18,6 +18,9 @@ export class ESGVeganEvaluationJob {
   private weeklyJobTask: cron.ScheduledTask | null = null
   private dailyJobTask: cron.ScheduledTask | null = null
   private monthlyJobTask: cron.ScheduledTask | null = null
+  private weeklyJobScheduled = false
+  private dailyJobScheduled = false
+  private monthlyJobScheduled = false
 
   /**
    * Start all ESG/Vegan evaluation jobs
@@ -32,6 +35,7 @@ export class ESGVeganEvaluationJob {
       scheduled: true,
       timezone: 'America/Argentina/Buenos_Aires'
     })
+    this.weeklyJobScheduled = true
 
     // Daily monitoring (every day at 10:00 AM)
     this.dailyJobTask = cron.schedule('0 10 * * *', async () => {
@@ -40,6 +44,7 @@ export class ESGVeganEvaluationJob {
       scheduled: true,
       timezone: 'America/Argentina/Buenos_Aires'
     })
+    this.dailyJobScheduled = true
 
     // Monthly deep analysis (1st of each month at 3:00 AM)
     this.monthlyJobTask = cron.schedule('0 3 1 * *', async () => {
@@ -48,6 +53,7 @@ export class ESGVeganEvaluationJob {
       scheduled: true,
       timezone: 'America/Argentina/Buenos_Aires'
     })
+    this.monthlyJobScheduled = true
 
     logger.info('ESG/Vegan evaluation jobs started successfully')
   }
@@ -62,16 +68,19 @@ export class ESGVeganEvaluationJob {
       this.weeklyJobTask.stop()
       this.weeklyJobTask = null
     }
+    this.weeklyJobScheduled = false
 
     if (this.dailyJobTask) {
       this.dailyJobTask.stop()
       this.dailyJobTask = null
     }
+    this.dailyJobScheduled = false
 
     if (this.monthlyJobTask) {
       this.monthlyJobTask.stop()
       this.monthlyJobTask = null
     }
+    this.monthlyJobScheduled = false
 
     logger.info('ESG/Vegan evaluation jobs stopped')
   }
@@ -99,6 +108,7 @@ export class ESGVeganEvaluationJob {
   /**
    * Weekly comprehensive evaluation
    */
+  /* eslint-disable-next-line max-lines-per-function */
   private async runWeeklyEvaluation(): Promise<void> {
     logger.info('Starting weekly ESG/Vegan evaluation...')
 
@@ -160,6 +170,7 @@ export class ESGVeganEvaluationJob {
   /**
    * Daily monitoring for news and controversy detection
    */
+  /* eslint-disable-next-line max-lines-per-function */
   private async runDailyMonitoring(): Promise<void> {
     logger.info('Starting daily ESG/Vegan monitoring...')
 
@@ -221,6 +232,7 @@ export class ESGVeganEvaluationJob {
   /**
    * Monthly deep analysis with reports and trending
    */
+  /* eslint-disable-next-line max-lines-per-function */
   private async runMonthlyDeepAnalysis(): Promise<void> {
     logger.info('Starting monthly ESG/Vegan deep analysis...')
 
@@ -228,8 +240,8 @@ export class ESGVeganEvaluationJob {
       const startTime = Date.now()
 
       // Analyze all active instruments comprehensively
-      const activeInstruments = this.instrumentModel.findAll({ isActive: true })
-      
+      const activeInstruments = await this.instrumentModel.findAll({ isActive: true })
+
       logger.info(`Running deep analysis on ${activeInstruments.length} active instruments`)
 
       // Update all ESG and Vegan evaluations
@@ -238,12 +250,12 @@ export class ESGVeganEvaluationJob {
 
       // Process in smaller batches for thorough analysis
       const batchSize = 3
-      
+
       for (let i = 0; i < activeInstruments.length; i += batchSize) {
         const batch = activeInstruments.slice(i, i + batchSize)
-        
+
         await Promise.allSettled(
-          batch.map(async (instrument) => {
+          batch.map(async (instrument: InstrumentData) => {
             try {
               await this.evaluateInstrument(instrument.id!)
               analyzed++
@@ -280,7 +292,7 @@ export class ESGVeganEvaluationJob {
    */
   private async evaluateInstrument(instrumentId: number): Promise<void> {
     try {
-      const instrument = this.instrumentModel.findById(instrumentId)
+      const instrument = await this.instrumentModel.findById(instrumentId)
       if (!instrument || !instrument.is_active) {
         return
       }
@@ -319,7 +331,7 @@ export class ESGVeganEvaluationJob {
    */
   private async monitorInstrument(instrumentId: number): Promise<number> {
     try {
-      const instrument = this.instrumentModel.findById(instrumentId)
+      const instrument = await this.instrumentModel.findById(instrumentId)
       if (!instrument) {
         return 0
       }
@@ -397,8 +409,8 @@ export class ESGVeganEvaluationJob {
    * Run full evaluation for all active instruments
    */
   private async runFullEvaluation(): Promise<void> {
-    const activeInstruments = this.instrumentModel.findAll({ isActive: true })
-    
+    const activeInstruments = await this.instrumentModel.findAll({ isActive: true })
+
     logger.info(`Running full evaluation for ${activeInstruments.length} instruments`)
 
     for (const instrument of activeInstruments) {
@@ -425,9 +437,9 @@ export class ESGVeganEvaluationJob {
     }
   } {
     return {
-      weeklyJob: this.weeklyJobTask?.getStatus() === 'scheduled',
-      dailyJob: this.dailyJobTask?.getStatus() === 'scheduled',
-      monthlyJob: this.monthlyJobTask?.getStatus() === 'scheduled',
+      weeklyJob: this.weeklyJobScheduled,
+      dailyJob: this.dailyJobScheduled,
+      monthlyJob: this.monthlyJobScheduled,
       nextRuns: {
         weekly: this.weeklyJobTask ? 'Sundays at 2:00 AM ART' : null,
         daily: this.dailyJobTask ? 'Daily at 10:00 AM ART' : null,

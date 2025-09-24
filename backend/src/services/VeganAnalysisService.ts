@@ -265,11 +265,13 @@ export class VeganAnalysisService {
   /**
    * Analyze vegan-related news using Claude
    */
-  private async getVeganNewsAnalysis(): Promise<any> {
+  private async getVeganNewsAnalysis(symbol: string, companyName: string): Promise<any> {
+    logger.debug(`No vegan news analysis available for ${symbol} (${companyName})`)
     return null
   }
 
-  private async detectVeganViolations(): Promise<VeganViolation[]> {
+  private async detectVeganViolations(symbol: string, companyName: string): Promise<VeganViolation[]> {
+    logger.debug(`No vegan violation sources configured for ${symbol} (${companyName})`)
     return []
   }
 
