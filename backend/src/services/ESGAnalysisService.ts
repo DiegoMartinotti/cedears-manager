@@ -530,7 +530,7 @@ export class ESGAnalysisService {
       summary,
       keyPoints?.length && `Key points: ${keyPoints.join('; ')}`,
       strategicRecommendations?.length && `Recommendations: ${strategicRecommendations.join('; ')}`
-    ].filter((part): part is string => Boolean(part)).join('\n')
+    ].filter((part): part is string => typeof part === 'string' && part.length > 0).join('\n')
   }
 
   private async withRateLimit<T>(requestId: string, fn: () => Promise<T>): Promise<T> {
@@ -564,7 +564,7 @@ export class ESGAnalysisService {
       this.createYahooSource(data.yahooData),
       this.createSustainalyticsSource(data.sustainalyticsData),
       this.createNewsSource(data.newsData)
-    ].filter((source): source is SourceContribution => Boolean(source))
+    ].filter((source): source is SourceContribution => source != null)
   }
 
   private createYahooSource(yahooData: any): SourceContribution | null {
