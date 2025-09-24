@@ -60,7 +60,7 @@ export class BreakEvenService {
   private commissionService: CommissionService
   private uvaService: UVAService
   private quoteService: QuoteService
-  private instrumentModel: Instrument
+  private readonly instrumentModel: Instrument
 
   constructor() {
     this.breakEvenModel = new BreakEvenModel()
@@ -241,7 +241,7 @@ export class BreakEvenService {
         // Buscar UVA de la fecha de compra (aproximada)
         const historicalUVA = await this.getUVAForDate(purchaseDate)
 
-        if (!historicalUVA || !currentUVA || currentUVA.value === undefined) {
+        if (!historicalUVA || currentUVA?.value === undefined) {
           return 0
         }
 
