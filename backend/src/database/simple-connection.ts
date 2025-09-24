@@ -15,6 +15,7 @@ interface SimpleDatabase {
   migrations_log: any[]
   sell_analysis: any[]
   sell_alerts: any[]
+  technical_indicators: any[]
 }
 
 class SimpleDatabaseConnection {
@@ -59,7 +60,8 @@ class SimpleDatabaseConnection {
         financial_goals: [],
         migrations_log: [],
         sell_analysis: [],
-        sell_alerts: []
+        sell_alerts: [],
+        technical_indicators: []
       }
 
       SimpleDatabaseConnection.save(db)

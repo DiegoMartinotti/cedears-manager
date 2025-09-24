@@ -2,6 +2,7 @@ import SimpleDatabaseConnection from '../database/simple-connection.js'
 import { createLogger } from '../utils/logger.js'
 
 const logger = createLogger('SimpleTechnicalIndicator')
+const TECHNICAL_INDICATOR_TABLE = 'technical_indicators'
 
 export interface TechnicalIndicatorData {
   id?: number
@@ -21,16 +22,16 @@ export class SimpleTechnicalIndicator {
   
   async create(data: Omit<TechnicalIndicatorData, 'id' | 'created_at' | 'updated_at'>): Promise<TechnicalIndicatorData> {
     try {
-      const indicatorData = {
+      const payload = {
         ...data,
         symbol: data.symbol.toUpperCase(),
         timestamp: data.timestamp || new Date().toISOString(),
         metadata: JSON.stringify(data.metadata || {})
       }
 
-      const result = SimpleDatabaseConnection.insert('technical_indicators', indicatorData)
+      const result = SimpleDatabaseConnection.insert(TECHNICAL_INDICATOR_TABLE, payload)
       logger.info(`Technical indicator created: ${result.symbol} ${result.indicator}`)
-      return result
+      return this.normalizeRecord(result)
     } catch (error) {
       logger.error('Error creating technical indicator:', error)
       throw new Error(`Failed to create technical indicator: ${error instanceof Error ? error.message : String(error)}`)
@@ -39,11 +40,8 @@ export class SimpleTechnicalIndicator {
 
   async findById(id: number): Promise<TechnicalIndicatorData | null> {
     try {
-      const result = SimpleDatabaseConnection.findById('technical_indicators', id)
-      if (result && result.metadata) {
-        result.metadata = JSON.parse(result.metadata)
-      }
-      return result
+      const result = SimpleDatabaseConnection.findById(TECHNICAL_INDICATOR_TABLE, id)
+      return result ? this.normalizeRecord(result) : null
     } catch (error) {
       logger.error('Error finding technical indicator by id:', error)
       return null
@@ -52,16 +50,13 @@ export class SimpleTechnicalIndicator {
 
   async findBySymbol(symbol: string): Promise<TechnicalIndicatorData[]> {
     try {
-      const results = SimpleDatabaseConnection.findAll('technical_indicators', { 
+      const results = SimpleDatabaseConnection.findAll(TECHNICAL_INDICATOR_TABLE, {
         symbol: symbol.toUpperCase()
       })
-      
-      return results.map(result => {
-        if (result.metadata) {
-          result.metadata = JSON.parse(result.metadata)
-        }
-        return result
-      }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+
+      return results
+        .map(result => this.normalizeRecord(result))
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     } catch (error) {
       logger.error('Error finding technical indicators by symbol:', error)
       return []
@@ -70,14 +65,11 @@ export class SimpleTechnicalIndicator {
 
   async findAll(): Promise<TechnicalIndicatorData[]> {
     try {
-      const results = SimpleDatabaseConnection.findAll('technical_indicators', {})
-      
-      return results.map(result => {
-        if (result.metadata) {
-          result.metadata = JSON.parse(result.metadata)
-        }
-        return result
-      }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      const results = SimpleDatabaseConnection.findAll(TECHNICAL_INDICATOR_TABLE, {})
+
+      return results
+        .map(result => this.normalizeRecord(result))
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     } catch (error) {
       logger.error('Error finding all technical indicators:', error)
       return []
@@ -132,6 +124,7 @@ export class SimpleTechnicalIndicator {
     }
   }
 
+  /* eslint-disable-next-line max-lines-per-function */
   async getStats(): Promise<{
     totalIndicators: number
     bySymbol: Record<string, number>
@@ -187,24 +180,24 @@ export class SimpleTechnicalIndicator {
 
   async update(id: number, data: Partial<Omit<TechnicalIndicatorData, 'id' | 'created_at'>>): Promise<TechnicalIndicatorData | null> {
     try {
+      const updatePayload: Record<string, unknown> = { ...data }
+
       if (data.symbol) {
-        data.symbol = data.symbol.toUpperCase()
-      }
-      
-      if (data.metadata) {
-        data.metadata = JSON.stringify(data.metadata)
+        updatePayload.symbol = data.symbol.toUpperCase()
       }
 
-      const result = SimpleDatabaseConnection.update('technical_indicators', id, data)
-      
+      if (data.metadata !== undefined) {
+        updatePayload.metadata = JSON.stringify(data.metadata || {})
+      }
+
+      const result = SimpleDatabaseConnection.update(TECHNICAL_INDICATOR_TABLE, id, updatePayload)
+
       if (result) {
         logger.info(`Technical indicator updated: ${result.symbol} ${result.indicator}`)
-        if (result.metadata) {
-          result.metadata = JSON.parse(result.metadata)
-        }
+        return this.normalizeRecord(result)
       }
-      
-      return result
+
+      return null
     } catch (error) {
       logger.error('Error updating technical indicator:', error)
       return null
@@ -213,7 +206,7 @@ export class SimpleTechnicalIndicator {
 
   async delete(id: number): Promise<boolean> {
     try {
-      const success = SimpleDatabaseConnection.delete('technical_indicators', id)
+      const success = SimpleDatabaseConnection.delete(TECHNICAL_INDICATOR_TABLE, id)
       if (success) {
         logger.info(`Technical indicator deleted: ID ${id}`)
       }
@@ -226,7 +219,7 @@ export class SimpleTechnicalIndicator {
 
   async batchUpsert(indicators: Omit<TechnicalIndicatorData, 'id' | 'created_at' | 'updated_at'>[]): Promise<number> {
     let count = 0
-    
+
     for (const indicator of indicators) {
       try {
         await this.create(indicator)
@@ -235,7 +228,7 @@ export class SimpleTechnicalIndicator {
         logger.error(`Error upserting indicator ${indicator.symbol} ${indicator.indicator}:`, error)
       }
     }
-    
+
     return count
   }
 
@@ -244,22 +237,31 @@ export class SimpleTechnicalIndicator {
       const cutoffDate = new Date()
       cutoffDate.setDate(cutoffDate.getDate() - daysToKeep)
       const cutoffTimestamp = cutoffDate.toISOString()
-      
+
       const allIndicators = await this.findAll()
       const toDelete = allIndicators.filter(indicator => indicator.timestamp < cutoffTimestamp)
-      
+
       let deletedCount = 0
       for (const indicator of toDelete) {
         if (indicator.id && await this.delete(indicator.id)) {
           deletedCount++
         }
       }
-      
+
       return deletedCount
     } catch (error) {
       logger.error('Error deleting old indicators:', error)
       return 0
     }
+  }
+
+  private normalizeRecord(record: any): TechnicalIndicatorData {
+    const normalized: TechnicalIndicatorData = {
+      ...record,
+      metadata: record.metadata ? JSON.parse(record.metadata) : undefined
+    }
+
+    return normalized
   }
 }
 

@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient'
+import { apiClient } from './api'
 import type { TechnicalIndicator } from '../../../shared/src/types'
 
 export interface TechnicalIndicatorFilters {
