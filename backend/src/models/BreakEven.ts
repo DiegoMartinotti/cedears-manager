@@ -1,4 +1,4 @@
-import DatabaseConnection from '../database/simple-connection.js'
+import DatabaseConnection from '../database/connection.js'
 import { createLogger } from '../utils/logger.js'
 
 const logger = createLogger('BreakEvenModel')
