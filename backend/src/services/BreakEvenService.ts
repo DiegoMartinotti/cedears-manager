@@ -4,6 +4,7 @@ import { CommissionService } from './CommissionService.js'
 import { UVAService } from './UVAService.js'
 import { QuoteService } from './QuoteService.js'
 import { createLogger } from '../utils/logger.js'
+import { Instrument } from '../models/Instrument.js'
 
 const logger = createLogger('BreakEvenService')
 
@@ -59,6 +60,7 @@ export class BreakEvenService {
   private commissionService: CommissionService
   private uvaService: UVAService
   private quoteService: QuoteService
+  private readonly instrumentModel: Instrument
 
   constructor() {
     this.breakEvenModel = new BreakEvenModel()
@@ -66,13 +68,14 @@ export class BreakEvenService {
     this.commissionService = new CommissionService()
     this.uvaService = new UVAService()
     this.quoteService = new QuoteService()
+    this.instrumentModel = new Instrument()
   }
 
   /**
    * Calcula el break-even completo para una operación
     */
     // eslint-disable-next-line max-lines-per-function
-    async calculateBreakEven(params: BreakEvenCalculationParams): Promise<BreakEvenCalculationResult> {
+  async calculateBreakEven(params: BreakEvenCalculationParams): Promise<BreakEvenCalculationResult> {
     try {
       logger.info(`Calculating break-even for trade ${params.tradeId}`)
 
@@ -86,27 +89,11 @@ export class BreakEvenService {
         throw new Error('Break-even analysis only available for BUY trades')
       }
 
-      // Obtener precio actual
-      let currentPrice = params.currentPrice
-      if (!currentPrice) {
-        // Aquí necesitamos obtener el símbolo del instrumento
-        const instrument = await this.getInstrumentByTradeId(params.tradeId)
-        if (instrument) {
-          try {
-            const quote = await this.quoteService.getCurrentQuote(instrument.symbol)
-            currentPrice = quote.price || trade.price
-          } catch (error) {
-            logger.warn(`Could not get current price for ${instrument.symbol}, using trade price`)
-            currentPrice = trade.price
-          }
-        } else {
-          currentPrice = trade.price
-        }
-      }
+      const currentPrice = await this.resolveCurrentPrice(trade, params.currentPrice)
 
       // Calcular componentes del break-even
       const breakEvenComponents = await this.calculateBreakEvenComponents(trade)
-      
+
       // Crear análisis principal
       const analysis = await this.createBreakEvenAnalysis(
         trade,
@@ -135,6 +122,31 @@ export class BreakEvenService {
     } catch (error) {
       logger.error('Error calculating break-even:', error)
       throw new Error(`Failed to calculate break-even: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  private async resolveCurrentPrice(trade: any, requestedPrice?: number): Promise<number> {
+    if (requestedPrice !== undefined) {
+      return requestedPrice
+    }
+
+    const instrument = await this.instrumentModel.findById(trade.instrument_id)
+    if (!instrument?.symbol) {
+      logger.warn(`Instrument ${trade.instrument_id} not found, using trade price`)
+      return trade.price
+    }
+
+    try {
+      const quoteResult = await this.quoteService.getQuote(instrument.symbol)
+      if (quoteResult.price === undefined) {
+        logger.warn(`Quote for ${instrument.symbol} missing price, using trade price`)
+        return trade.price
+      }
+
+      return quoteResult.price
+    } catch (error) {
+      logger.warn(`Could not get current price for ${instrument.symbol}, using trade price`)
+      return trade.price
     }
   }
 
@@ -179,18 +191,19 @@ export class BreakEvenService {
    */
   private async estimateSellCommission(amount: number): Promise<number> {
     try {
-      const config = await this.commissionService.getDefaultConfiguration()
-      if (!config) {
-        // Usar configuración por defecto del sistema
-        return Math.max(amount * 0.005, 150) * 1.21 // 0.5% + IVA, mínimo $150
-      }
-      
-      return this.commissionService.calculateOperationCommission(amount, 'SELL')
-    } catch (error) {
+        const config = await this.commissionService.getDefaultConfiguration()
+        if (!config) {
+          // Usar configuración por defecto del sistema
+          return Math.max(amount * 0.005, 150) * 1.21 // 0.5% + IVA, mínimo $150
+        }
+
+        const calculation = this.commissionService.calculateOperationCommission('SELL', amount, config)
+        return calculation.totalCommission
+      } catch (error) {
       logger.warn('Could not get commission configuration, using default')
       return Math.max(amount * 0.005, 150) * 1.21
+      }
     }
-  }
 
   /**
    * Calcula la custodia acumulada desde la fecha de compra
@@ -222,17 +235,17 @@ export class BreakEvenService {
    */
   private async calculateInflationImpact(trade: any): Promise<number> {
     try {
-      const currentUVA = await this.uvaService.getLatestUVAValue()
-      const purchaseDate = new Date(trade.trade_date)
-      
-      // Buscar UVA de la fecha de compra (aproximada)
-      const historicalUVA = await this.getUVAForDate(purchaseDate)
-      
-      if (!historicalUVA || !currentUVA) {
-        return 0
-      }
+        const currentUVA = await this.uvaService.getLatestUVAValue()
+        const purchaseDate = new Date(trade.trade_date)
 
-      const inflationAdjustment = (currentUVA.value / historicalUVA) - 1
+        // Buscar UVA de la fecha de compra (aproximada)
+        const historicalUVA = await this.getUVAForDate(purchaseDate)
+
+        if (!historicalUVA || currentUVA?.value === undefined) {
+          return 0
+        }
+
+        const inflationAdjustment = (currentUVA.value / historicalUVA) - 1
       return trade.total_amount * inflationAdjustment
     } catch (error) {
       logger.warn('Error calculating inflation impact, using 0')
@@ -281,10 +294,14 @@ export class BreakEvenService {
       ? Math.abs(distanceToBreakEven / components.breakEvenPrice * 365) // Estimación anual
       : 0
 
+    const now = new Date()
+    const [datePart] = now.toISOString().split('T')
+    const calculationDate = datePart ?? now.toISOString()
+
     return await this.breakEvenModel.createAnalysis({
       trade_id: trade.id,
       instrument_id: trade.instrument_id,
-      calculation_date: new Date().toISOString().split('T')[0],
+      calculation_date: calculationDate,
       break_even_price: components.breakEvenPrice,
       current_price: currentPrice,
       distance_to_break_even: distanceToBreakEven,
@@ -329,10 +346,13 @@ export class BreakEvenService {
         const projectionDate = new Date()
         projectionDate.setMonth(projectionDate.getMonth() + months)
 
-        const projection = await this.breakEvenModel.createProjection({
-          analysis_id: analysis.id!,
-          trade_id: analysis.trade_id,
-          projection_date: projectionDate.toISOString().split('T')[0],
+          const [projectionDatePart] = projectionDate.toISOString().split('T')
+          const projectionDateIso = projectionDatePart ?? projectionDate.toISOString()
+
+          const projection = await this.breakEvenModel.createProjection({
+            analysis_id: analysis.id!,
+            trade_id: analysis.trade_id,
+            projection_date: projectionDateIso,
           months_ahead: months,
           inflation_rate: scenario.rate,
           projected_break_even: projectedBreakEven,
@@ -499,7 +519,7 @@ export class BreakEvenService {
    */
   async getBreakEvenByTradeId(tradeId: number): Promise<BreakEvenAnalysis | null> {
     const analyses = await this.breakEvenModel.findAnalysesByTradeId(tradeId)
-    return analyses.length > 0 ? analyses[0] : null
+    return analyses[0] ?? null
   }
 
   // Métodos auxiliares privados
@@ -516,21 +536,19 @@ export class BreakEvenService {
   private async getUVAForDate(date: Date): Promise<number> {
     try {
       // Implementación simplificada - en producción buscaría en base de datos
-      const currentUVA = await this.uvaService.getLatestUVAValue()
-      
-      // Estimación basada en inflación histórica promedio
-      const monthsAgo = this.getMonthsSinceDate(date.toISOString())
-      const estimatedInflation = Math.pow(1.12, monthsAgo / 12) // 12% anual promedio
-      
-      return currentUVA ? currentUVA.value / estimatedInflation : 100
-    } catch (error) {
-      return 100 // Valor base si no se puede calcular
-    }
-  }
+        const currentUVA = await this.uvaService.getLatestUVAValue()
 
-  private async getInstrumentByTradeId(): Promise<{ symbol: string } | null> {
-    // Esta sería una query que joine trades con instruments
-    // Por ahora retornamos null para que use el precio del trade
-    return null
-  }
+        // Estimación basada en inflación histórica promedio
+        const monthsAgo = this.getMonthsSinceDate(date.toISOString())
+        const estimatedInflation = Math.pow(1.12, monthsAgo / 12) // 12% anual promedio
+
+        if (currentUVA?.value === undefined) {
+          return 100
+        }
+
+        return currentUVA.value / estimatedInflation
+      } catch (error) {
+        return 100 // Valor base si no se puede calcular
+      }
+    }
 }
