@@ -47,6 +47,9 @@ export interface ESGControversy {
   impact: number
 }
 
+// eslint-disable-next-line no-unused-vars
+type NewsFilter = (news: NewsAnalysisResult) => boolean
+
 export class ESGAnalysisService {
   private esgModel = new ESGEvaluationModel()
   private instrumentModel = new InstrumentModel()
@@ -187,20 +190,16 @@ export class ESGAnalysisService {
   /* eslint-disable-next-line max-lines-per-function */
   private async getESGNewsAnalysis(symbol: string, companyName: string): Promise<any> {
     try {
-      const newsResults = await this.newsService.searchNews(symbol, {
-        symbol,
-        pageSize: 30
-      }, {
-        useCache: true,
-        cacheTTLMinutes: 10,
-        analyzeWithClaude: true
-      })
-
       const keywords = ['esg', 'sustainability', 'environment', 'governance', 'diversity']
-      const newsArticles = newsResults.filter((result: NewsAnalysisResult) => {
-        const text = `${result.article.title} ${result.article.description ?? ''}`.toLowerCase()
-        return keywords.some(keyword => text.includes(keyword))
-      }).slice(0, 10)
+      const newsArticles = await this.fetchFilteredNews(
+        symbol,
+        30,
+        10,
+        (result: NewsAnalysisResult) => {
+          const text = `${result.article.title} ${result.article.description ?? ''}`.toLowerCase()
+          return keywords.some(keyword => text.includes(keyword))
+        }
+      )
 
       if (newsArticles.length === 0) {
         return null
@@ -226,18 +225,7 @@ export class ESGAnalysisService {
         }
       `
 
-      const analysis = await this.claudeService.analyzeSymbol({
-        symbol,
-        analysisType: 'CUSTOM',
-        options: {
-          includeNews: false,
-          includeSentiment: false,
-          includeEarnings: false,
-          includeTrends: false,
-          customPrompt: prompt,
-          useCache: false
-        }
-      })
+      const analysis = await this.requestClaudeAnalysis(symbol, prompt)
 
       return this.parseClaudeESGResponse(this.extractClaudeSummary(analysis))
 
@@ -258,19 +246,15 @@ export class ESGAnalysisService {
         'environmental damage', 'labor issues', 'discrimination', 'corruption'
       ]
 
-      const newsResults = await this.newsService.searchNews(symbol, {
+      const newsArticles = await this.fetchFilteredNews(
         symbol,
-        pageSize: 40
-      }, {
-        useCache: true,
-        cacheTTLMinutes: 10,
-        analyzeWithClaude: true
-      })
-
-      const newsArticles = newsResults.filter((result: NewsAnalysisResult) => {
-        const text = `${result.article.title} ${result.article.description ?? ''}`.toLowerCase()
-        return controversyKeywords.some(keyword => text.includes(keyword))
-      }).slice(0, 20)
+        40,
+        20,
+        (result: NewsAnalysisResult) => {
+          const text = `${result.article.title} ${result.article.description ?? ''}`.toLowerCase()
+          return controversyKeywords.some(keyword => text.includes(keyword))
+        }
+      )
 
       if (newsArticles.length === 0) {
         return []
@@ -297,18 +281,7 @@ export class ESGAnalysisService {
         Only include significant ESG-related controversies. Ignore minor news.
       `
 
-      const analysis = await this.claudeService.analyzeSymbol({
-        symbol,
-        analysisType: 'CUSTOM',
-        options: {
-          includeNews: false,
-          includeSentiment: false,
-          includeEarnings: false,
-          includeTrends: false,
-          customPrompt: prompt,
-          useCache: false
-        }
-      })
+      const analysis = await this.requestClaudeAnalysis(symbol, prompt)
 
       return this.parseControversiesResponse(this.extractClaudeSummary(analysis))
 
@@ -340,50 +313,62 @@ export class ESGAnalysisService {
 
     const dataSources: string[] = []
     const keyMetrics: any = {}
-    let totalConfidence = 0
-    let sourceCount = 0
 
-    // Process Yahoo Finance data
+    const sources: Array<{
+      label: string
+      confidence: number
+      contributions: { environmental: number; social: number; governance: number }
+    }> = []
+
     if (data.yahooData) {
-      scores.environmental += data.yahooData.environmentalScore * 0.4
-      scores.social += data.yahooData.socialScore * 0.4
-      scores.governance += data.yahooData.governanceScore * 0.4
-      dataSources.push('Yahoo Finance')
-      totalConfidence += 85
-      sourceCount++
+      sources.push({
+        label: 'Yahoo Finance',
+        confidence: 85,
+        contributions: {
+          environmental: data.yahooData.environmentalScore * 0.4,
+          social: data.yahooData.socialScore * 0.4,
+          governance: data.yahooData.governanceScore * 0.4
+        }
+      })
     }
 
-    // Process Sustainalytics data
     if (data.sustainalyticsData?.esgScore) {
-      const sustainScore = 100 - data.sustainalyticsData.esgScore // Convert risk to score
-      scores.environmental += sustainScore * 0.3
-      scores.social += sustainScore * 0.3
-      scores.governance += sustainScore * 0.3
-      dataSources.push('Sustainalytics')
-      totalConfidence += data.sustainalyticsData.confidence || 90
-      sourceCount++
+      const sustainScore = 100 - data.sustainalyticsData.esgScore
+      sources.push({
+        label: 'Sustainalytics',
+        confidence: data.sustainalyticsData.confidence || 90,
+        contributions: {
+          environmental: sustainScore * 0.3,
+          social: sustainScore * 0.3,
+          governance: sustainScore * 0.3
+        }
+      })
     }
 
-    // Process news analysis
     if (data.newsData) {
-      scores.environmental += data.newsData.environmentalScore * 0.2
-      scores.social += data.newsData.socialScore * 0.2
-      scores.governance += data.newsData.governanceScore * 0.2
-      dataSources.push('News Analysis')
-      totalConfidence += data.newsData.confidence || 70
-      sourceCount++
+      sources.push({
+        label: 'News Analysis',
+        confidence: data.newsData.confidence || 70,
+        contributions: {
+          environmental: data.newsData.environmentalScore * 0.2,
+          social: data.newsData.socialScore * 0.2,
+          governance: data.newsData.governanceScore * 0.2
+        }
+      })
     }
 
-    // Apply controversy penalties
-    let controversyPenalty = 0
-    data.controversies.forEach(controversy => {
-      const penalty = controversy.impact * (controversy.severity === 'CRITICAL' ? 0.5 : 
-                                         controversy.severity === 'HIGH' ? 0.3 : 
-                                         controversy.severity === 'MEDIUM' ? 0.1 : 0.05)
-      controversyPenalty += penalty
+    let totalConfidence = 0
+    sources.forEach(source => {
+      scores.environmental += source.contributions.environmental
+      scores.social += source.contributions.social
+      scores.governance += source.contributions.governance
+      dataSources.push(source.label)
+      totalConfidence += source.confidence
     })
 
-    // Normalize scores and apply penalties
+    const sourceCount = sources.length
+    const controversyPenalty = this.calculateControversyPenalty(data.controversies)
+
     if (sourceCount > 0) {
       scores.environmental = Math.max(0, scores.environmental - controversyPenalty)
       scores.social = Math.max(0, scores.social - controversyPenalty)
@@ -458,18 +443,7 @@ export class ESGAnalysisService {
         Keep response under 500 words.
       `
 
-      const analysis = await this.claudeService.analyzeSymbol({
-        symbol: data.symbol,
-        analysisType: 'CUSTOM',
-        options: {
-          includeNews: false,
-          includeSentiment: false,
-          includeEarnings: false,
-          includeTrends: false,
-          customPrompt: prompt,
-          useCache: false
-        }
-      })
+      const analysis = await this.requestClaudeAnalysis(data.symbol, prompt)
 
       const summary = this.extractClaudeSummary(analysis)
       return summary || 'Analysis not available'
@@ -594,6 +568,49 @@ export class ESGAnalysisService {
 
   private async withRateLimit<T>(requestId: string, fn: () => Promise<T>): Promise<T> {
     return this.rateLimiter.executeWithLimit(fn, requestId)
+  }
+
+  private async fetchFilteredNews(
+    symbol: string,
+    pageSize: number,
+    limit: number,
+    predicate: NewsFilter
+  ): Promise<NewsAnalysisResult[]> {
+    const newsResults = await this.newsService.searchNews(symbol, {
+      symbol,
+      pageSize
+    }, {
+      useCache: true,
+      cacheTTLMinutes: 10,
+      analyzeWithClaude: true
+    })
+
+    return newsResults.filter(article => predicate(article)).slice(0, limit)
+  }
+
+  private calculateControversyPenalty(controversies: ESGControversy[]): number {
+    return controversies.reduce((penalty, controversy) => {
+      const severityFactor = controversy.severity === 'CRITICAL' ? 0.5
+        : controversy.severity === 'HIGH' ? 0.3
+          : controversy.severity === 'MEDIUM' ? 0.1
+            : 0.05
+      return penalty + (controversy.impact * severityFactor)
+    }, 0)
+  }
+
+  private requestClaudeAnalysis(symbol: string, prompt: string): Promise<ComprehensiveAnalysisResult> {
+    return this.claudeService.analyzeSymbol({
+      symbol,
+      analysisType: 'CUSTOM',
+      options: {
+        includeNews: false,
+        includeSentiment: false,
+        includeEarnings: false,
+        includeTrends: false,
+        customPrompt: prompt,
+        useCache: false
+      }
+    })
   }
 }
 
