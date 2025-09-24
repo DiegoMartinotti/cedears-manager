@@ -358,13 +358,13 @@ export class ESGAnalysisService {
     }
 
     let totalConfidence = 0
-    sources.forEach(source => {
+    for (const source of sources) {
       scores.environmental += source.contributions.environmental
       scores.social += source.contributions.social
       scores.governance += source.contributions.governance
       dataSources.push(source.label)
       totalConfidence += source.confidence
-    })
+    }
 
     const sourceCount = sources.length
     const controversyPenalty = this.calculateControversyPenalty(data.controversies)
@@ -590,11 +590,17 @@ export class ESGAnalysisService {
 
   private calculateControversyPenalty(controversies: ESGControversy[]): number {
     return controversies.reduce((penalty, controversy) => {
-      const severityFactor = controversy.severity === 'CRITICAL' ? 0.5
-        : controversy.severity === 'HIGH' ? 0.3
-          : controversy.severity === 'MEDIUM' ? 0.1
-            : 0.05
-      return penalty + (controversy.impact * severityFactor)
+      let severityFactor = 0.05
+
+      if (controversy.severity === 'CRITICAL') {
+        severityFactor = 0.5
+      } else if (controversy.severity === 'HIGH') {
+        severityFactor = 0.3
+      } else if (controversy.severity === 'MEDIUM') {
+        severityFactor = 0.1
+      }
+
+      return penalty + controversy.impact * severityFactor
     }, 0)
   }
 
