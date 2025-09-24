@@ -215,25 +215,7 @@ export class ESGAnalysisService {
         logScope: 'get ESG news analysis',
         filter: this.createKeywordFilter(['esg', 'sustainability', 'environment', 'governance', 'diversity'])
       },
-      articles => `
-        Analyze the following news articles about ${companyName} (${symbol}) from an ESG perspective.
-        Rate the company on Environmental (E), Social (S), and Governance (G) factors on a scale of 0-100.
-
-        Articles:
-        ${articles.map((result: NewsAnalysisResult, i: number) => `${i + 1}. ${result.article.title}: ${result.article.description}`).join('\n')}
-
-        Provide your analysis in this JSON format:
-        {
-          "environmentalScore": number,
-          "socialScore": number,
-          "governanceScore": number,
-          "keyFindings": ["finding1", "finding2"],
-          "positiveFactors": ["factor1", "factor2"],
-          "negativeFactors": ["factor1", "factor2"],
-          "confidence": number (0-100),
-          "reasoning": "explanation"
-        }
-      `,
+      articles => this.buildESGNewsPrompt(articles, companyName, symbol),
       summary => this.parseClaudeESGResponse(summary)
     )
   }
@@ -263,28 +245,89 @@ export class ESGAnalysisService {
           'corruption'
         ])
       },
-      articles => `
-        Analyze the following news articles about ${companyName} (${symbol}) to identify ESG controversies.
-
-        Articles:
-        ${articles.map((result: NewsAnalysisResult, i: number) => `${i + 1}. ${result.article.title}: ${result.article.description} (${result.article.publishedAt})`).join('\n')}
-
-        Return a JSON array of controversies with this format:
-        [
-          {
-            "title": "Brief title",
-            "description": "Description of the controversy",
-            "severity": "LOW|MEDIUM|HIGH|CRITICAL",
-            "date": "YYYY-MM-DD",
-            "source": "news source",
-            "impact": number (0-100)
-          }
-        ]
-
-        Only include significant ESG-related controversies. Ignore minor news.
-      `,
+      articles => this.buildControversyPrompt(articles, companyName, symbol),
       summary => this.parseControversiesResponse(summary)
     )
+  }
+
+  private buildESGNewsPrompt(
+    articles: NewsAnalysisResult[],
+    companyName: string,
+    symbol: string
+  ): string {
+    const sections = [
+      `Analyze the following news articles about ${companyName} (${symbol}) from an ESG perspective.`,
+      'Rate the company on Environmental (E), Social (S), and Governance (G) factors on a scale of 0-100.',
+      '',
+      'Articles:',
+      this.formatArticlesList(articles, false),
+      '',
+      'Provide your analysis in this JSON format:',
+      '{',
+      '  "environmentalScore": number,',
+      '  "socialScore": number,',
+      '  "governanceScore": number,',
+      '  "keyFindings": ["finding1", "finding2"],',
+      '  "positiveFactors": ["factor1", "factor2"],',
+      '  "negativeFactors": ["factor1", "factor2"],',
+      '  "confidence": number (0-100),',
+      '  "reasoning": "explanation"',
+      '}'
+    ]
+
+    return sections.join('\n')
+  }
+
+  private buildControversyPrompt(
+    articles: NewsAnalysisResult[],
+    companyName: string,
+    symbol: string
+  ): string {
+    const sections = [
+      `Analyze the following news articles about ${companyName} (${symbol}) to identify ESG controversies.`,
+      '',
+      'Articles:',
+      this.formatArticlesList(articles, true),
+      '',
+      'Return a JSON array of controversies with this format:',
+      '[',
+      '  {',
+      '    "title": "Brief title",',
+      '    "description": "Description of the controversy",',
+      '    "severity": "LOW|MEDIUM|HIGH|CRITICAL",',
+      '    "date": "YYYY-MM-DD",',
+      '    "source": "news source",',
+      '    "impact": number (0-100)',
+      '  }',
+      ']',
+      '',
+      'Only include significant ESG-related controversies. Ignore minor news.'
+    ]
+
+    return sections.join('\n')
+  }
+
+  private formatArticlesList(articles: NewsAnalysisResult[], includeDate: boolean): string {
+    if (articles.length === 0) {
+      return 'No relevant articles found.'
+    }
+
+    return articles
+      .map((result, index) => this.formatArticleEntry(result, index, includeDate))
+      .join('\n')
+  }
+
+  private formatArticleEntry(
+    result: NewsAnalysisResult,
+    index: number,
+    includeDate: boolean
+  ): string {
+    const article = result.article
+    const title = article?.title ?? 'Untitled article'
+    const description = article?.description ? ': ' + article.description : ''
+    const date = includeDate && article?.publishedAt ? ' (' + article.publishedAt + ')' : ''
+
+    return (index + 1) + '. ' + title + description + date
   }
 
   /**
