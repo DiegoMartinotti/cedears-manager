@@ -18,6 +18,7 @@ import {
   MultiSymbolTrendAnalysis,
   PortfolioTrendAnalysis
 } from './trendPredictionTypes.js'
+import type { EarningsAnalysisResult } from './earningsAnalysisTypes.js'
 const logger = createLogger('trend-prediction-service')
 
 type ResolvedTrendPredictionOptions = {
@@ -45,11 +46,19 @@ type KeyFactor = {
   description: string
 }
 
+type TechnicalSnapshot = Record<string, number | undefined>
+
+type NewsSentimentSummary = Awaited<ReturnType<typeof newsAnalysisService.getNewsSentiment>>
+
+type SentimentScoreSnapshot = Pick<Awaited<ReturnType<typeof marketSentimentService.getMarketSentiment>>, 'sentimentScore'>
+
+type EarningsAssessmentSummary = Pick<EarningsAnalysisResult, 'analysis' | 'historicalContext'>
+
 type IdentifyKeyFactorsData = {
-  technical: unknown | null
-  news: unknown | null
-  sentiment: { sentimentScore?: number } | null
-  earnings: { analysis?: { overallAssessment?: string } } | null
+  technical: TechnicalSnapshot | null
+  news: NewsSentimentSummary | null
+  sentiment: SentimentScoreSnapshot | null
+  earnings: EarningsAssessmentSummary | null
   scores: {
     technicalScore: number
     fundamentalScore: number
