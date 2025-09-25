@@ -62,19 +62,28 @@ export class TechnicalAnalysisService {
   async calculateIndicators(symbol: string, days: number = 200): Promise<CalculatedIndicators | null> {
     try {
       const prices = await this.getPriceData(symbol, days)
+      if (prices.length === 0) {
+        logger.warn(`No price data available for ${symbol}`)
+        return null
+      }
+
       if (prices.length < 26) {
         logger.warn(`Insufficient price data for ${symbol}: ${prices.length} days`)
         return null
       }
 
-      const current = prices[prices.length - 1]
+      const current = prices.at(-1)
+      if (!current) {
+        logger.warn(`Unable to determine current price for ${symbol}`)
+        return null
+      }
       
       // Calcular indicadores
       const rsi = this.calculateRSI(prices)
       const smas = this.calculateSMA(prices)
       const emas = this.calculateEMA(prices)
       const macd = this.calculateMACD(prices)
-      const extremes = await this.calculateExtremes(symbol, current.close)
+      const extremes = await this.calculateExtremes(symbol, prices, current.close)
 
       return {
         symbol,
@@ -131,9 +140,14 @@ export class TechnicalAnalysisService {
       return { value: 50, signal: 'HOLD', strength: 0 }
     }
 
-    const changes = []
+    const changes: number[] = []
     for (let i = 1; i < prices.length; i++) {
-      changes.push(prices[i].close - prices[i - 1].close)
+      const currentPrice = prices[i]
+      const previousPrice = prices[i - 1]
+      if (!currentPrice || !previousPrice) {
+        continue
+      }
+      changes.push(currentPrice.close - previousPrice.close)
     }
 
     let avgGain = 0
@@ -141,10 +155,11 @@ export class TechnicalAnalysisService {
 
     // Primer cálculo (promedio simple)
     for (let i = 0; i < period; i++) {
-      if (changes[i] > 0) {
-        avgGain += changes[i]
+      const delta = changes[i] ?? 0
+      if (delta > 0) {
+        avgGain += delta
       } else {
-        avgLoss += Math.abs(changes[i])
+        avgLoss += Math.abs(delta)
       }
     }
     avgGain /= period
@@ -152,7 +167,7 @@ export class TechnicalAnalysisService {
 
     // Cálculos siguientes (promedio móvil exponencial)
     for (let i = period; i < changes.length; i++) {
-      const change = changes[i]
+      const change = changes[i] ?? 0
       if (change > 0) {
         avgGain = ((avgGain * (period - 1)) + change) / period
         avgLoss = (avgLoss * (period - 1)) / period
@@ -162,8 +177,11 @@ export class TechnicalAnalysisService {
       }
     }
 
-    const rs = avgGain / avgLoss
-    const rsi = 100 - (100 / (1 + rs))
+    const safeAvgLoss = avgLoss === 0 ? 1e-9 : avgLoss
+    const rs = avgGain / safeAvgLoss
+    const rsi = avgLoss === 0
+      ? 100
+      : 100 - (100 / (1 + rs))
 
     // Generar señales
     let signal: TradeSignal = 'HOLD'
@@ -192,10 +210,14 @@ export class TechnicalAnalysisService {
     signal: TradeSignal
     strength: number
   } {
+    if (prices.length === 0) {
+      return { sma20: 0, sma50: 0, sma200: 0, signal: 'HOLD', strength: 0 }
+    }
+
     const sma20 = this.calculateSingleSMA(prices, 20)
     const sma50 = this.calculateSingleSMA(prices, 50)
     const sma200 = this.calculateSingleSMA(prices, 200)
-    const current = prices[prices.length - 1].close
+    const current = prices.at(-1)?.close ?? 0
 
     // Generar señales basadas en cruces de medias
     let signal: TradeSignal = 'HOLD'
@@ -234,7 +256,8 @@ export class TechnicalAnalysisService {
   }
 
   private calculateSingleSMA(prices: PriceData[], period: number): number {
-    if (prices.length < period) return prices[prices.length - 1].close
+    if (prices.length === 0) return 0
+    if (prices.length < period) return prices[prices.length - 1]?.close ?? 0
 
     const sum = prices.slice(-period).reduce((acc, price) => acc + price.close, 0)
     return sum / period
@@ -272,13 +295,18 @@ export class TechnicalAnalysisService {
   }
 
   private calculateSingleEMA(prices: PriceData[], period: number): number {
-    if (prices.length < period) return prices[prices.length - 1].close
+    if (prices.length === 0) return 0
+    if (prices.length < period) return prices[prices.length - 1]?.close ?? 0
 
     const multiplier = 2 / (period + 1)
-    let ema = prices[0].close
+    let ema = prices[0]?.close ?? 0
 
     for (let i = 1; i < prices.length; i++) {
-      ema = (prices[i].close * multiplier) + (ema * (1 - multiplier))
+      const price = prices[i]
+      if (!price) {
+        continue
+      }
+      ema = (price.close * multiplier) + (ema * (1 - multiplier))
     }
 
     return ema
@@ -330,7 +358,7 @@ export class TechnicalAnalysisService {
   /**
    * Calcula extremos del año y distancias
    */
-  private async calculateExtremes(symbol: string, currentPrice: number): Promise<{
+  private async calculateExtremes(symbol: string, prices: PriceData[], currentPrice: number): Promise<{
     yearHigh: number
     yearLow: number
     current: number
@@ -339,9 +367,8 @@ export class TechnicalAnalysisService {
     signal: TradeSignal
     strength: number
   }> {
-    const extremes = simpleTechnicalIndicatorModel.getExtremes(symbol, 365)
-    
-    if (!extremes) {
+    if (prices.length === 0) {
+      logger.warn(`No prices available to calculate extremes for ${symbol}`)
       return {
         yearHigh: currentPrice,
         yearLow: currentPrice,
@@ -353,8 +380,18 @@ export class TechnicalAnalysisService {
       }
     }
 
-    const distanceFromHigh = ((extremes.yearHigh - currentPrice) / extremes.yearHigh) * 100
-    const distanceFromLow = ((currentPrice - extremes.yearLow) / extremes.yearLow) * 100
+    const lookback = prices.slice(-365)
+    const highs = lookback.map(price => price.high)
+    const lows = lookback.map(price => price.low)
+
+    const rawHigh = Math.max(...highs)
+    const rawLow = Math.min(...lows)
+
+    const yearHigh = Number.isFinite(rawHigh) ? rawHigh : currentPrice
+    const yearLow = Number.isFinite(rawLow) ? rawLow : currentPrice
+
+    const distanceFromHigh = yearHigh === 0 ? 0 : ((yearHigh - currentPrice) / yearHigh) * 100
+    const distanceFromLow = yearLow === 0 ? 0 : ((currentPrice - yearLow) / yearLow) * 100
 
     // Generar señales basadas en proximidad a extremos
     let signal: TradeSignal = 'HOLD'
@@ -376,8 +413,8 @@ export class TechnicalAnalysisService {
     }
 
     return {
-      yearHigh: extremes.yearHigh,
-      yearLow: extremes.yearLow,
+      yearHigh,
+      yearLow,
       current: currentPrice,
       distanceFromHigh: Math.round(distanceFromHigh * 100) / 100,
       distanceFromLow: Math.round(distanceFromLow * 100) / 100,
@@ -390,7 +427,7 @@ export class TechnicalAnalysisService {
    * Guarda todos los indicadores calculados en la base de datos
    */
   async saveIndicators(indicators: CalculatedIndicators): Promise<void> {
-    const timestamp = new Date()
+    const timestamp = new Date().toISOString()
     
     const indicatorData: Omit<TechnicalIndicatorData, 'id' | 'created_at' | 'updated_at'>[] = [
       {
@@ -497,21 +534,26 @@ export class TechnicalAnalysisService {
    * Obtiene datos de precios históricos para un símbolo
    */
   private async getPriceData(symbol: string, days: number): Promise<PriceData[]> {
-    const quotes = await quoteModel.findBySymbol(symbol, {
+    const quotes = await quoteModel.search({
+      symbol,
       limit: days,
-      sortBy: 'date',
-      sortOrder: 'DESC'
+      orderBy: 'date',
+      orderDirection: 'DESC'
     })
 
     return quotes
-      .map(quote => ({
-        date: new Date(quote.date),
-        open: quote.open,
-        high: quote.high,
-        low: quote.low,
-        close: quote.close,
-        volume: quote.volume || 0
-      }))
+      .map(quote => {
+        const dateString = `${quote.quote_date}T${quote.quote_time ?? '00:00:00'}`
+        return {
+          date: new Date(dateString),
+          open: quote.price,
+          high: quote.high ?? quote.price,
+          low: quote.low ?? quote.price,
+          close: quote.close ?? quote.price,
+          volume: quote.volume ?? 0
+        }
+      })
+      .filter(price => Number.isFinite(price.open) && Number.isFinite(price.close))
       .reverse() // Orden cronológico para cálculos
   }
 

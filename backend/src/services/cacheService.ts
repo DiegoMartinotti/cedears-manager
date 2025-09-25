@@ -129,6 +129,27 @@ export class CacheService {
   }
 
   /**
+   * Elimina todas las entradas cuyo key comience con el prefijo dado
+   */
+  clearByPrefix(prefix: string): number {
+    let removed = 0
+
+    for (const key of this.cache.keys()) {
+      if (key.startsWith(prefix)) {
+        this.cache.delete(key)
+        removed++
+      }
+    }
+
+    if (removed > 0) {
+      this.updateStats()
+      logger.info('Cache entries cleared by prefix', { prefix, removed })
+    }
+
+    return removed
+  }
+
+  /**
    * Genera una clave de caché para análisis de Claude
    */
   generateAnalysisKey(prompt: string, instrumentCode?: string, context?: string): string {
