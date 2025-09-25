@@ -20,6 +20,16 @@ import {
 } from './trendPredictionTypes.js'
 const logger = createLogger('trend-prediction-service')
 
+type ResolvedTrendPredictionOptions = {
+  useCache: boolean
+  cacheTTLMinutes: number
+  includeScenarios: boolean
+  analyzeWithClaude: boolean
+  includeNews: boolean
+  includeSentiment: boolean
+  includeEarnings: boolean
+}
+
 export class TrendPredictionService {
   private readonly CACHE_PREFIX = 'trend_prediction'
   private readonly DEFAULT_CACHE_TTL = 30 // minutos
@@ -62,128 +72,143 @@ export class TrendPredictionService {
     options: TrendPredictionOptions = {}
   ): Promise<TrendPrediction> {
     const startTime = Date.now()
-    
-    try {
-      const {
-        useCache = true,
-        cacheTTLMinutes = this.DEFAULT_CACHE_TTL,
-        includeScenarios = true,
-        analyzeWithClaude = true,
-        includeNews = true,
-        includeSentiment = true,
-        includeEarnings = true
-      } = options
 
+    try {
+      const resolvedOptions = this.resolveOptions(options)
       const cacheKey = `${this.CACHE_PREFIX}:${symbol}:${timeframe}:${JSON.stringify(options)}`
 
-      // Verificar cache
-      const cached = this.getCachedPrediction(cacheKey, useCache)
+      const cached = this.getCachedPrediction(cacheKey, resolvedOptions.useCache)
       if (cached) {
         logger.info('Trend prediction served from cache', { symbol, timeframe, cacheKey })
         return cached
       }
 
-      // Recopilar datos de múltiples fuentes
-      const { technical, news, sentiment, earnings, prices } = await this.collectPredictionData(
+      const { result, overallScore } = await this.buildTrendPrediction(
         symbol,
         timeframe,
-        { includeNews, includeSentiment, includeEarnings }
+        resolvedOptions
       )
 
-      // Calcular scores individuales
-      const technicalScore = this.calculateTechnicalScore(technical)
-      const fundamentalScore = this.calculateFundamentalScore(earnings, prices)
-      const sentimentScore = sentiment?.sentimentScore || 0
-      const newsScore = this.calculateNewsScore(news)
-
-      // Calcular score general ponderado
-      const weights = {
-        technical: 0.3,
-        fundamental: 0.25,
-        sentiment: 0.25,
-        news: 0.2
-      }
-
-      const overallScore = (
-        technicalScore * weights.technical +
-        fundamentalScore * weights.fundamental +
-        sentimentScore * weights.sentiment +
-        newsScore * weights.news
+      this.setCachedPrediction(
+        cacheKey,
+        result,
+        resolvedOptions.cacheTTLMinutes,
+        resolvedOptions.useCache
       )
-
-      // Determinar dirección y confianza
-      const prediction = this.calculatePrediction(overallScore, timeframe, {
-        technical: technicalScore,
-        fundamental: fundamentalScore,
-        sentiment: sentimentScore,
-        news: newsScore
-      })
-
-      // Identificar factores clave
-      const keyFactors = this.identifyKeyFactors({
-        technical,
-        news,
-        sentiment,
-        earnings,
-        scores: { technicalScore, fundamentalScore, sentimentScore, newsScore }
-      })
-
-      // Generar escenarios
-      const scenarios = this.maybeGenerateScenarios(symbol, prediction, includeScenarios)
-
-      // Análisis con Claude
-      const claudeAnalysis = await this.maybeRunClaudeAnalysis(
-        analyzeWithClaude,
-        symbol,
-        timeframe,
-        {
-          prediction,
-          scores: { technicalScore, fundamentalScore, sentimentScore, newsScore, overallScore },
-          keyFactors,
-          scenarios,
-          rawData: { technical, news, sentiment, earnings }
-        }
-      )
-
-      const result: TrendPrediction = {
-        symbol,
-        timeframe,
-        prediction,
-        analysis: {
-          technicalScore,
-          fundamentalScore,
-          sentimentScore,
-          newsScore,
-          overallScore,
-          keyFactors,
-          risks: this.identifyRisks(keyFactors, scenarios),
-          catalysts: this.identifyCatalysts(keyFactors, scenarios)
-        },
-        scenarios,
-        lastUpdated: new Date(),
-        claudeAnalysis
-      }
-
-      // Guardar en cache
-      this.setCachedPrediction(cacheKey, result, cacheTTLMinutes, useCache)
 
       const executionTime = Date.now() - startTime
       logger.info('Trend prediction completed', {
         symbol,
         timeframe,
-        direction: prediction.direction,
-        confidence: prediction.confidence,
+        direction: result.prediction.direction,
+        confidence: result.prediction.confidence,
         overallScore,
         executionTime
       })
 
       return result
-
     } catch (error) {
       const executionTime = Date.now() - startTime
       logger.error('Trend prediction failed', { symbol, timeframe, error, executionTime })
       throw error
     }
+  }
+
+  private resolveOptions(options: TrendPredictionOptions = {}): ResolvedTrendPredictionOptions {
+    return {
+      useCache: options.useCache ?? true,
+      cacheTTLMinutes: options.cacheTTLMinutes ?? this.DEFAULT_CACHE_TTL,
+      includeScenarios: options.includeScenarios ?? true,
+      analyzeWithClaude: options.analyzeWithClaude ?? true,
+      includeNews: options.includeNews ?? true,
+      includeSentiment: options.includeSentiment ?? true,
+      includeEarnings: options.includeEarnings ?? true
+    }
+  }
+
+  private async buildTrendPrediction(
+    symbol: string,
+    timeframe: string,
+    options: ResolvedTrendPredictionOptions
+  ): Promise<{ result: TrendPrediction; overallScore: number }> {
+    const { technical, news, sentiment, earnings, prices } = await this.collectPredictionData(
+      symbol,
+      timeframe,
+      {
+        includeNews: options.includeNews,
+        includeSentiment: options.includeSentiment,
+        includeEarnings: options.includeEarnings
+      }
+    )
+
+    const technicalScore = this.calculateTechnicalScore(technical)
+    const fundamentalScore = this.calculateFundamentalScore(earnings, prices)
+    const sentimentScore = sentiment?.sentimentScore || 0
+    const newsScore = this.calculateNewsScore(news)
+
+    const weights = {
+      technical: 0.3,
+      fundamental: 0.25,
+      sentiment: 0.25,
+      news: 0.2
+    }
+
+    const overallScore =
+      technicalScore * weights.technical +
+      fundamentalScore * weights.fundamental +
+      sentimentScore * weights.sentiment +
+      newsScore * weights.news
+
+    const prediction = this.calculatePrediction(overallScore, timeframe, {
+      technical: technicalScore,
+      fundamental: fundamentalScore,
+      sentiment: sentimentScore,
+      news: newsScore
+    })
+
+    const keyFactors = this.identifyKeyFactors({
+      technical,
+      news,
+      sentiment,
+      earnings,
+      scores: { technicalScore, fundamentalScore, sentimentScore, newsScore }
+    })
+
+    const scenarios = this.maybeGenerateScenarios(symbol, prediction, options.includeScenarios)
+
+    const claudeAnalysis = await this.maybeRunClaudeAnalysis(
+      options.analyzeWithClaude,
+      symbol,
+      timeframe,
+      {
+        prediction,
+        scores: { technicalScore, fundamentalScore, sentimentScore, newsScore, overallScore },
+        keyFactors,
+        scenarios,
+        rawData: { technical, news, sentiment, earnings }
+      }
+    )
+
+    const result: TrendPrediction = {
+      symbol,
+      timeframe,
+      prediction,
+      analysis: {
+        technicalScore,
+        fundamentalScore,
+        sentimentScore,
+        newsScore,
+        overallScore,
+        keyFactors,
+        risks: this.identifyRisks(keyFactors, scenarios),
+        catalysts: this.identifyCatalysts(keyFactors, scenarios)
+      },
+      scenarios,
+      lastUpdated: new Date(),
+      claudeAnalysis
+    }
+
+    return { result, overallScore }
   }
 
   private getCachedPrediction(cacheKey: string, useCache: boolean) {
