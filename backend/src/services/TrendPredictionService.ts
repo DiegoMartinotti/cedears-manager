@@ -2,7 +2,7 @@
 import { newsAnalysisService } from './NewsAnalysisService.js'
 import { marketSentimentService } from './MarketSentimentService.js'
 import { earningsAnalysisService } from './EarningsAnalysisService.js'
-import { Quote } from '../models/Quote.js'
+import { Quote, QuoteWithInstrument } from '../models/Quote.js'
 import { TechnicalIndicator } from '../models/TechnicalIndicator.js'
 import { cacheService } from './cacheService.js'
 import { createLogger } from '../utils/logger.js'
@@ -30,33 +30,50 @@ type ResolvedTrendPredictionOptions = {
   includeEarnings: boolean
 }
 
+type QuoteHistoryPoint = {
+  date: Date
+  close: number
+  high: number
+  low: number
+  volume: number
+}
+
 export class TrendPredictionService {
   private readonly CACHE_PREFIX = 'trend_prediction'
   private readonly DEFAULT_CACHE_TTL = 30 // minutos
   private quoteModel = new Quote()
   private technicalModel = new TechnicalIndicator()
 
-  private mapQuoteHistory(
-    symbol: string,
-    days: number
-  ): Promise<{
-    date: Date
-    close: number
-    high: number
-    low: number
-    volume: number
-  }[]> {
-    return this.quoteModel.findBySymbol(symbol, days).then(quotes =>
-      quotes
-        .map(quote => ({
-          date: new Date(quote.quote_date),
-          close: quote.close ?? quote.price,
-          high: quote.high ?? quote.price,
-          low: quote.low ?? quote.price,
-          volume: quote.volume ?? 0
-        }))
-        .sort((a, b) => a.date.getTime() - b.date.getTime())
-    )
+  private async mapQuoteHistory(symbol: string, days: number): Promise<QuoteHistoryPoint[]> {
+    const quotes = await this.quoteModel.findBySymbol(symbol, days)
+    return quotes
+      .map(quote => this.normalizeQuoteHistoryPoint(quote))
+      .sort((a, b) => this.sortQuoteHistoryByDate(a, b))
+  }
+
+  private normalizeQuoteHistoryPoint(quote: QuoteWithInstrument): QuoteHistoryPoint {
+    const {
+      quote_date: quoteDate,
+      price,
+      close: closeValue,
+      high: highValue,
+      low: lowValue,
+      volume
+    } = quote
+
+    const fallbackPrice = price ?? 0
+
+    return {
+      date: new Date(quoteDate),
+      close: closeValue ?? fallbackPrice,
+      high: highValue ?? fallbackPrice,
+      low: lowValue ?? fallbackPrice,
+      volume: volume ?? 0
+    }
+  }
+
+  private sortQuoteHistoryByDate(a: QuoteHistoryPoint, b: QuoteHistoryPoint): number {
+    return a.date.getTime() - b.date.getTime()
   }
 
   constructor() {
