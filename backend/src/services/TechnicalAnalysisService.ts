@@ -129,6 +129,17 @@ export class TechnicalAnalysisService {
       return { value: 50, signal: 'HOLD', strength: 0 }
     }
 
+    const changes = this.getPriceChanges(prices)
+    const { avgGain, avgLoss } = this.computeAverageRSIChanges(changes, period)
+    const safeAvgLoss = avgLoss === 0 ? Number.EPSILON : avgLoss
+    const rs = avgGain / safeAvgLoss
+    const rsi = 100 - (100 / (1 + rs))
+    const { signal, strength } = this.getRsiSignal(rsi)
+
+    return { value: rsi, signal, strength }
+  }
+
+  private getPriceChanges(prices: PriceData[]): number[] {
     const changes: number[] = []
     for (let i = 1; i < prices.length; i++) {
       const current = prices[i]
@@ -138,11 +149,16 @@ export class TechnicalAnalysisService {
       }
       changes.push(current.close - previous.close)
     }
+    return changes
+  }
 
+  private computeAverageRSIChanges(changes: number[], period: number): {
+    avgGain: number
+    avgLoss: number
+  } {
     let avgGain = 0
     let avgLoss = 0
 
-    // Primer cálculo (promedio simple)
     for (let i = 0; i < period; i++) {
       const change = changes[i] ?? 0
       if (change > 0) {
@@ -151,10 +167,10 @@ export class TechnicalAnalysisService {
         avgLoss += Math.abs(change)
       }
     }
+
     avgGain /= period
     avgLoss /= period
 
-    // Cálculos siguientes (promedio móvil exponencial)
     for (let i = period; i < changes.length; i++) {
       const change = changes[i] ?? 0
       if (change > 0) {
@@ -166,25 +182,22 @@ export class TechnicalAnalysisService {
       }
     }
 
-    const safeAvgLoss = avgLoss === 0 ? Number.EPSILON : avgLoss
-    const rs = avgGain / safeAvgLoss
-    const rsi = 100 - (100 / (1 + rs))
+    return { avgGain, avgLoss }
+  }
 
-    // Generar señales
-    let signal: TradeSignal = 'HOLD'
-    let strength = 0
-
+  private getRsiSignal(rsi: number): { signal: TradeSignal; strength: number } {
     if (rsi <= 30) {
-      signal = 'BUY'
-      strength = Math.max(0, Math.min(100, (30 - rsi) * 3))
-    } else if (rsi >= 70) {
-      signal = 'SELL'
-      strength = Math.max(0, Math.min(100, (rsi - 70) * 3))
-    } else {
-      strength = Math.abs(50 - rsi) / 2
+      const strength = Math.max(0, Math.min(100, (30 - rsi) * 3))
+      return { signal: 'BUY', strength: Math.round(strength) }
     }
 
-    return { value: rsi, signal, strength: Math.round(strength) }
+    if (rsi >= 70) {
+      const strength = Math.max(0, Math.min(100, (rsi - 70) * 3))
+      return { signal: 'SELL', strength: Math.round(strength) }
+    }
+
+    const strength = Math.abs(50 - rsi) / 2
+    return { signal: 'HOLD', strength: Math.round(strength) }
   }
 
   /**
@@ -240,7 +253,7 @@ export class TechnicalAnalysisService {
 
   private calculateSingleSMA(prices: PriceData[], period: number): number {
     if (prices.length === 0) return 0
-    if (prices.length < period) return prices[prices.length - 1]?.close ?? 0
+    if (prices.length < period) return prices.at(-1)?.close ?? 0
 
     const sum = prices.slice(-period).reduce((acc, price) => acc + price.close, 0)
     return sum / period
@@ -279,7 +292,7 @@ export class TechnicalAnalysisService {
 
   private calculateSingleEMA(prices: PriceData[], period: number): number {
     if (prices.length === 0) return 0
-    if (prices.length < period) return prices[prices.length - 1]?.close ?? 0
+    if (prices.length < period) return prices.at(-1)?.close ?? 0
 
     const multiplier = 2 / (period + 1)
     let ema = prices[0]?.close ?? 0
