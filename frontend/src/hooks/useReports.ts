@@ -309,20 +309,24 @@ export function useReportsCache() {
     queryClient.removeQueries({ queryKey: REPORTS_QUERY_KEYS.all });
   };
 
+  const isDateRange = (value: DateRange | number | undefined): value is DateRange => {
+    return typeof value === 'object' && value !== null && 'startDate' in value && 'endDate' in value;
+  };
+
   const clearReportCache = (reportType: ReportType, identifier?: DateRange | number) => {
     switch (reportType) {
       case 'dashboard':
-        if (identifier && 'startDate' in identifier) {
+        if (isDateRange(identifier)) {
           queryClient.removeQueries({ queryKey: REPORTS_QUERY_KEYS.dashboard(identifier) });
         }
         break;
       case 'impact_analysis':
-        if (identifier && 'startDate' in identifier) {
+        if (isDateRange(identifier)) {
           queryClient.removeQueries({ queryKey: REPORTS_QUERY_KEYS.impactAnalysis(identifier) });
         }
         break;
       case 'commission_comparison':
-        if (identifier && 'startDate' in identifier) {
+        if (isDateRange(identifier)) {
           queryClient.removeQueries({ queryKey: REPORTS_QUERY_KEYS.commissionComparison(identifier) });
         }
         break;

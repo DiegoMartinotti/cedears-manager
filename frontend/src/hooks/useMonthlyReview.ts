@@ -148,7 +148,7 @@ export function useMonthlyReview(offset = 0, limit = 50) {
   const applyChanges = useMutation({
     mutationFn: ({ reviewId, dryRun = false }: { reviewId: number, dryRun?: boolean }) => 
       monthlyReviewService.applyChanges(reviewId, dryRun),
-    onSuccess: (data, variables) => {
+    onSuccess: (_data, variables) => {
       // If not a dry run, invalidate all relevant data
       if (!variables.dryRun) {
         queryClient.invalidateQueries({ queryKey: monthlyReviewKeys.all })

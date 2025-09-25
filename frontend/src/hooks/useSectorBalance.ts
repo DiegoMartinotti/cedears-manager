@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import sectorBalanceService from '../services/sectorBalanceService'
 // Types are used by the service and returned by hooks - avoiding unnecessary imports
@@ -415,16 +416,21 @@ export function usePrefetchSectorBalance() {
  */
 export function useAutoRefreshSectorBalance(intervalMs: number = 5 * 60 * 1000) {
   const queryClient = useQueryClient()
-  
-  return useQuery({
+
+  const refreshTrigger = useQuery({
     queryKey: [...sectorBalanceKeys.all, 'autoRefresh'],
     queryFn: () => Promise.resolve(Date.now()),
     refetchInterval: intervalMs,
-    refetchIntervalInBackground: false,
-    onSuccess: () => {
-      // Invalidate key queries for auto-refresh
+    refetchIntervalInBackground: false
+  })
+
+  useEffect(() => {
+    if (refreshTrigger.isSuccess) {
       queryClient.invalidateQueries({ queryKey: sectorBalanceKeys.overview() })
       queryClient.invalidateQueries({ queryKey: sectorBalanceKeys.alerts() })
     }
-  })
+  }, [queryClient, refreshTrigger.data, refreshTrigger.isSuccess])
+
+  return refreshTrigger
 }
+
