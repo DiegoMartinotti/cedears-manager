@@ -38,6 +38,35 @@ type QuoteHistoryPoint = {
   volume: number
 }
 
+type KeyFactor = {
+  factor: string
+  impact: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL'
+  weight: number
+  description: string
+}
+
+type IdentifyKeyFactorsData = {
+  technical: unknown | null
+  news: unknown | null
+  sentiment: { sentimentScore?: number } | null
+  earnings: { analysis?: { overallAssessment?: string } } | null
+  scores: {
+    technicalScore: number
+    fundamentalScore: number
+    sentimentScore: number
+    newsScore: number
+  }
+}
+
+type ScoreFactorConfig = {
+  factor: string
+  weight: number
+  positiveThreshold: number
+  negativeThreshold: number
+  positiveDescription: string
+  negativeDescription: string
+}
+
 export class TrendPredictionService {
   private readonly CACHE_PREFIX = 'trend_prediction'
   private readonly DEFAULT_CACHE_TTL = 30 // minutos
@@ -668,98 +697,107 @@ export class TrendPredictionService {
   /**
    * Identifica factores clave
    */
-  private identifyKeyFactors(data: any): {
-    factor: string
-    impact: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL'
+  private identifyKeyFactors(data: IdentifyKeyFactorsData): KeyFactor[] {
+    const potentialFactors: Array<KeyFactor | null> = [
+      data.technical
+        ? this.buildScoreFactor(data.scores.technicalScore, {
+            factor: 'Technical Analysis',
+            weight: 0.3,
+            positiveThreshold: 20,
+            negativeThreshold: -20,
+            positiveDescription: 'Indicadores técnicos muestran momentum positivo',
+            negativeDescription: 'Indicadores técnicos muestran presión bajista'
+          })
+        : null,
+      data.earnings
+        ? this.buildEarningsFactor(data.earnings.analysis?.overallAssessment, 0.25)
+        : null,
+      data.sentiment
+        ? this.buildScoreFactor(data.sentiment.sentimentScore, {
+            factor: 'Market Sentiment',
+            weight: 0.2,
+            positiveThreshold: 25,
+            negativeThreshold: -25,
+            positiveDescription: 'Sentiment del mercado es optimista',
+            negativeDescription: 'Sentiment del mercado es pesimista'
+          })
+        : null,
+      data.news
+        ? this.buildScoreFactor(data.scores.newsScore, {
+            factor: 'News Coverage',
+            weight: 0.15,
+            positiveThreshold: 25,
+            negativeThreshold: -25,
+            positiveDescription: 'Noticias recientes son favorables',
+            negativeDescription: 'Noticias recientes son desfavorables'
+          })
+        : null
+    ]
+
+    return potentialFactors.filter((factor): factor is KeyFactor => factor !== null).slice(0, 5)
+  }
+
+  private buildScoreFactor(score: number | undefined, config: ScoreFactorConfig): KeyFactor | null {
+    if (score === undefined) {
+      return null
+    }
+
+    if (score > config.positiveThreshold) {
+      return {
+        factor: config.factor,
+        impact: 'POSITIVE',
+        weight: config.weight,
+        description: config.positiveDescription
+      }
+    }
+
+    if (score < config.negativeThreshold) {
+      return {
+        factor: config.factor,
+        impact: 'NEGATIVE',
+        weight: config.weight,
+        description: config.negativeDescription
+      }
+    }
+
+    return null
+  }
+
+  private buildEarningsFactor(
+    assessment: string | undefined,
     weight: number
-    description: string
-  }[] {
-    const factors = []
+  ): KeyFactor | null {
+    if (!assessment) {
+      return null
+    }
 
-    // Factores técnicos
-    if (data.technical) {
-      if (data.scores.technicalScore > 20) {
-        factors.push({
-          factor: 'Technical Analysis',
-          impact: 'POSITIVE' as const,
-          weight: 0.3,
-          description: 'Indicadores técnicos muestran momentum positivo'
-        })
-      } else if (data.scores.technicalScore < -20) {
-        factors.push({
-          factor: 'Technical Analysis',
-          impact: 'NEGATIVE' as const,
-          weight: 0.3,
-          description: 'Indicadores técnicos muestran presión bajista'
-        })
+    const positiveAssessments = new Set(['STRONG_BEAT', 'BEAT'])
+    if (positiveAssessments.has(assessment)) {
+      return {
+        factor: 'Earnings Performance',
+        impact: 'POSITIVE',
+        weight,
+        description: 'Resultados de earnings superaron expectativas'
       }
     }
 
-    // Factores fundamentales
-    if (data.earnings) {
-      const assessment = data.earnings.analysis.overallAssessment
-      if (['STRONG_BEAT', 'BEAT'].includes(assessment)) {
-        factors.push({
-          factor: 'Earnings Performance',
-          impact: 'POSITIVE' as const,
-          weight: 0.25,
-          description: 'Resultados de earnings superaron expectativas'
-        })
-      } else if (['MISS', 'STRONG_MISS'].includes(assessment)) {
-        factors.push({
-          factor: 'Earnings Performance',
-          impact: 'NEGATIVE' as const,
-          weight: 0.25,
-          description: 'Resultados de earnings decepcionaron'
-        })
+    const negativeAssessments = new Set(['MISS', 'STRONG_MISS'])
+    if (negativeAssessments.has(assessment)) {
+      return {
+        factor: 'Earnings Performance',
+        impact: 'NEGATIVE',
+        weight,
+        description: 'Resultados de earnings decepcionaron'
       }
     }
 
-    // Factores de sentiment
-    if (data.sentiment) {
-      if (data.sentiment.sentimentScore > 25) {
-        factors.push({
-          factor: 'Market Sentiment',
-          impact: 'POSITIVE' as const,
-          weight: 0.2,
-          description: 'Sentiment del mercado es optimista'
-        })
-      } else if (data.sentiment.sentimentScore < -25) {
-        factors.push({
-          factor: 'Market Sentiment',
-          impact: 'NEGATIVE' as const,
-          weight: 0.2,
-          description: 'Sentiment del mercado es pesimista'
-        })
-      }
-    }
-
-    // Factores de noticias
-    if (data.news) {
-      if (data.scores.newsScore > 25) {
-        factors.push({
-          factor: 'News Coverage',
-          impact: 'POSITIVE' as const,
-          weight: 0.15,
-          description: 'Noticias recientes son favorables'
-        })
-      } else if (data.scores.newsScore < -25) {
-        factors.push({
-          factor: 'News Coverage',
-          impact: 'NEGATIVE' as const,
-          weight: 0.15,
-          description: 'Noticias recientes son desfavorables'
-        })
-      }
-    }
-
-    return factors.slice(0, 5) // Máximo 5 factores
+    return null
   }
 
   /**
    * Identifica riesgos principales
    */
-  private identifyRisks(keyFactors: any[], scenarios: any[]): string[] {
+  private identifyRisks(keyFactors: KeyFactor[], scenarios: any[]): string[] {
     const risks = [
       'Volatilidad del mercado general',
       'Cambios en política monetaria',
@@ -786,7 +824,7 @@ export class TrendPredictionService {
   /**
    * Identifica catalizadores
    */
-  private identifyCatalysts(keyFactors: any[], scenarios: any[]): string[] {
+  private identifyCatalysts(keyFactors: KeyFactor[], scenarios: any[]): string[] {
     const catalysts = [
       'Mejora en indicadores económicos',
       'Resultados positivos del sector',
