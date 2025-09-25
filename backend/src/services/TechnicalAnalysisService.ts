@@ -67,14 +67,12 @@ export class TechnicalAnalysisService {
         return null
       }
 
-      const current = prices[prices.length - 1]
-      
       // Calcular indicadores
       const rsi = this.calculateRSI(prices)
       const smas = this.calculateSMA(prices)
       const emas = this.calculateEMA(prices)
       const macd = this.calculateMACD(prices)
-      const extremes = await this.calculateExtremes(symbol, current.close)
+      const extremes = this.calculateExtremes(prices)
 
       return {
         symbol,
@@ -131,9 +129,14 @@ export class TechnicalAnalysisService {
       return { value: 50, signal: 'HOLD', strength: 0 }
     }
 
-    const changes = []
+    const changes: number[] = []
     for (let i = 1; i < prices.length; i++) {
-      changes.push(prices[i].close - prices[i - 1].close)
+      const current = prices[i]
+      const previous = prices[i - 1]
+      if (!current || !previous) {
+        continue
+      }
+      changes.push(current.close - previous.close)
     }
 
     let avgGain = 0
@@ -141,10 +144,11 @@ export class TechnicalAnalysisService {
 
     // Primer cálculo (promedio simple)
     for (let i = 0; i < period; i++) {
-      if (changes[i] > 0) {
-        avgGain += changes[i]
+      const change = changes[i] ?? 0
+      if (change > 0) {
+        avgGain += change
       } else {
-        avgLoss += Math.abs(changes[i])
+        avgLoss += Math.abs(change)
       }
     }
     avgGain /= period
@@ -152,7 +156,7 @@ export class TechnicalAnalysisService {
 
     // Cálculos siguientes (promedio móvil exponencial)
     for (let i = period; i < changes.length; i++) {
-      const change = changes[i]
+      const change = changes[i] ?? 0
       if (change > 0) {
         avgGain = ((avgGain * (period - 1)) + change) / period
         avgLoss = (avgLoss * (period - 1)) / period
@@ -162,7 +166,8 @@ export class TechnicalAnalysisService {
       }
     }
 
-    const rs = avgGain / avgLoss
+    const safeAvgLoss = avgLoss === 0 ? Number.EPSILON : avgLoss
+    const rs = avgGain / safeAvgLoss
     const rsi = 100 - (100 / (1 + rs))
 
     // Generar señales
@@ -195,7 +200,7 @@ export class TechnicalAnalysisService {
     const sma20 = this.calculateSingleSMA(prices, 20)
     const sma50 = this.calculateSingleSMA(prices, 50)
     const sma200 = this.calculateSingleSMA(prices, 200)
-    const current = prices[prices.length - 1].close
+    const current = prices.at(-1)?.close ?? 0
 
     // Generar señales basadas en cruces de medias
     let signal: TradeSignal = 'HOLD'
@@ -234,7 +239,8 @@ export class TechnicalAnalysisService {
   }
 
   private calculateSingleSMA(prices: PriceData[], period: number): number {
-    if (prices.length < period) return prices[prices.length - 1].close
+    if (prices.length === 0) return 0
+    if (prices.length < period) return prices[prices.length - 1]?.close ?? 0
 
     const sum = prices.slice(-period).reduce((acc, price) => acc + price.close, 0)
     return sum / period
@@ -272,13 +278,15 @@ export class TechnicalAnalysisService {
   }
 
   private calculateSingleEMA(prices: PriceData[], period: number): number {
-    if (prices.length < period) return prices[prices.length - 1].close
+    if (prices.length === 0) return 0
+    if (prices.length < period) return prices[prices.length - 1]?.close ?? 0
 
     const multiplier = 2 / (period + 1)
-    let ema = prices[0].close
+    let ema = prices[0]?.close ?? 0
 
     for (let i = 1; i < prices.length; i++) {
-      ema = (prices[i].close * multiplier) + (ema * (1 - multiplier))
+      const price = prices[i]?.close ?? ema
+      ema = (price * multiplier) + (ema * (1 - multiplier))
     }
 
     return ema
@@ -330,7 +338,7 @@ export class TechnicalAnalysisService {
   /**
    * Calcula extremos del año y distancias
    */
-  private async calculateExtremes(symbol: string, currentPrice: number): Promise<{
+  private calculateExtremes(prices: PriceData[]): {
     yearHigh: number
     yearLow: number
     current: number
@@ -338,14 +346,12 @@ export class TechnicalAnalysisService {
     distanceFromLow: number
     signal: TradeSignal
     strength: number
-  }> {
-    const extremes = simpleTechnicalIndicatorModel.getExtremes(symbol, 365)
-    
-    if (!extremes) {
+  } {
+    if (prices.length === 0) {
       return {
-        yearHigh: currentPrice,
-        yearLow: currentPrice,
-        current: currentPrice,
+        yearHigh: 0,
+        yearLow: 0,
+        current: 0,
         distanceFromHigh: 0,
         distanceFromLow: 0,
         signal: 'HOLD',
@@ -353,8 +359,13 @@ export class TechnicalAnalysisService {
       }
     }
 
-    const distanceFromHigh = ((extremes.yearHigh - currentPrice) / extremes.yearHigh) * 100
-    const distanceFromLow = ((currentPrice - extremes.yearLow) / extremes.yearLow) * 100
+    const closes = prices.map(price => price.close)
+    const yearHigh = closes.length > 0 ? Math.max(...closes) : 0
+    const yearLow = closes.length > 0 ? Math.min(...closes) : 0
+    const currentPrice = closes.at(-1) ?? 0
+
+    const distanceFromHigh = yearHigh > 0 ? ((yearHigh - currentPrice) / yearHigh) * 100 : 0
+    const distanceFromLow = yearLow > 0 ? ((currentPrice - yearLow) / yearLow) * 100 : 0
 
     // Generar señales basadas en proximidad a extremos
     let signal: TradeSignal = 'HOLD'
@@ -376,8 +387,8 @@ export class TechnicalAnalysisService {
     }
 
     return {
-      yearHigh: extremes.yearHigh,
-      yearLow: extremes.yearLow,
+      yearHigh,
+      yearLow,
       current: currentPrice,
       distanceFromHigh: Math.round(distanceFromHigh * 100) / 100,
       distanceFromLow: Math.round(distanceFromLow * 100) / 100,
@@ -390,7 +401,7 @@ export class TechnicalAnalysisService {
    * Guarda todos los indicadores calculados en la base de datos
    */
   async saveIndicators(indicators: CalculatedIndicators): Promise<void> {
-    const timestamp = new Date()
+    const timestamp = new Date().toISOString()
     
     const indicatorData: Omit<TechnicalIndicatorData, 'id' | 'created_at' | 'updated_at'>[] = [
       {
@@ -461,7 +472,7 @@ export class TechnicalAnalysisService {
       })
     }
 
-    simpleTechnicalIndicatorModel.batchUpsert(indicatorData)
+    await simpleTechnicalIndicatorModel.batchUpsert(indicatorData)
     logger.info(`Saved ${indicatorData.length} technical indicators for ${indicators.symbol}`)
   }
 
@@ -497,22 +508,18 @@ export class TechnicalAnalysisService {
    * Obtiene datos de precios históricos para un símbolo
    */
   private async getPriceData(symbol: string, days: number): Promise<PriceData[]> {
-    const quotes = await quoteModel.findBySymbol(symbol, {
-      limit: days,
-      sortBy: 'date',
-      sortOrder: 'DESC'
-    })
+    const quotes = await quoteModel.findBySymbol(symbol, days)
 
     return quotes
       .map(quote => ({
-        date: new Date(quote.date),
-        open: quote.open,
-        high: quote.high,
-        low: quote.low,
-        close: quote.close,
-        volume: quote.volume || 0
+        date: new Date(quote.quote_date),
+        open: quote.price,
+        high: quote.high ?? quote.price,
+        low: quote.low ?? quote.price,
+        close: quote.close ?? quote.price,
+        volume: quote.volume ?? 0
       }))
-      .reverse() // Orden cronológico para cálculos
+      .sort((a, b) => a.date.getTime() - b.date.getTime())
   }
 
   /**
@@ -533,7 +540,7 @@ export class TechnicalAnalysisService {
    * Limpia indicadores antiguos
    */
   async cleanupOldIndicators(daysToKeep: number = 90): Promise<number> {
-    const deletedCount = simpleTechnicalIndicatorModel.deleteOldIndicators(daysToKeep)
+    const deletedCount = await simpleTechnicalIndicatorModel.deleteOldIndicators(daysToKeep)
     logger.info(`Cleaned up ${deletedCount} old technical indicators`)
     return deletedCount
   }

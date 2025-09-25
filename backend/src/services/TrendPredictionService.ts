@@ -26,6 +26,29 @@ export class TrendPredictionService {
   private quoteModel = new Quote()
   private technicalModel = new TechnicalIndicator()
 
+  private mapQuoteHistory(
+    symbol: string,
+    days: number
+  ): Promise<{
+    date: Date
+    close: number
+    high: number
+    low: number
+    volume: number
+  }[]> {
+    return this.quoteModel.findBySymbol(symbol, days).then(quotes =>
+      quotes
+        .map(quote => ({
+          date: new Date(quote.quote_date),
+          close: quote.close ?? quote.price,
+          high: quote.high ?? quote.price,
+          low: quote.low ?? quote.price,
+          volume: quote.volume ?? 0
+        }))
+        .sort((a, b) => a.date.getTime() - b.date.getTime())
+    )
+  }
+
   constructor() {
     logger.info('TrendPredictionService initialized')
   }
@@ -342,7 +365,7 @@ export class TrendPredictionService {
    */
   private async getTechnicalAnalysis(symbol: string): Promise<any> {
     try {
-      const indicators = await this.technicalModel.getLatestBySymbol(symbol)
+      const indicators = this.technicalModel.getLatestIndicators(symbol)
       return indicators
     } catch (error) {
       logger.warn('Failed to get technical analysis', { symbol, error })
@@ -398,7 +421,13 @@ export class TrendPredictionService {
   /**
    * Obtiene datos históricos de precio
    */
-  private async getPriceData(symbol: string, timeframe: string): Promise<any> {
+  private async getPriceData(symbol: string, timeframe: string): Promise<{
+    date: Date
+    close: number
+    high: number
+    low: number
+    volume: number
+  }[] | null> {
     try {
       const daysLookup: Record<string, number> = {
         '1W': 7,
@@ -408,11 +437,8 @@ export class TrendPredictionService {
         '1Y': 365
       }
       const days = daysLookup[timeframe] ?? 365
-      
-      const endDate = new Date()
-      const startDate = new Date(endDate.getTime() - days * 24 * 60 * 60 * 1000)
-      
-      const quotes = await this.quoteModel.getHistory(symbol, startDate, endDate)
+
+      const quotes = await this.mapQuoteHistory(symbol, days)
       return quotes
     } catch (error) {
       logger.warn('Failed to get price data', { symbol, error })
@@ -718,8 +744,8 @@ export class TrendPredictionService {
    * Limpia cache de predicciones
    */
   clearCache(): void {
-    cacheService.clearByPrefix(this.CACHE_PREFIX)
-    logger.info('Trend prediction cache cleared')
+    const removed = cacheService.clearByPrefix(this.CACHE_PREFIX)
+    logger.info('Trend prediction cache cleared', { prefix: this.CACHE_PREFIX, removed })
   }
 }
 // Singleton instance
