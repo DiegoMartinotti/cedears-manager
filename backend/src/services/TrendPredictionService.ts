@@ -77,7 +77,7 @@ export class TrendPredictionService {
       const cacheKey = `${this.CACHE_PREFIX}:${symbol}:${timeframe}:${JSON.stringify(options)}`
 
       // Verificar cache
-      const cached = useCache ? cacheService.get<TrendPrediction>(cacheKey) : undefined
+      const cached = this.getCachedPrediction(cacheKey, useCache)
       if (cached) {
         logger.info('Trend prediction served from cache', { symbol, timeframe, cacheKey })
         return cached
@@ -129,20 +129,21 @@ export class TrendPredictionService {
       })
 
       // Generar escenarios
-      const scenarios = includeScenarios
-        ? generateScenarios(symbol, prediction)
-        : []
+      const scenarios = this.maybeGenerateScenarios(symbol, prediction, includeScenarios)
 
       // Análisis con Claude
-      const claudeAnalysis = analyzeWithClaude
-        ? await this.runClaudeAnalysis(symbol, timeframe, {
-            prediction,
-            scores: { technicalScore, fundamentalScore, sentimentScore, newsScore, overallScore },
-            keyFactors,
-            scenarios,
-            rawData: { technical, news, sentiment, earnings }
-          })
-        : undefined
+      const claudeAnalysis = await this.maybeRunClaudeAnalysis(
+        analyzeWithClaude,
+        symbol,
+        timeframe,
+        {
+          prediction,
+          scores: { technicalScore, fundamentalScore, sentimentScore, newsScore, overallScore },
+          keyFactors,
+          scenarios,
+          rawData: { technical, news, sentiment, earnings }
+        }
+      )
 
       const result: TrendPrediction = {
         symbol,
@@ -164,9 +165,7 @@ export class TrendPredictionService {
       }
 
       // Guardar en cache
-      if (useCache) {
-        cacheService.set(cacheKey, result, cacheTTLMinutes * 60 * 1000)
-      }
+      this.setCachedPrediction(cacheKey, result, cacheTTLMinutes, useCache)
 
       const executionTime = Date.now() - startTime
       logger.info('Trend prediction completed', {
@@ -185,6 +184,54 @@ export class TrendPredictionService {
       logger.error('Trend prediction failed', { symbol, timeframe, error, executionTime })
       throw error
     }
+  }
+
+  private getCachedPrediction(cacheKey: string, useCache: boolean) {
+    if (!useCache) {
+      return undefined
+    }
+
+    return cacheService.get<TrendPrediction>(cacheKey)
+  }
+
+  private setCachedPrediction(
+    cacheKey: string,
+    value: TrendPrediction,
+    cacheTTLMinutes: number,
+    useCache: boolean
+  ) {
+    if (!useCache) {
+      return
+    }
+
+    cacheService.set(cacheKey, value, cacheTTLMinutes * 60 * 1000)
+  }
+
+  private maybeGenerateScenarios(symbol: string, prediction: TrendPrediction['prediction'], include: boolean) {
+    if (!include) {
+      return []
+    }
+
+    return generateScenarios(symbol, prediction)
+  }
+
+  private async maybeRunClaudeAnalysis(
+    shouldRun: boolean,
+    symbol: string,
+    timeframe: string,
+    data: {
+      prediction: any
+      scores: Record<string, number>
+      keyFactors: any
+      scenarios: any
+      rawData: Record<string, unknown>
+    }
+  ) {
+    if (!shouldRun) {
+      return undefined
+    }
+
+    return this.runClaudeAnalysis(symbol, timeframe, data)
   }
 
   private async runClaudeAnalysis(
