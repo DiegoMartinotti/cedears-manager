@@ -342,8 +342,8 @@ export class TrendPredictionService {
    */
   private async getTechnicalAnalysis(symbol: string): Promise<any> {
     try {
-      const indicators = await this.technicalModel.getLatestBySymbol(symbol)
-      return indicators
+      const indicators = this.technicalModel.getLatestIndicators(symbol)
+      return indicators.length > 0 ? indicators : null
     } catch (error) {
       logger.warn('Failed to get technical analysis', { symbol, error })
       return null
@@ -412,8 +412,23 @@ export class TrendPredictionService {
       const endDate = new Date()
       const startDate = new Date(endDate.getTime() - days * 24 * 60 * 60 * 1000)
       
-      const quotes = await this.quoteModel.getHistory(symbol, startDate, endDate)
-      return quotes
+      const quotes = await this.quoteModel.search({
+        symbol,
+        fromDate: startDate.toISOString().split('T')[0],
+        toDate: endDate.toISOString().split('T')[0],
+        orderBy: 'date',
+        orderDirection: 'ASC',
+        limit: days
+      })
+
+      return quotes.map(quote => ({
+        date: `${quote.quote_date}T${quote.quote_time ?? '00:00:00'}`,
+        price: quote.price,
+        high: quote.high,
+        low: quote.low,
+        close: quote.close,
+        volume: quote.volume
+      }))
     } catch (error) {
       logger.warn('Failed to get price data', { symbol, error })
       return null
