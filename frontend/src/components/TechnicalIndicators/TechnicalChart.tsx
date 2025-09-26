@@ -209,9 +209,12 @@ export function TechnicalChart({ symbol, height = 300, showControls = true }: Te
                 dot={(props: DotProps): ReactElement => {
                   const { payload } = props as DotProps & { payload?: { signal?: 'BUY' | 'SELL' } }
                   const signal = payload?.signal
-                  const color = signal === 'BUY' ? '#22c55e'
-                    : signal === 'SELL' ? '#ef4444'
-                    : '#6b7280'
+                  let color = '#6b7280'
+                  if (signal === 'BUY') {
+                    color = '#22c55e'
+                  } else if (signal === 'SELL') {
+                    color = '#ef4444'
+                  }
 
                   return (
                     <circle
