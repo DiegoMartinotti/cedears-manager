@@ -140,6 +140,22 @@ export class TechnicalAnalysisService {
       return { value: 50, signal: 'HOLD', strength: 0 }
     }
 
+    const changes = this.buildPriceChanges(prices)
+    const { avgGain: initialAvgGain, avgLoss: initialAvgLoss } = this.computeInitialRsiAverages(changes, period)
+    const { avgGain, avgLoss } = this.smoothRsiAverages(changes, period, initialAvgGain, initialAvgLoss)
+
+    const safeAvgLoss = avgLoss === 0 ? 1e-9 : avgLoss
+    const rs = avgGain / safeAvgLoss
+    const rsi = avgLoss === 0
+      ? 100
+      : 100 - (100 / (1 + rs))
+
+    const { signal, strength } = this.evaluateRsiSignal(rsi)
+
+    return { value: rsi, signal, strength }
+  }
+
+  private buildPriceChanges(prices: PriceData[]): number[] {
     const changes: number[] = []
     for (let i = 1; i < prices.length; i++) {
       const currentPrice = prices[i]
@@ -149,11 +165,13 @@ export class TechnicalAnalysisService {
       }
       changes.push(currentPrice.close - previousPrice.close)
     }
+    return changes
+  }
 
+  private computeInitialRsiAverages(changes: number[], period: number): { avgGain: number; avgLoss: number } {
     let avgGain = 0
     let avgLoss = 0
 
-    // Primer cálculo (promedio simple)
     for (let i = 0; i < period; i++) {
       const delta = changes[i] ?? 0
       if (delta > 0) {
@@ -162,42 +180,50 @@ export class TechnicalAnalysisService {
         avgLoss += Math.abs(delta)
       }
     }
-    avgGain /= period
-    avgLoss /= period
 
-    // Cálculos siguientes (promedio móvil exponencial)
+    return {
+      avgGain: avgGain / period,
+      avgLoss: avgLoss / period
+    }
+  }
+
+  private smoothRsiAverages(
+    changes: number[],
+    period: number,
+    initialAvgGain: number,
+    initialAvgLoss: number
+  ): { avgGain: number; avgLoss: number } {
+    let avgGain = initialAvgGain
+    let avgLoss = initialAvgLoss
+    const decayFactor = (period - 1) / period
+
     for (let i = period; i < changes.length; i++) {
       const change = changes[i] ?? 0
       if (change > 0) {
-        avgGain = ((avgGain * (period - 1)) + change) / period
-        avgLoss = (avgLoss * (period - 1)) / period
+        avgGain = (avgGain * decayFactor) + (change / period)
+        avgLoss *= decayFactor
       } else {
-        avgGain = (avgGain * (period - 1)) / period
-        avgLoss = ((avgLoss * (period - 1)) + Math.abs(change)) / period
+        avgGain *= decayFactor
+        avgLoss = (avgLoss * decayFactor) + (Math.abs(change) / period)
       }
     }
 
-    const safeAvgLoss = avgLoss === 0 ? 1e-9 : avgLoss
-    const rs = avgGain / safeAvgLoss
-    const rsi = avgLoss === 0
-      ? 100
-      : 100 - (100 / (1 + rs))
+    return { avgGain, avgLoss }
+  }
 
-    // Generar señales
-    let signal: TradeSignal = 'HOLD'
-    let strength = 0
-
+  private evaluateRsiSignal(rsi: number): { signal: TradeSignal; strength: number } {
     if (rsi <= 30) {
-      signal = 'BUY'
-      strength = Math.max(0, Math.min(100, (30 - rsi) * 3))
-    } else if (rsi >= 70) {
-      signal = 'SELL'
-      strength = Math.max(0, Math.min(100, (rsi - 70) * 3))
-    } else {
-      strength = Math.abs(50 - rsi) / 2
+      const strength = Math.max(0, Math.min(100, (30 - rsi) * 3))
+      return { signal: 'BUY', strength: Math.round(strength) }
     }
 
-    return { value: rsi, signal, strength: Math.round(strength) }
+    if (rsi >= 70) {
+      const strength = Math.max(0, Math.min(100, (rsi - 70) * 3))
+      return { signal: 'SELL', strength: Math.round(strength) }
+    }
+
+    const neutralStrength = Math.abs(50 - rsi) / 2
+    return { signal: 'HOLD', strength: Math.round(neutralStrength) }
   }
 
   /**
