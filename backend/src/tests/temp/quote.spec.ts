@@ -22,7 +22,9 @@ const setupQuoteTestContext = (): QuoteTestContext => {
   try {
     db.exec('DELETE FROM quotes')
   } catch (error) {
-    // Tabla puede no existir en la primera ejecución
+    if (!(error instanceof Error) || !error.message.includes('no such table')) {
+      throw error
+    }
   }
 
   return { quote, db }
@@ -32,7 +34,9 @@ const cleanupQuoteTestContext = (db: any) => {
   try {
     db.exec('DELETE FROM quotes')
   } catch (error) {
-    // Ignorar errores de limpieza
+    if (!(error instanceof Error) || !error.message.includes('no such table')) {
+      throw error
+    }
   }
 }
 
@@ -104,7 +108,10 @@ describe('Quote Model findById', () => {
     }
 
     const createdQuote = await quote.create(quoteData)
-    const foundQuote = await quote.findById(createdQuote.id!)
+    if (!createdQuote.id) {
+      throw new Error('Expected created quote to include an id')
+    }
+    const foundQuote = await quote.findById(createdQuote.id)
 
     expect(foundQuote).toBeDefined()
     expect(foundQuote!.id).toBe(createdQuote.id)
