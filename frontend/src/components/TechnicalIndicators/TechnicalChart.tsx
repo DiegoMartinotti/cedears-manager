@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
+import { useState, type ReactElement } from 'react'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, type DotProps } from 'recharts'
 import { useIndicatorHistory, useExtremes } from '../../hooks/useTechnicalIndicators'
 import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
@@ -206,17 +206,20 @@ export function TechnicalChart({ symbol, height = 300, showControls = true }: Te
                 dataKey="value"
                 stroke={getIndicatorColor(selectedIndicator)}
                 strokeWidth={2}
-                dot={(props: any) => {
-                  const { payload } = props
-                  if (!payload) return null
-                  
-                  const color = payload.signal === 'BUY' ? '#22c55e' : 
-                               payload.signal === 'SELL' ? '#ef4444' : '#6b7280'
-                  
+                dot={(props: DotProps): ReactElement => {
+                  const { payload } = props as DotProps & { payload?: { signal?: 'BUY' | 'SELL' } }
+                  const signal = payload?.signal
+                  let color = '#6b7280'
+                  if (signal === 'BUY') {
+                    color = '#22c55e'
+                  } else if (signal === 'SELL') {
+                    color = '#ef4444'
+                  }
+
                   return (
                     <circle
-                      cx={props.cx}
-                      cy={props.cy}
+                      cx={props.cx ?? 0}
+                      cy={props.cy ?? 0}
                       r={3}
                       fill={color}
                       stroke={color}
