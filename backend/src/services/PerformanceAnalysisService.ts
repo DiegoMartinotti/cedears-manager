@@ -1,8 +1,7 @@
 import { benchmarkDataModel } from '../models/BenchmarkData.js'
-import { portfolioService } from './PortfolioService.js'
-import { uvaService } from './UVAService.js'
-import { DatabaseConnection } from '../database/connection.js'
-import logger from '../utils/logger.js'
+import { PortfolioService } from './PortfolioService.js'
+import DatabaseConnection from '../database/connection.js'
+import { createLogger } from '../utils/logger.js'
 
 export interface PerformanceMetrics {
   calculation_date: Date
@@ -78,8 +77,29 @@ export interface RiskFreeRate {
   daily_rate: number
 }
 
+interface SeriesPerformance {
+  totalReturn: number
+  annualizedReturn: number
+  volatility: number
+  sharpeRatio: number
+  maxDrawdown: number
+}
+
+interface ComparisonMetricsSummary {
+  excessReturn: number
+  trackingError: number
+  informationRatio: number
+  beta: number
+  alpha: number
+  rSquared: number
+  correlation: number
+}
+
+const logger = createLogger('PerformanceAnalysisService')
+
 export class PerformanceAnalysisService {
   private db = DatabaseConnection.getInstance()
+  private readonly portfolioService = new PortfolioService()
 
   async calculatePortfolioMetrics(startDate: Date, endDate: Date): Promise<PerformanceMetrics> {
     try {
@@ -93,11 +113,12 @@ export class PerformanceAnalysisService {
       const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
       
       // Calculate basic portfolio metrics
-      const totalReturn = this.calculateTotalReturn(portfolioReturns)
+      const returnSeries = portfolioReturns.map(dataPoint => dataPoint.return)
+      const totalReturn = this.calculateTotalReturn(returnSeries)
       const annualizedReturn = this.annualizeReturn(totalReturn, days)
-      const volatility = this.calculateVolatility(portfolioReturns)
-      const maxDrawdown = this.calculateMaxDrawdown(portfolioReturns)
-      const downsideDeviation = this.calculateDownsideDeviation(portfolioReturns)
+      const volatility = this.calculateVolatility(returnSeries)
+      const maxDrawdown = this.calculateMaxDrawdown(returnSeries)
+      const downsideDeviation = this.calculateDownsideDeviation(returnSeries)
       
       // Get risk-free rate for Sharpe ratio calculation
       const riskFreeRate = await this.getRiskFreeRate(endDate)
@@ -106,8 +127,8 @@ export class PerformanceAnalysisService {
       const calmarRatio = maxDrawdown !== 0 ? annualizedReturn / Math.abs(maxDrawdown) : 0
       
       // Calculate VaR
-      const var95 = this.calculateVaR(portfolioReturns, 0.05)
-      const var99 = this.calculateVaR(portfolioReturns, 0.01)
+      const var95 = this.calculateVaR(returnSeries, 0.05)
+      const var99 = this.calculateVaR(returnSeries, 0.01)
 
       return {
         calculation_date: new Date(),
@@ -129,99 +150,40 @@ export class PerformanceAnalysisService {
   }
 
   async compareWithBenchmark(
-    benchmarkId: number, 
-    startDate: Date, 
+    benchmarkId: number,
+    startDate: Date,
     endDate: Date
   ): Promise<ComparisonResult> {
     try {
-      // Get portfolio and benchmark data
-      const portfolioReturns = await this.getPortfolioDailyReturns(startDate, endDate)
-      const benchmarkReturns = await this.getBenchmarkDailyReturns(benchmarkId, startDate, endDate)
-      
-      if (portfolioReturns.length === 0 || benchmarkReturns.length === 0) {
-        throw new Error('Insufficient data for comparison')
-      }
-
-      // Align dates (only keep dates where both portfolio and benchmark have data)
-      const alignedData = this.alignReturns(portfolioReturns, benchmarkReturns)
-      const alignedPortfolio = alignedData.portfolio
-      const alignedBenchmark = alignedData.benchmark
-
-      if (alignedPortfolio.length < 30) {
-        throw new Error('Insufficient aligned data for reliable comparison (minimum 30 days required)')
-      }
-
-      const days = alignedPortfolio.length
+      const { portfolioSeries, benchmarkSeries, days } = await this.prepareComparisonSeries(
+        benchmarkId,
+        startDate,
+        endDate
+      )
       const riskFreeRate = await this.getRiskFreeRate(endDate)
 
-      // Portfolio metrics
-      const portfolioTotalReturn = this.calculateTotalReturn(alignedPortfolio.map(d => d.return))
-      const portfolioAnnualizedReturn = this.annualizeReturn(portfolioTotalReturn, days)
-      const portfolioVolatility = this.calculateVolatility(alignedPortfolio.map(d => d.return))
-      const portfolioSharpeRatio = this.calculateSharpeRatio(portfolioAnnualizedReturn, portfolioVolatility, riskFreeRate.annual_rate)
-      const portfolioMaxDrawdown = this.calculateMaxDrawdown(alignedPortfolio.map(d => d.return))
+      const portfolioMetrics = this.buildSeriesMetrics(portfolioSeries, days, riskFreeRate.annual_rate)
+      const benchmarkMetrics = this.buildSeriesMetrics(benchmarkSeries, days, riskFreeRate.annual_rate)
+      const comparison = this.buildComparisonMetrics({
+        portfolioMetrics,
+        benchmarkMetrics,
+        portfolioSeries,
+        benchmarkSeries,
+        riskFreeRate: riskFreeRate.annual_rate
+      })
+      const benchmarkInfo = this.getBenchmarkBasics(benchmarkId)
 
-      // Benchmark metrics
-      const benchmarkTotalReturn = this.calculateTotalReturn(alignedBenchmark.map(d => d.return))
-      const benchmarkAnnualizedReturn = this.annualizeReturn(benchmarkTotalReturn, days)
-      const benchmarkVolatility = this.calculateVolatility(alignedBenchmark.map(d => d.return))
-      const benchmarkSharpeRatio = this.calculateSharpeRatio(benchmarkAnnualizedReturn, benchmarkVolatility, riskFreeRate.annual_rate)
-      const benchmarkMaxDrawdown = this.calculateMaxDrawdown(alignedBenchmark.map(d => d.return))
-
-      // Comparison metrics
-      const excessReturns = alignedPortfolio.map((d, i) => d.return - alignedBenchmark[i].return)
-      const excessReturn = portfolioAnnualizedReturn - benchmarkAnnualizedReturn
-      const trackingError = this.calculateVolatility(excessReturns)
-      const informationRatio = trackingError !== 0 ? excessReturn / trackingError : 0
-      
-      const beta = this.calculateBeta(
-        alignedPortfolio.map(d => d.return),
-        alignedBenchmark.map(d => d.return)
-      )
-      
-      const alpha = portfolioAnnualizedReturn - (riskFreeRate.annual_rate + beta * (benchmarkAnnualizedReturn - riskFreeRate.annual_rate))
-      const correlation = this.calculateCorrelation(
-        alignedPortfolio.map(d => d.return),
-        alignedBenchmark.map(d => d.return)
-      )
-      const rSquared = Math.pow(correlation, 2)
-
-      // Get benchmark info
-      const benchmarkStmt = this.db.prepare('SELECT symbol, name FROM benchmark_indices WHERE id = ?')
-      const benchmarkInfo = benchmarkStmt.get(benchmarkId) as any
-
-      return {
-        portfolio: {
-          total_return: portfolioTotalReturn,
-          annualized_return: portfolioAnnualizedReturn,
-          volatility: portfolioVolatility,
-          sharpe_ratio: portfolioSharpeRatio,
-          max_drawdown: portfolioMaxDrawdown
-        },
-        benchmark: {
-          symbol: benchmarkInfo.symbol,
-          name: benchmarkInfo.name,
-          total_return: benchmarkTotalReturn,
-          annualized_return: benchmarkAnnualizedReturn,
-          volatility: benchmarkVolatility,
-          sharpe_ratio: benchmarkSharpeRatio,
-          max_drawdown: benchmarkMaxDrawdown
-        },
-        comparison: {
-          excess_return: excessReturn,
-          tracking_error: trackingError,
-          information_ratio: informationRatio,
-          beta: beta,
-          alpha: alpha,
-          r_squared: rSquared,
-          correlation: correlation
-        },
+      return this.buildComparisonResponse({
+        portfolioMetrics,
+        benchmarkMetrics,
+        comparison,
+        benchmarkInfo,
         period: {
-          start_date: startDate,
-          end_date: endDate,
-          days: days
+          start: startDate,
+          end: endDate,
+          days
         }
-      }
+      })
     } catch (error) {
       logger.error('Error comparing with benchmark:', error)
       throw new Error('Failed to compare with benchmark')
@@ -269,61 +231,101 @@ export class PerformanceAnalysisService {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 
-      stmt.run(
-        metrics.calculation_date.toISOString().split('T')[0],
-        metrics.benchmark_id || null,
-        metrics.period_days,
-        metrics.portfolio_return,
-        metrics.benchmark_return || null,
-        metrics.excess_return || null,
-        metrics.portfolio_volatility,
-        metrics.benchmark_volatility || null,
-        metrics.sharpe_ratio || null,
-        metrics.information_ratio || null,
-        metrics.tracking_error || null,
-        metrics.max_drawdown || null,
-        metrics.calmar_ratio || null,
-        metrics.sortino_ratio || null,
-        metrics.alpha || null,
-        metrics.beta || null,
-        metrics.r_squared || null,
-        metrics.var_95 || null,
-        metrics.var_99 || null
-      )
+      stmt.run(...this.buildMetricsInsertValues(metrics))
     } catch (error) {
       logger.error('Error saving performance metrics:', error)
       throw new Error('Failed to save performance metrics')
     }
   }
 
+  private buildMetricsInsertValues(metrics: PerformanceMetrics): Array<string | number | null> {
+    const optional = <T>(value: T | null | undefined): T | null => value ?? null
+    return [
+      this.formatDate(metrics.calculation_date),
+      optional(metrics.benchmark_id),
+      metrics.period_days,
+      metrics.portfolio_return,
+      optional(metrics.benchmark_return),
+      optional(metrics.excess_return),
+      metrics.portfolio_volatility,
+      optional(metrics.benchmark_volatility),
+      optional(metrics.sharpe_ratio),
+      optional(metrics.information_ratio),
+      optional(metrics.tracking_error),
+      optional(metrics.max_drawdown),
+      optional(metrics.calmar_ratio),
+      optional(metrics.sortino_ratio),
+      optional(metrics.alpha),
+      optional(metrics.beta),
+      optional(metrics.r_squared),
+      optional(metrics.var_95),
+      optional(metrics.var_99)
+    ]
+  }
+
   // Private helper methods
 
   private async getPortfolioDailyReturns(startDate: Date, endDate: Date): Promise<Array<{ date: Date; return: number; value: number }>> {
     try {
-      // This would need to integrate with your actual portfolio service
-      // For now, returning mock data - you'll need to implement this based on your portfolio structure
-      
-      const portfolioData = await portfolioService.getHistoricalValues(startDate, endDate)
-      const returns: Array<{ date: Date; return: number; value: number }> = []
-      
-      for (let i = 1; i < portfolioData.length; i++) {
-        const prevValue = portfolioData[i - 1].total_value
-        const currentValue = portfolioData[i].total_value
-        const dailyReturn = ((currentValue - prevValue) / prevValue) * 100
-        
-        returns.push({
-          date: portfolioData[i].date,
-          return: dailyReturn,
-          value: currentValue
-        })
+      const portfolioData = await this.fetchHistoricalPortfolioData(startDate, endDate)
+      if (portfolioData) {
+        const returns = this.buildReturnsFromHistory(portfolioData)
+        if (returns.length > 0) {
+          return returns
+        }
       }
-      
-      return returns
+
+      logger.warn('Falling back to mock portfolio returns due to missing historical data')
     } catch (error) {
       logger.error('Error getting portfolio daily returns:', error)
-      // Return mock data for testing
-      return this.generateMockReturns(startDate, endDate)
     }
+
+    // Return mock data for testing when historical values are unavailable
+    return this.generateMockReturns(startDate, endDate)
+  }
+
+  private async fetchHistoricalPortfolioData(startDate: Date, endDate: Date): Promise<Array<{ date: Date | string; total_value?: number }> | null> {
+    const serviceWithHistory = this.portfolioService as unknown as Record<string, unknown> & {
+      getHistoricalValues?: unknown
+    }
+
+    const historicalFetcher = serviceWithHistory.getHistoricalValues
+    if (typeof historicalFetcher !== 'function') {
+      return null
+    }
+
+    const rawData = await historicalFetcher.call(serviceWithHistory, startDate, endDate)
+    return Array.isArray(rawData)
+      ? (rawData as Array<{ date: Date | string; total_value?: number }>)
+      : null
+  }
+
+  private buildReturnsFromHistory(portfolioData: Array<{ date: Date | string; total_value?: number }>): Array<{ date: Date; return: number; value: number }> {
+    const returns: Array<{ date: Date; return: number; value: number }> = []
+
+    for (let i = 1; i < portfolioData.length; i++) {
+      const previous = portfolioData[i - 1]
+      const current = portfolioData[i]
+      if (!previous || !current) {
+        continue
+      }
+
+      const prevValue = previous.total_value ?? 0
+      const currentValue = current.total_value ?? 0
+      if (prevValue === 0) {
+        continue
+      }
+
+      const normalizedDate = current.date instanceof Date ? current.date : new Date(current.date)
+
+      returns.push({
+        date: normalizedDate,
+        return: ((currentValue - prevValue) / prevValue) * 100,
+        value: currentValue
+      })
+    }
+
+    return returns
   }
 
   private async getBenchmarkDailyReturns(benchmarkId: number, startDate: Date, endDate: Date): Promise<Array<{ date: Date; return: number }>> {
@@ -331,16 +333,24 @@ export class PerformanceAnalysisService {
     const returns: Array<{ date: Date; return: number }> = []
     
     for (let i = 1; i < benchmarkData.length; i++) {
-      const prevPrice = benchmarkData[i - 1].close_price
-      const currentPrice = benchmarkData[i].close_price
-      const dailyReturn = ((currentPrice - prevPrice) / prevPrice) * 100
-      
+      const previous = benchmarkData[i - 1]
+      const current = benchmarkData[i]
+      if (!previous || !current) {
+        continue
+      }
+
+      const prevPrice = previous.close_price
+      const currentPrice = current.close_price
+      if (prevPrice === undefined || currentPrice === undefined || prevPrice === 0) {
+        continue
+      }
+
       returns.push({
-        date: benchmarkData[i].date,
-        return: dailyReturn
+        date: current.date,
+        return: ((currentPrice - prevPrice) / prevPrice) * 100
       })
     }
-    
+
     return returns
   }
 
@@ -358,21 +368,159 @@ export class PerformanceAnalysisService {
 
     const benchmarkMap = new Map<string, number>()
     benchmarkReturns.forEach(br => {
-      benchmarkMap.set(br.date.toISOString().split('T')[0], br.return)
+      const isoDate = br.date.toISOString()
+      const [dateKey] = isoDate.split('T')
+      if (!dateKey) {
+        return
+      }
+      benchmarkMap.set(dateKey, br.return)
     })
 
     portfolioReturns.forEach(pr => {
-      const dateKey = pr.date.toISOString().split('T')[0]
-      if (benchmarkMap.has(dateKey)) {
-        aligned.portfolio.push(pr)
-        aligned.benchmark.push({
-          date: pr.date,
-          return: benchmarkMap.get(dateKey)!
-        })
+      const isoDate = pr.date.toISOString()
+      const [dateKey] = isoDate.split('T')
+      if (!dateKey) {
+        return
       }
+
+      const benchmarkReturn = benchmarkMap.get(dateKey)
+      if (benchmarkReturn === undefined) {
+        return
+      }
+
+      aligned.portfolio.push(pr)
+      aligned.benchmark.push({
+        date: pr.date,
+        return: benchmarkReturn
+      })
     })
 
     return aligned
+  }
+
+  private async prepareComparisonSeries(
+    benchmarkId: number,
+    startDate: Date,
+    endDate: Date
+  ): Promise<{ portfolioSeries: number[]; benchmarkSeries: number[]; days: number }> {
+    const portfolioReturns = await this.getPortfolioDailyReturns(startDate, endDate)
+    const benchmarkReturns = await this.getBenchmarkDailyReturns(benchmarkId, startDate, endDate)
+
+    if (portfolioReturns.length === 0 || benchmarkReturns.length === 0) {
+      throw new Error('Insufficient data for comparison')
+    }
+
+    const alignedData = this.alignReturns(portfolioReturns, benchmarkReturns)
+    if (alignedData.portfolio.length < 30) {
+      throw new Error('Insufficient aligned data for reliable comparison (minimum 30 days required)')
+    }
+
+    return {
+      portfolioSeries: alignedData.portfolio.map(d => d.return),
+      benchmarkSeries: alignedData.benchmark.map(d => d.return),
+      days: alignedData.portfolio.length
+    }
+  }
+
+  private buildSeriesMetrics(series: number[], days: number, riskFreeRate: number): SeriesPerformance {
+    const totalReturn = this.calculateTotalReturn(series)
+    const annualizedReturn = this.annualizeReturn(totalReturn, days)
+    const volatility = this.calculateVolatility(series)
+    return {
+      totalReturn,
+      annualizedReturn,
+      volatility,
+      sharpeRatio: this.calculateSharpeRatio(annualizedReturn, volatility, riskFreeRate),
+      maxDrawdown: this.calculateMaxDrawdown(series)
+    }
+  }
+
+  private buildComparisonMetrics({
+    portfolioMetrics,
+    benchmarkMetrics,
+    portfolioSeries,
+    benchmarkSeries,
+    riskFreeRate
+  }: {
+    portfolioMetrics: SeriesPerformance
+    benchmarkMetrics: SeriesPerformance
+    portfolioSeries: number[]
+    benchmarkSeries: number[]
+    riskFreeRate: number
+  }): ComparisonMetricsSummary {
+    const excessReturns = portfolioSeries.map((value, index) => value - (benchmarkSeries[index] ?? 0))
+    const trackingError = this.calculateVolatility(excessReturns)
+    const beta = this.calculateBeta(portfolioSeries, benchmarkSeries)
+    const excessReturn = portfolioMetrics.annualizedReturn - benchmarkMetrics.annualizedReturn
+    const alpha = portfolioMetrics.annualizedReturn - (
+      riskFreeRate + beta * (benchmarkMetrics.annualizedReturn - riskFreeRate)
+    )
+    const correlation = this.calculateCorrelation(portfolioSeries, benchmarkSeries)
+    return {
+      excessReturn,
+      trackingError,
+      informationRatio: trackingError === 0 ? 0 : excessReturn / trackingError,
+      beta,
+      alpha,
+      rSquared: Math.pow(correlation, 2),
+      correlation
+    }
+  }
+
+  private buildComparisonResponse({
+    portfolioMetrics,
+    benchmarkMetrics,
+    comparison,
+    benchmarkInfo,
+    period
+  }: {
+    portfolioMetrics: SeriesPerformance
+    benchmarkMetrics: SeriesPerformance
+    comparison: ComparisonMetricsSummary
+    benchmarkInfo: { symbol: string; name: string }
+    period: { start: Date; end: Date; days: number }
+  }): ComparisonResult {
+    return {
+      portfolio: {
+        total_return: portfolioMetrics.totalReturn,
+        annualized_return: portfolioMetrics.annualizedReturn,
+        volatility: portfolioMetrics.volatility,
+        sharpe_ratio: portfolioMetrics.sharpeRatio,
+        max_drawdown: portfolioMetrics.maxDrawdown
+      },
+      benchmark: {
+        symbol: benchmarkInfo.symbol,
+        name: benchmarkInfo.name,
+        total_return: benchmarkMetrics.totalReturn,
+        annualized_return: benchmarkMetrics.annualizedReturn,
+        volatility: benchmarkMetrics.volatility,
+        sharpe_ratio: benchmarkMetrics.sharpeRatio,
+        max_drawdown: benchmarkMetrics.maxDrawdown
+      },
+      comparison: {
+        excess_return: comparison.excessReturn,
+        tracking_error: comparison.trackingError,
+        information_ratio: comparison.informationRatio,
+        beta: comparison.beta,
+        alpha: comparison.alpha,
+        r_squared: comparison.rSquared,
+        correlation: comparison.correlation
+      },
+      period: {
+        start_date: period.start,
+        end_date: period.end,
+        days: period.days
+      }
+    }
+  }
+
+  private getBenchmarkBasics(benchmarkId: number): { symbol: string; name: string } {
+    const stmt = this.db.prepare('SELECT symbol, name FROM benchmark_indices WHERE id = ?')
+    const info = stmt.get(benchmarkId) as { symbol?: string; name?: string } | undefined
+    return {
+      symbol: info?.symbol ?? 'UNKNOWN',
+      name: info?.name ?? 'Benchmark'
+    }
   }
 
   private calculateTotalReturn(returns: number[]): number {
@@ -465,9 +613,15 @@ export class PerformanceAnalysisService {
     let benchmarkVariance = 0
     
     for (let i = 0; i < portfolioReturns.length; i++) {
-      const portfolioDeviation = portfolioReturns[i] - portfolioMean
-      const benchmarkDeviation = benchmarkReturns[i] - benchmarkMean
-      
+      const portfolioReturn = portfolioReturns[i]
+      const benchmarkReturn = benchmarkReturns[i]
+      if (portfolioReturn === undefined || benchmarkReturn === undefined) {
+        continue
+      }
+
+      const portfolioDeviation = portfolioReturn - portfolioMean
+      const benchmarkDeviation = benchmarkReturn - benchmarkMean
+
       covariance += portfolioDeviation * benchmarkDeviation
       benchmarkVariance += benchmarkDeviation * benchmarkDeviation
     }
@@ -489,9 +643,15 @@ export class PerformanceAnalysisService {
     let benchmarkVariance = 0
     
     for (let i = 0; i < portfolioReturns.length; i++) {
-      const portfolioDeviation = portfolioReturns[i] - portfolioMean
-      const benchmarkDeviation = benchmarkReturns[i] - benchmarkMean
-      
+      const portfolioReturn = portfolioReturns[i]
+      const benchmarkReturn = benchmarkReturns[i]
+      if (portfolioReturn === undefined || benchmarkReturn === undefined) {
+        continue
+      }
+
+      const portfolioDeviation = portfolioReturn - portfolioMean
+      const benchmarkDeviation = benchmarkReturn - benchmarkMean
+
       covariance += portfolioDeviation * benchmarkDeviation
       portfolioVariance += portfolioDeviation * portfolioDeviation
       benchmarkVariance += benchmarkDeviation * benchmarkDeviation
@@ -507,8 +667,12 @@ export class PerformanceAnalysisService {
 
   private calculateVaR(returns: number[], confidence: number): number {
     const sortedReturns = [...returns].sort((a, b) => a - b)
+    if (sortedReturns.length === 0) {
+      return 0
+    }
     const index = Math.floor(confidence * sortedReturns.length)
-    return sortedReturns[index] || 0
+    const safeIndex = Math.min(index, sortedReturns.length - 1)
+    return sortedReturns[safeIndex] ?? 0
   }
 
   private calculateExpectedShortfall(returns: number[], confidence: number): number {
@@ -547,13 +711,13 @@ export class PerformanceAnalysisService {
   private async getRiskFreeRate(date: Date): Promise<RiskFreeRate> {
     try {
       const stmt = this.db.prepare(`
-        SELECT annual_rate, daily_rate FROM risk_free_rates 
+        SELECT annual_rate, daily_rate FROM risk_free_rates
         WHERE date <= ? AND country = 'AR'
-        ORDER BY date DESC 
+        ORDER BY date DESC
         LIMIT 1
       `)
-      
-      const result = stmt.get(date.toISOString().split('T')[0]) as any
+
+      const result = stmt.get(this.formatDate(date)) as any
       
       if (result) {
         return {
@@ -577,6 +741,12 @@ export class PerformanceAnalysisService {
         daily_rate: 0.2329
       }
     }
+  }
+
+  private formatDate(date: Date): string {
+    const iso = date.toISOString()
+    const [datePart] = iso.split('T')
+    return datePart ?? iso
   }
 
   private generateMockReturns(startDate: Date, endDate: Date): Array<{ date: Date; return: number; value: number }> {
