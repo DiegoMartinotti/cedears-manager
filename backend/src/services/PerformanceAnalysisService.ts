@@ -99,7 +99,7 @@ const logger = createLogger('PerformanceAnalysisService')
 
 export class PerformanceAnalysisService {
   private db = DatabaseConnection.getInstance()
-  private portfolioService = new PortfolioService()
+  private readonly portfolioService = new PortfolioService()
 
   async calculatePortfolioMetrics(startDate: Date, endDate: Date): Promise<PerformanceMetrics> {
     try {
@@ -294,7 +294,7 @@ export class PerformanceAnalysisService {
       return null
     }
 
-    const rawData = await (historicalFetcher as Function).call(serviceWithHistory, startDate, endDate)
+    const rawData = await historicalFetcher.call(serviceWithHistory, startDate, endDate)
     return Array.isArray(rawData)
       ? (rawData as Array<{ date: Date | string; total_value?: number }>)
       : null
@@ -459,7 +459,7 @@ export class PerformanceAnalysisService {
     return {
       excessReturn,
       trackingError,
-      informationRatio: trackingError !== 0 ? excessReturn / trackingError : 0,
+      informationRatio: trackingError === 0 ? 0 : excessReturn / trackingError,
       beta,
       alpha,
       rSquared: Math.pow(correlation, 2),
