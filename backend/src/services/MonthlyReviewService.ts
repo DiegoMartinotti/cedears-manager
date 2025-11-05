@@ -408,30 +408,30 @@ export class MonthlyReviewService {
    * Calculate ESG score for an instrument
    */
   private async calculateESGScore(data: CEDEARMarketData): Promise<number> {
-    try {
-      // TODO: analyzeInstrument expects instrument ID, not symbol. Need to fetch ID first or change method signature
-      // const analysis = await this.esgAnalysisService.analyzeInstrument(data.symbol)
-      // return analysis?.totalScore || 0
-      return 0 // Temporary: return default value until analyzeInstrument is fixed
-    } catch (error) {
-      logger.warn(`Failed to get ESG score for ${data.symbol}:`, error)
-      return 0
-    }
+    // ESGAnalysisService.analyzeInstrument requires instrumentId (number), but we only have symbol (string).
+    // For new candidates, no ID exists yet. For existing instruments, we'd need to look up the ID.
+    // Returning 0 causes all candidates to be rejected and all holdings to be flagged for removal.
+    // Fail fast instead of producing incorrect review results.
+    throw new Error(
+      `calculateESGScore not implemented: Cannot analyze ${data.symbol} without instrumentId. ` +
+      `ESGAnalysisService.analyzeInstrument(instrumentId) requires numeric ID, but CEDEARMarketData only provides symbol. ` +
+      `Monthly review cannot proceed until this integration is completed.`
+    )
   }
 
   /**
    * Calculate Vegan score for an instrument
    */
   private async calculateVeganScore(data: CEDEARMarketData): Promise<number> {
-    try {
-      // TODO: analyzeInstrument expects instrument ID, not symbol. Need to fetch ID first or change method signature
-      // const analysis = await this.veganAnalysisService.analyzeInstrument(data.symbol)
-      // return analysis?.veganScore || 0
-      return 0 // Temporary: return default value until analyzeInstrument is fixed
-    } catch (error) {
-      logger.warn(`Failed to get Vegan score for ${data.symbol}:`, error)
-      return 0
-    }
+    // VeganAnalysisService.analyzeInstrument requires instrumentId (number), but we only have symbol (string).
+    // For new candidates, no ID exists yet. For existing instruments, we'd need to look up the ID.
+    // Returning 0 causes all candidates to be rejected and all holdings to be flagged for removal.
+    // Fail fast instead of producing incorrect review results.
+    throw new Error(
+      `calculateVeganScore not implemented: Cannot analyze ${data.symbol} without instrumentId. ` +
+      `VeganAnalysisService.analyzeInstrument(instrumentId) requires numeric ID, but CEDEARMarketData only provides symbol. ` +
+      `Monthly review cannot proceed until this integration is completed.`
+    )
   }
 
   /**
