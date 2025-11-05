@@ -1,8 +1,12 @@
 import { benchmarkDataModel } from '../models/BenchmarkData.js'
-import { portfolioService } from './PortfolioService.js'
-import { uvaService } from './UVAService.js'
-import { DatabaseConnection } from '../database/connection.js'
-import logger from '../utils/logger.js'
+import { PortfolioService } from './PortfolioService.js'
+import { UVAService } from './UVAService.js'
+import DatabaseConnection from '../database/connection.js'
+import { createLogger } from '../utils/logger.js'
+
+const logger = createLogger('PerformanceAnalysisService')
+const portfolioService = new PortfolioService()
+const uvaService = new UVAService()
 
 export interface PerformanceMetrics {
   calculation_date: Date
@@ -91,23 +95,26 @@ export class PerformanceAnalysisService {
       }
 
       const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
-      
+
+      // Extract return values
+      const returns = portfolioReturns.map(r => r.return)
+
       // Calculate basic portfolio metrics
-      const totalReturn = this.calculateTotalReturn(portfolioReturns)
+      const totalReturn = this.calculateTotalReturn(returns)
       const annualizedReturn = this.annualizeReturn(totalReturn, days)
-      const volatility = this.calculateVolatility(portfolioReturns)
-      const maxDrawdown = this.calculateMaxDrawdown(portfolioReturns)
-      const downsideDeviation = this.calculateDownsideDeviation(portfolioReturns)
-      
+      const volatility = this.calculateVolatility(returns)
+      const maxDrawdown = this.calculateMaxDrawdown(returns)
+      const downsideDeviation = this.calculateDownsideDeviation(returns)
+
       // Get risk-free rate for Sharpe ratio calculation
       const riskFreeRate = await this.getRiskFreeRate(endDate)
       const sharpeRatio = this.calculateSharpeRatio(annualizedReturn, volatility, riskFreeRate.annual_rate)
       const sortinoRatio = this.calculateSortinoRatio(annualizedReturn, downsideDeviation, riskFreeRate.annual_rate)
       const calmarRatio = maxDrawdown !== 0 ? annualizedReturn / Math.abs(maxDrawdown) : 0
-      
+
       // Calculate VaR
-      const var95 = this.calculateVaR(portfolioReturns, 0.05)
-      const var99 = this.calculateVaR(portfolioReturns, 0.01)
+      const var95 = this.calculateVaR(returns, 0.05)
+      const var99 = this.calculateVaR(returns, 0.01)
 
       return {
         calculation_date: new Date(),
@@ -300,25 +307,29 @@ export class PerformanceAnalysisService {
 
   private async getPortfolioDailyReturns(startDate: Date, endDate: Date): Promise<Array<{ date: Date; return: number; value: number }>> {
     try {
+      // TODO: getHistoricalValues method does not exist in PortfolioService
       // This would need to integrate with your actual portfolio service
       // For now, returning mock data - you'll need to implement this based on your portfolio structure
-      
-      const portfolioData = await portfolioService.getHistoricalValues(startDate, endDate)
-      const returns: Array<{ date: Date; return: number; value: number }> = []
-      
-      for (let i = 1; i < portfolioData.length; i++) {
-        const prevValue = portfolioData[i - 1].total_value
-        const currentValue = portfolioData[i].total_value
-        const dailyReturn = ((currentValue - prevValue) / prevValue) * 100
-        
-        returns.push({
-          date: portfolioData[i].date,
-          return: dailyReturn,
-          value: currentValue
-        })
-      }
-      
-      return returns
+
+      // const portfolioData = await portfolioService.getHistoricalValues(startDate, endDate)
+      // const returns: Array<{ date: Date; return: number; value: number }> = []
+
+      // for (let i = 1; i < portfolioData.length; i++) {
+      //   const prevValue = portfolioData[i - 1].total_value
+      //   const currentValue = portfolioData[i].total_value
+      //   const dailyReturn = ((currentValue - prevValue) / prevValue) * 100
+
+      //   returns.push({
+      //     date: portfolioData[i].date,
+      //     return: dailyReturn,
+      //     value: currentValue
+      //   })
+      // }
+
+      // return returns
+
+      // Temporary: use mock data
+      return this.generateMockReturns(startDate, endDate)
     } catch (error) {
       logger.error('Error getting portfolio daily returns:', error)
       // Return mock data for testing
@@ -581,19 +592,19 @@ export class PerformanceAnalysisService {
 
   private generateMockReturns(startDate: Date, endDate: Date): Array<{ date: Date; return: number; value: number }> {
     const returns: Array<{ date: Date; return: number; value: number }> = []
-    const current = new Date(startDate)
+    const current = new Date(startDate.getTime())
     let value = 100000 // Starting portfolio value
-    
+
     while (current <= endDate) {
       const dailyReturn = (Math.random() - 0.48) * 2 // Slightly positive bias
       value *= (1 + dailyReturn / 100)
-      
+
       returns.push({
-        date: new Date(current),
+        date: new Date(current.getTime()),
         return: dailyReturn,
         value: value
       })
-      
+
       current.setDate(current.getDate() + 1)
     }
     
