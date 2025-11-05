@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { scenarioController } from '../controllers/ScenarioController';
 
 const router = Router();
@@ -11,7 +11,7 @@ const router = Router();
  * @access  Private
  * @body    { name, description, category, is_active?, is_predefined?, created_by }
  */
-router.post('/', async (req, res) => {
+router.post('/', async (req: Request, res: Response) => {
   await scenarioController.createScenario(req, res);
 });
 
@@ -21,7 +21,7 @@ router.post('/', async (req, res) => {
  * @access  Private
  * @query   ?category=MACRO&is_active=true&is_predefined=false
  */
-router.get('/', async (req, res) => {
+router.get('/', async (req: Request, res: Response) => {
   await scenarioController.getAllScenarios(req, res);
 });
 
@@ -30,7 +30,7 @@ router.get('/', async (req, res) => {
  * @desc    Get scenario by ID with variables and results
  * @access  Private
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req: Request, res: Response) => {
   await scenarioController.getScenario(req, res);
 });
 
@@ -40,7 +40,7 @@ router.get('/:id', async (req, res) => {
  * @access  Private
  * @body    { name?, description?, category?, is_active? }
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', async (req: Request, res: Response) => {
   await scenarioController.updateScenario(req, res);
 });
 
@@ -49,7 +49,7 @@ router.put('/:id', async (req, res) => {
  * @desc    Delete scenario by ID
  * @access  Private
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (req: Request, res: Response) => {
   await scenarioController.deleteScenario(req, res);
 });
 
@@ -61,7 +61,7 @@ router.delete('/:id', async (req, res) => {
  * @access  Private
  * @body    { scenario_id, variable_type, variable_name, current_value, scenario_value, change_percentage, impact_duration_months }
  */
-router.post('/variables', async (req, res) => {
+router.post('/variables', async (req: Request, res: Response) => {
   await scenarioController.createVariable(req, res);
 });
 
@@ -70,7 +70,7 @@ router.post('/variables', async (req, res) => {
  * @desc    Get all variables for a scenario
  * @access  Private
  */
-router.get('/:scenarioId/variables', async (req, res) => {
+router.get('/:scenarioId/variables', async (req: Request, res: Response) => {
   await scenarioController.getScenarioVariables(req, res);
 });
 
@@ -80,7 +80,7 @@ router.get('/:scenarioId/variables', async (req, res) => {
  * @access  Private
  * @body    { variable_name?, current_value?, scenario_value?, change_percentage?, impact_duration_months? }
  */
-router.put('/variables/:id', async (req, res) => {
+router.put('/variables/:id', async (req: Request, res: Response) => {
   await scenarioController.updateVariable(req, res);
 });
 
@@ -89,7 +89,7 @@ router.put('/variables/:id', async (req, res) => {
  * @desc    Delete scenario variable by ID
  * @access  Private
  */
-router.delete('/variables/:id', async (req, res) => {
+router.delete('/variables/:id', async (req: Request, res: Response) => {
   await scenarioController.deleteVariable(req, res);
 });
 
@@ -101,7 +101,7 @@ router.delete('/variables/:id', async (req, res) => {
  * @access  Private
  * @body    { scenarioId, timeHorizonMonths, confidenceLevel?, includeMonteCarloSimulation?, includeInstrumentAnalysis? }
  */
-router.post('/what-if-analysis', async (req, res) => {
+router.post('/what-if-analysis', async (req: Request, res: Response) => {
   await scenarioController.runWhatIfAnalysis(req, res);
 });
 
@@ -111,7 +111,7 @@ router.post('/what-if-analysis', async (req, res) => {
  * @access  Private
  * @body    { timeHorizonMonths, confidenceLevel?, includeMonteCarloSimulation?, includeInstrumentAnalysis? }
  */
-router.post('/:id/analyze', async (req, res) => {
+router.post('/:id/analyze', async (req: Request, res: Response) => {
   // Convert route param to body param for consistency
   req.body.scenarioId = parseInt(req.params.id);
   await scenarioController.runWhatIfAnalysis(req, res);
@@ -125,7 +125,7 @@ router.post('/:id/analyze', async (req, res) => {
  * @access  Private
  * @body    { riskTolerance?, timeHorizon?, priorityFocus? }
  */
-router.post('/:scenarioId/recommendations', async (req, res) => {
+router.post('/:scenarioId/recommendations', async (req: Request, res: Response) => {
   await scenarioController.generateRecommendations(req, res);
 });
 
@@ -137,7 +137,7 @@ router.post('/:scenarioId/recommendations', async (req, res) => {
  * @access  Private
  * @query   ?limit=10
  */
-router.get('/:scenarioId/results', async (req, res) => {
+router.get('/:scenarioId/results', async (req: Request, res: Response) => {
   await scenarioController.getScenarioResults(req, res);
 });
 
@@ -146,7 +146,7 @@ router.get('/:scenarioId/results', async (req, res) => {
  * @desc    Get instrument impacts for a specific result
  * @access  Private
  */
-router.get('/results/:resultId/instrument-impacts', async (req, res) => {
+router.get('/results/:resultId/instrument-impacts', async (req: Request, res: Response) => {
   await scenarioController.getResultInstrumentImpacts(req, res);
 });
 
@@ -158,7 +158,7 @@ router.get('/results/:resultId/instrument-impacts', async (req, res) => {
  * @access  Private
  * @query   ?is_public=true
  */
-router.get('/templates/list', async (req, res) => {
+router.get('/templates/list', async (req: Request, res: Response) => {
   await scenarioController.getTemplates(req, res);
 });
 
@@ -168,7 +168,7 @@ router.get('/templates/list', async (req, res) => {
  * @access  Private
  * @body    { name, description, category, template_data, is_public?, created_by }
  */
-router.post('/templates', async (req, res) => {
+router.post('/templates', async (req: Request, res: Response) => {
   await scenarioController.createTemplate(req, res);
 });
 
@@ -178,7 +178,7 @@ router.post('/templates', async (req, res) => {
  * @access  Private
  * @body    { name?, description?, created_by }
  */
-router.post('/templates/:templateId/create', async (req, res) => {
+router.post('/templates/:templateId/create', async (req: Request, res: Response) => {
   await scenarioController.createFromTemplate(req, res);
 });
 
@@ -190,7 +190,7 @@ router.post('/templates/:templateId/create', async (req, res) => {
  * @access  Private
  * @body    { scenario_ids: number[], user_id: string }
  */
-router.post('/compare', async (req, res) => {
+router.post('/compare', async (req: Request, res: Response) => {
   await scenarioController.compareScenarios(req, res);
 });
 
@@ -200,7 +200,7 @@ router.post('/compare', async (req, res) => {
  * @access  Private
  * @query   ?created_by=userId
  */
-router.get('/comparisons', async (req, res) => {
+router.get('/comparisons', async (req: Request, res: Response) => {
   await scenarioController.getComparisons(req, res);
 });
 
@@ -211,7 +211,7 @@ router.get('/comparisons', async (req, res) => {
  * @desc    Get Monte Carlo simulation results for scenario
  * @access  Private
  */
-router.get('/:scenarioId/monte-carlo', async (req, res) => {
+router.get('/:scenarioId/monte-carlo', async (req: Request, res: Response) => {
   await scenarioController.getMonteCarloResults(req, res);
 });
 
@@ -222,7 +222,7 @@ router.get('/:scenarioId/monte-carlo', async (req, res) => {
  * @desc    Get scenario system statistics
  * @access  Private
  */
-router.get('/system/stats', async (req, res) => {
+router.get('/system/stats', async (req: Request, res: Response) => {
   await scenarioController.getStats(req, res);
 });
 
@@ -231,7 +231,7 @@ router.get('/system/stats', async (req, res) => {
  * @desc    Clean up old scenario data
  * @access  Private
  */
-router.post('/system/cleanup', async (req, res) => {
+router.post('/system/cleanup', async (req: Request, res: Response) => {
   await scenarioController.cleanup(req, res);
 });
 
@@ -242,7 +242,7 @@ router.post('/system/cleanup', async (req, res) => {
  * @desc    Health check for scenario system
  * @access  Public
  */
-router.get('/health', async (req, res) => {
+router.get('/health', async (req: Request, res: Response) => {
   try {
     res.json({
       success: true,
