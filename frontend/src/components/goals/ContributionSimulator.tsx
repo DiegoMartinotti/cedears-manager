@@ -101,7 +101,7 @@ export function ContributionSimulator({
   };
 
   const removeScenario = (index: number) => {
-    setCustomScenarios(customScenarios.filter((_, i) => i !== index));
+    setCustomScenarios(customScenarios.filter((_: {name: string, extraAmount: number, months: number}, i: number) => i !== index));
   };
 
   const getImpactColor = (timeSaved: number): string => {
@@ -139,7 +139,7 @@ export function ContributionSimulator({
                 id="extraAmount"
                 type="number"
                 value={simulationForm.extraAmount || ''}
-                onChange={(e) => setSimulationForm(prev => ({
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSimulationForm((prev: SimulationRequest) => ({
                   ...prev,
                   extraAmount: parseFloat(e.target.value) || 0
                 }))}
@@ -162,7 +162,7 @@ export function ContributionSimulator({
                 id="months"
                 type="number"
                 value={simulationForm.months || ''}
-                onChange={(e) => setSimulationForm(prev => ({
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSimulationForm((prev: SimulationRequest) => ({
                   ...prev,
                   months: parseInt(e.target.value) || 12
                 }))}
@@ -246,7 +246,7 @@ export function ContributionSimulator({
         </div>
 
         <div className="space-y-4">
-          {customScenarios.map((scenario, index) => (
+          {customScenarios.map((scenario: {name: string, extraAmount: number, months: number}, index: number) => (
             <div key={index} className="p-4 border border-gray-200 rounded-lg">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                 <div>
@@ -255,7 +255,7 @@ export function ContributionSimulator({
                   </label>
                   <Input
                     value={scenario.name}
-                    onChange={(e) => updateScenario(index, 'name', e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateScenario(index, 'name', e.target.value)}
                     placeholder="Nombre del escenario"
                   />
                 </div>
@@ -266,7 +266,7 @@ export function ContributionSimulator({
                   <Input
                     type="number"
                     value={scenario.extraAmount}
-                    onChange={(e) => updateScenario(index, 'extraAmount', parseFloat(e.target.value) || 0)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateScenario(index, 'extraAmount', parseFloat(e.target.value) || 0)}
                     placeholder="1000"
                   />
                 </div>
@@ -277,7 +277,7 @@ export function ContributionSimulator({
                   <Input
                     type="number"
                     value={scenario.months}
-                    onChange={(e) => updateScenario(index, 'months', parseInt(e.target.value) || 12)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateScenario(index, 'months', parseInt(e.target.value) || 12)}
                     placeholder="12"
                   />
                 </div>
@@ -323,9 +323,9 @@ export function ContributionSimulator({
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Badge className={getImpactColor(simulation.time_saved_months)}>
-                      {getImpactIcon(simulation.time_saved_months)} 
-                      {simulation.time_saved_months > 0 
+                    <Badge className={getImpactColor(simulation.time_saved_months)} variant="default">
+                      {getImpactIcon(simulation.time_saved_months)}
+                      {simulation.time_saved_months > 0
                         ? `${simulation.time_saved_months.toFixed(1)} meses ahorrados`
                         : 'Sin impacto significativo'
                       }

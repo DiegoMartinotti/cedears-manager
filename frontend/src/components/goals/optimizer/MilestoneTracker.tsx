@@ -38,7 +38,7 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
   goalId,
   currentCapital,
   targetCapital
-}) => {
+}: MilestoneTrackerProps) => {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -236,8 +236,8 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
     );
   }
 
-  const achievedMilestones = milestones.filter(m => m.is_achieved);
-  const nextMilestone = milestones.find(m => !m.is_achieved);
+  const achievedMilestones = milestones.filter((m: Milestone) => m.is_achieved);
+  const nextMilestone = milestones.find((m: Milestone) => !m.is_achieved);
   const overallProgress = milestones.length > 0 ? (achievedMilestones.length / milestones.length) * 100 : 0;
 
   return (
@@ -291,7 +291,7 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
                 <p className="text-sm text-blue-700">{nextMilestone.milestone_name}</p>
               </div>
               <div className="ml-auto">
-                <Badge className={getTierColor(nextMilestone.celebration_tier)}>
+                <Badge className={getTierColor(nextMilestone.celebration_tier)} variant="default">
                   {nextMilestone.celebration_tier}
                 </Badge>
               </div>
@@ -333,7 +333,7 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
           <h4 className="font-medium text-gray-900">Todos los Hitos</h4>
           
           <div className="space-y-3">
-            {milestones.map((milestone, index) => (
+            {milestones.map((milestone: Milestone, index: number) => (
               <Card
                 key={milestone.id}
                 className={`p-4 transition-all duration-200 hover:shadow-md cursor-pointer ${
@@ -360,7 +360,7 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
                         }`}>
                           {milestone.milestone_name}
                         </h5>
-                        <Badge className={getTierColor(milestone.celebration_tier)}>
+                        <Badge className={getTierColor(milestone.celebration_tier)} variant="default">
                           {getTierIcon(milestone.celebration_tier)} {milestone.celebration_tier}
                         </Badge>
                         <span className={`text-xs font-medium ${getDifficultyColor(milestone.difficulty_level)}`}>
@@ -473,19 +473,19 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
               <div>
                 <div className="text-green-600">Bronce:</div>
                 <div className="font-bold text-green-900">
-                  {achievedMilestones.filter(m => m.celebration_tier === 'BRONZE').length}
+                  {achievedMilestones.filter((m: Milestone) => m.celebration_tier === 'BRONZE').length}
                 </div>
               </div>
               <div>
                 <div className="text-green-600">Plata:</div>
                 <div className="font-bold text-green-900">
-                  {achievedMilestones.filter(m => m.celebration_tier === 'SILVER').length}
+                  {achievedMilestones.filter((m: Milestone) => m.celebration_tier === 'SILVER').length}
                 </div>
               </div>
               <div>
                 <div className="text-green-600">Oro:</div>
                 <div className="font-bold text-green-900">
-                  {achievedMilestones.filter(m => m.celebration_tier === 'GOLD').length}
+                  {achievedMilestones.filter((m: Milestone) => m.celebration_tier === 'GOLD').length}
                 </div>
               </div>
             </div>

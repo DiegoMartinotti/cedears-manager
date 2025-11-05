@@ -42,7 +42,7 @@ export const ContributionOptimizer: React.FC<ContributionOptimizerProps> = ({
   currentContribution,
   requiredContribution,
   onPlanSelected
-}) => {
+}: ContributionOptimizerProps) => {
   const [plans, setPlans] = useState<ContributionPlan[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<ContributionPlan | null>(null);
@@ -159,7 +159,7 @@ export const ContributionOptimizer: React.FC<ContributionOptimizerProps> = ({
       // En implementación real: llamada a API
       // await fetch(`/api/goal-optimizer/contribution-plans/${plan.id}/activate`, { method: 'PUT' });
       
-      setPlans(prev => prev.map(p => ({ ...p, is_active: p.id === plan.id })));
+      setPlans((prev: ContributionPlan[]) => prev.map((p: ContributionPlan) => ({ ...p, is_active: p.id === plan.id })));
       
       if (onPlanSelected) {
         onPlanSelected({ ...plan, is_active: true });
@@ -265,7 +265,7 @@ export const ContributionOptimizer: React.FC<ContributionOptimizerProps> = ({
                 <Input
                   type="number"
                   value={customAmount}
-                  onChange={(e) => setCustomAmount(Number(e.target.value))}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomAmount(Number(e.target.value))}
                   placeholder="Ingrese el monto"
                   className="w-full"
                   min={currentContribution}
@@ -320,17 +320,17 @@ export const ContributionOptimizer: React.FC<ContributionOptimizerProps> = ({
         <div className="space-y-4">
           <h4 className="font-medium text-gray-900">Planes Sugeridos</h4>
           
-          {plans.map((plan) => (
+          {plans.map((plan: ContributionPlan) => (
             <Card key={plan.id} className={`p-4 ${plan.is_active ? 'border-blue-500 bg-blue-50' : ''}`}>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-2">
                     <h5 className="font-medium text-gray-900">{plan.plan_name}</h5>
-                    <Badge className={getPlanTypeColor(plan.plan_type)}>
+                    <Badge className={getPlanTypeColor(plan.plan_type)} variant="default">
                       {getPlanTypeText(plan.plan_type)}
                     </Badge>
                     {plan.is_active && (
-                      <Badge className="bg-blue-100 text-blue-800">Activo</Badge>
+                      <Badge className="bg-blue-100 text-blue-800" variant="default">Activo</Badge>
                     )}
                   </div>
                   
@@ -382,7 +382,7 @@ export const ContributionOptimizer: React.FC<ContributionOptimizerProps> = ({
                         Aportes Extraordinarios:
                       </div>
                       <div className="space-y-1 text-sm">
-                        {plan.bonus_contributions.map((bonus, index) => (
+                        {plan.bonus_contributions.map((bonus: { month: number; amount: number; source: string; probability: number }, index: number) => (
                           <div key={index} className="flex justify-between">
                             <span className="text-gray-600">
                               {new Date(2024, bonus.month - 1).toLocaleDateString('es-AR', { month: 'long' })} 
@@ -437,7 +437,7 @@ export const ContributionOptimizer: React.FC<ContributionOptimizerProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {plans.map((plan) => (
+                {plans.map((plan: ContributionPlan) => (
                   <tr key={plan.id} className={`${plan.is_active ? 'bg-blue-100' : 'bg-white'}`}>
                     <td className="p-2 font-medium">{plan.plan_name}</td>
                     <td className="p-2 text-center">{formatCurrency(plan.optimized_monthly_contribution)}</td>
