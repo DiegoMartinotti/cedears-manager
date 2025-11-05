@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { Router, Request, Response, NextFunction } from 'express'
 import { uvaController } from '../controllers/UVAController.js'
 import { createLogger } from '../utils/logger.js'
 
@@ -11,7 +11,7 @@ const router = Router()
  * GET /uva/latest - Obtiene el valor UVA más reciente
  * Response: { success: boolean, data: { date: string, value: number, source: string, cached: boolean } }
  */
-router.get('/latest', async (req, res) => {
+router.get('/latest', async (req: Request, res: Response) => {
   await uvaController.getLatest(req, res)
 })
 
@@ -20,7 +20,7 @@ router.get('/latest', async (req, res) => {
  * Params: date (YYYY-MM-DD)
  * Response: { success: boolean, data: { date: string, value: number, source: string } }
  */
-router.get('/date/:date', async (req, res) => {
+router.get('/date/:date', async (req: Request, res: Response) => {
   await uvaController.getByDate(req, res)
 })
 
@@ -29,7 +29,7 @@ router.get('/date/:date', async (req, res) => {
  * Query params: fromDate?, toDate?, source?, limit?, orderBy?, orderDirection?
  * Response: { success: boolean, data: UVAData[], filters: object, total: number }
  */
-router.get('/search', async (req, res) => {
+router.get('/search', async (req: Request, res: Response) => {
   await uvaController.search(req, res)
 })
 
@@ -37,7 +37,7 @@ router.get('/search', async (req, res) => {
  * GET /uva/statistics - Obtiene estadísticas de valores UVA almacenados
  * Response: { success: boolean, data: { totalCount: number, dateRange: object, sources: object, latestValue?: UVAData } }
  */
-router.get('/statistics', async (req, res) => {
+router.get('/statistics', async (req: Request, res: Response) => {
   await uvaController.getStatistics(req, res)
 })
 
@@ -48,7 +48,7 @@ router.get('/statistics', async (req, res) => {
  * Body: { amount: number, fromDate: string, toDate: string }
  * Response: { success: boolean, data: UVAInflationAdjustment }
  */
-router.post('/inflation-adjustment', async (req, res) => {
+router.post('/inflation-adjustment', async (req: Request, res: Response) => {
   await uvaController.calculateInflationAdjustment(req, res)
 })
 
@@ -58,7 +58,7 @@ router.post('/inflation-adjustment', async (req, res) => {
  * POST /uva/update - Fuerza actualización manual de UVA
  * Response: { success: boolean, message: string, data?: object }
  */
-router.post('/update', async (req, res) => {
+router.post('/update', async (req: Request, res: Response) => {
   await uvaController.forceUpdate(req, res)
 })
 
@@ -67,7 +67,7 @@ router.post('/update', async (req, res) => {
  * Body: { fromDate: string, toDate: string }
  * Response: { success: boolean, message: string, data?: { processedCount: number } }
  */
-router.post('/historical-update', async (req, res) => {
+router.post('/historical-update', async (req: Request, res: Response) => {
   await uvaController.updateHistorical(req, res)
 })
 
@@ -76,7 +76,7 @@ router.post('/historical-update', async (req, res) => {
  * Body: { daysToKeep?: number } (default: 365)
  * Response: { success: boolean, message: string, data?: { deletedCount: number } }
  */
-router.delete('/cleanup', async (req, res) => {
+router.delete('/cleanup', async (req: Request, res: Response) => {
   await uvaController.cleanup(req, res)
 })
 
@@ -86,7 +86,7 @@ router.delete('/cleanup', async (req, res) => {
  * GET /uva/job/status - Obtiene estado del job de actualización UVA
  * Response: { success: boolean, data: { stats: object, config: object, database: object } }
  */
-router.get('/job/status', async (req, res) => {
+router.get('/job/status', async (req: Request, res: Response) => {
   await uvaController.getJobStatus(req, res)
 })
 
@@ -95,7 +95,7 @@ router.get('/job/status', async (req, res) => {
  * Body: { enabled?, schedule?, businessDaysOnly?, retryAttempts?, retryDelayMs?, historicalUpdateDays? }
  * Response: { success: boolean, message: string, data: JobConfig }
  */
-router.put('/job/config', async (req, res) => {
+router.put('/job/config', async (req: Request, res: Response) => {
   await uvaController.updateJobConfig(req, res)
 })
 
@@ -103,7 +103,7 @@ router.put('/job/config', async (req, res) => {
  * POST /uva/job/start - Inicia el job de actualización
  * Response: { success: boolean, message: string, data: JobStats }
  */
-router.post('/job/start', async (req, res) => {
+router.post('/job/start', async (req: Request, res: Response) => {
   await uvaController.startJob(req, res)
 })
 
@@ -111,7 +111,7 @@ router.post('/job/start', async (req, res) => {
  * POST /uva/job/stop - Detiene el job de actualización
  * Response: { success: boolean, message: string, data: JobStats }
  */
-router.post('/job/stop', async (req, res) => {
+router.post('/job/stop', async (req: Request, res: Response) => {
   await uvaController.stopJob(req, res)
 })
 
@@ -120,7 +120,7 @@ router.post('/job/stop', async (req, res) => {
  * Body: { config?: Partial<JobConfig> }
  * Response: { success: boolean, message: string, data: { stats: JobStats, config: JobConfig } }
  */
-router.post('/job/restart', async (req, res) => {
+router.post('/job/restart', async (req: Request, res: Response) => {
   await uvaController.restartJob(req, res)
 })
 
@@ -128,15 +128,15 @@ router.post('/job/restart', async (req, res) => {
  * POST /uva/job/reset-stats - Resetea estadísticas del job
  * Response: { success: boolean, message: string, data: JobStats }
  */
-router.post('/job/reset-stats', async (req, res) => {
+router.post('/job/reset-stats', async (req: Request, res: Response) => {
   await uvaController.resetJobStats(req, res)
 })
 
 // Middleware de logging para todas las rutas UVA
-router.use((req, res, next) => {
-  logger.info('UVA API request', { 
-    method: req.method, 
-    path: req.path, 
+router.use((req: Request, res: Response, next: NextFunction) => {
+  logger.info('UVA API request', {
+    method: req.method,
+    path: req.path,
     query: req.query,
     body: req.method !== 'GET' ? req.body : undefined
   })
