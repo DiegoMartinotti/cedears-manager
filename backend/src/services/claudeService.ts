@@ -109,15 +109,15 @@ export class ClaudeService extends EventEmitter {
       let stdout = ''
       let stderr = ''
 
-      claudeProcess.stdout?.on('data', (data) => {
+      claudeProcess.stdout?.on('data', (data: Buffer) => {
         stdout += data.toString()
       })
 
-      claudeProcess.stderr?.on('data', (data) => {
+      claudeProcess.stderr?.on('data', (data: Buffer) => {
         stderr += data.toString()
       })
 
-      claudeProcess.on('close', (code) => {
+      claudeProcess.on('close', (code: number | null) => {
         if (code === 0) {
           logger.info('Claude CLI is available', { version: stdout.trim() })
           resolve()
@@ -128,7 +128,7 @@ export class ClaudeService extends EventEmitter {
         }
       })
 
-      claudeProcess.on('error', (error) => {
+      claudeProcess.on('error', (error: Error) => {
         logger.error('Error spawning Claude CLI process', { error })
         reject(error)
       })
@@ -209,15 +209,15 @@ export class ClaudeService extends EventEmitter {
       claudeProcess.stdin?.write(fullPrompt)
       claudeProcess.stdin?.end()
 
-      claudeProcess.stdout?.on('data', (data) => {
+      claudeProcess.stdout?.on('data', (data: Buffer) => {
         stdout += data.toString()
       })
 
-      claudeProcess.stderr?.on('data', (data) => {
+      claudeProcess.stderr?.on('data', (data: Buffer) => {
         stderr += data.toString()
       })
 
-      claudeProcess.on('close', (code) => {
+      claudeProcess.on('close', (code: number | null) => {
         if (code === 0) {
           try {
             const response = this.parseClaudeResponse(stdout)
@@ -238,7 +238,7 @@ export class ClaudeService extends EventEmitter {
         }
       })
 
-      claudeProcess.on('error', (error) => {
+      claudeProcess.on('error', (error: Error) => {
         reject(new ClaudeServiceError(
           'Failed to execute Claude CLI',
           'EXECUTION_ERROR',

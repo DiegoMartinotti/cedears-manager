@@ -1,6 +1,6 @@
 import DatabaseConnection from '../database/connection.js'
 import { MonthlyReviewModel, MonthlyReviewData, CreateMonthlyReviewData, InstrumentCandidateData, RemovalCandidateData } from '../models/MonthlyReview.js'
-import { InstrumentModel } from '../models/Instrument.js'
+import { instrumentModel } from '../models/Instrument.js'
 import { ESGAnalysisService } from './ESGAnalysisService.js'
 import { VeganAnalysisService } from './VeganAnalysisService.js'
 import { ClaudeContextualService } from './ClaudeContextualService.js'
@@ -50,7 +50,7 @@ type RemovalRecommendation = 'REMOVE_IMMEDIATELY' | 'REMOVE' | 'MONITOR' | 'KEEP
 export class MonthlyReviewService {
   private db = DatabaseConnection.getInstance()
   private monthlyReviewModel: MonthlyReviewModel
-  private instrumentModel: InstrumentModel
+  private instrumentModel: typeof instrumentModel
   private esgAnalysisService: ESGAnalysisService
   private veganAnalysisService: VeganAnalysisService
   private claudeService: ClaudeContextualService
@@ -58,7 +58,7 @@ export class MonthlyReviewService {
 
   constructor() {
     this.monthlyReviewModel = new MonthlyReviewModel(this.db)
-    this.instrumentModel = new InstrumentModel(this.db)
+    this.instrumentModel = instrumentModel
     this.esgAnalysisService = new ESGAnalysisService()
     this.veganAnalysisService = new VeganAnalysisService()
     this.claudeService = new ClaudeContextualService()
@@ -101,7 +101,7 @@ export class MonthlyReviewService {
   private async notifyReviewStarted(reviewDate: string, reviewId: number): Promise<void> {
     await this.notificationService.createNotification({
       type: 'SYSTEM',
-      priority: 'medium',
+      priority: 'MEDIUM',
       title: 'Revisión Mensual Iniciada',
       message: `Se ha iniciado la revisión mensual automática de la watchlist para ${reviewDate}`,
       data: { reviewId }
@@ -187,7 +187,7 @@ export class MonthlyReviewService {
 
     await this.notificationService.createNotification({
       type: 'SYSTEM',
-      priority: 'high',
+      priority: 'HIGH',
       title: 'Revisión Mensual Completada',
       message: `Se encontraron ${finalResult.candidatesForAddition.length} candidatos para agregar y ${finalResult.candidatesForRemoval.length} para remover. ${autoApproved} cambios aprobados automáticamente.`,
       data: { reviewId, scanResult: finalResult }
@@ -208,8 +208,8 @@ export class MonthlyReviewService {
    */
   private async scanMarketForOpportunities(reviewId: number, settings: ReviewSettings): Promise<{ candidatesForAddition: InstrumentCandidateData[], totalScanned: number }> {
     logger.info('Scanning market for new opportunities')
-    const currentInstruments = this.instrumentModel.findAll({ isActive: true })
-    const currentSymbols = new Set(currentInstruments.map(i => i.ticker))
+    const currentInstruments = await this.instrumentModel.findAll({ isActive: true })
+    const currentSymbols = new Set(currentInstruments.map(i => i.symbol))
     const marketData = await this.fetchCEDEARMarketData()
     const candidates: InstrumentCandidateData[] = []
 
@@ -271,7 +271,7 @@ export class MonthlyReviewService {
   private async analyzeCurrentPortfolioForRemovals(reviewId: number, settings: ReviewSettings): Promise<RemovalCandidateData[]> {
     logger.info('Analyzing current portfolio for removals')
 
-    const currentInstruments = this.instrumentModel.findAll({ isActive: true })
+    const currentInstruments = await this.instrumentModel.findAll({ isActive: true })
     const removalCandidates: RemovalCandidateData[] = []
 
     for (const instrument of currentInstruments) {
@@ -359,8 +359,12 @@ export class MonthlyReviewService {
     `
 
     try {
-      const analysis = await this.claudeService.generateReport('watchlist_review', prompt)
-      return analysis
+      // TODO: Implement generateReport method in ClaudeContextualService
+      // const analysis = await this.claudeService.generateReport('watchlist_review', prompt)
+      return {
+        summary: 'Reporte automático pendiente de implementación',
+        prompt: prompt
+      }
     } catch (error) {
       logger.warn('Failed to generate Claude report:', error)
       return {
@@ -404,26 +408,30 @@ export class MonthlyReviewService {
    * Calculate ESG score for an instrument
    */
   private async calculateESGScore(data: CEDEARMarketData): Promise<number> {
-    try {
-      const analysis = await this.esgAnalysisService.analyzeInstrument(data.symbol)
-      return analysis?.totalScore || 0
-    } catch (error) {
-      logger.warn(`Failed to get ESG score for ${data.symbol}:`, error)
-      return 0
-    }
+    // ESGAnalysisService.analyzeInstrument requires instrumentId (number), but we only have symbol (string).
+    // For new candidates, no ID exists yet. For existing instruments, we'd need to look up the ID.
+    // Returning 0 causes all candidates to be rejected and all holdings to be flagged for removal.
+    // Fail fast instead of producing incorrect review results.
+    throw new Error(
+      `calculateESGScore not implemented: Cannot analyze ${data.symbol} without instrumentId. ` +
+      `ESGAnalysisService.analyzeInstrument(instrumentId) requires numeric ID, but CEDEARMarketData only provides symbol. ` +
+      `Monthly review cannot proceed until this integration is completed.`
+    )
   }
 
   /**
    * Calculate Vegan score for an instrument
    */
   private async calculateVeganScore(data: CEDEARMarketData): Promise<number> {
-    try {
-      const analysis = await this.veganAnalysisService.analyzeInstrument(data.symbol)
-      return analysis?.veganScore || 0
-    } catch (error) {
-      logger.warn(`Failed to get Vegan score for ${data.symbol}:`, error)
-      return 0
-    }
+    // VeganAnalysisService.analyzeInstrument requires instrumentId (number), but we only have symbol (string).
+    // For new candidates, no ID exists yet. For existing instruments, we'd need to look up the ID.
+    // Returning 0 causes all candidates to be rejected and all holdings to be flagged for removal.
+    // Fail fast instead of producing incorrect review results.
+    throw new Error(
+      `calculateVeganScore not implemented: Cannot analyze ${data.symbol} without instrumentId. ` +
+      `VeganAnalysisService.analyzeInstrument(instrumentId) requires numeric ID, but CEDEARMarketData only provides symbol. ` +
+      `Monthly review cannot proceed until this integration is completed.`
+    )
   }
 
   /**
@@ -503,7 +511,9 @@ export class MonthlyReviewService {
   ): Promise<any> {
     if (recommendation === 'REJECT') return null
     try {
-      return await this.claudeService.analyzeInstrument(data.symbol, 'investment_thesis')
+      // TODO: analyzeInstrument method does not exist in ClaudeContextualService
+      // return await this.claudeService.analyzeInstrument(data.symbol, 'investment_thesis')
+      return null // Temporary: return null until method is implemented
     } catch (error) {
       logger.warn(`Failed to get Claude analysis for ${data.symbol}:`, error)
       return null
@@ -516,9 +526,11 @@ export class MonthlyReviewService {
   ): Promise<any> {
     if (recommendation === 'KEEP') return null
     try {
-      return await this.claudeService.analyzeInstrument(instrument.ticker, 'divestment_thesis')
+      // TODO: analyzeInstrument method does not exist in ClaudeContextualService
+      // return await this.claudeService.analyzeInstrument(instrument.ticker, 'divestment_thesis')
+      return null // Temporary: return null until method is implemented
     } catch (error) {
-      logger.warn(`Failed to get Claude removal analysis for ${instrument.ticker}:`, error)
+      logger.warn(`Failed to get Claude removal analysis for ${instrument.symbol}:`, error)
       return null
     }
   }
